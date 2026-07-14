@@ -176,6 +176,7 @@ _Pulled forward 2026-07-12 at owner request; charts are custom Compose Canvas (M
 ## Session log
 | Date | Model used | Work done |
 |------|-----------|-----------|
+| 2026-07-15 | — | **README.md**: project overview, shields.io + skillicons tech badges (Kotlin/Compose/Room/FastAPI/LangGraph/etc.), GitHub star/fork badges, star-history.com star counting diagram, features table, structure, build steps, mermaid architecture diagram |
 | — | — | Project initialized |
 | 2026-07-11 | Fable 5 (+ Sonnet subagent for Gradle/res boilerplate) | Repo scaffold + AGENTS.md/MEMORY.md/backend SKILL.md; UI extraction from 3 refs logged; theme (Color/Type/Shape/Theme); utils (OneRM, PlateCalculator, TimeFormat); WorkoutSessionScreen + ViewModel + DragNumberField/RestTimerBubble/PlateCalculatorPanel/ExercisePickerSheet/FinishSummarySheet; RestTimerService (FGS); HomeScreen placeholder + MainActivity nav; toolchain installed (JDK 17, Gradle 8.9 wrapper, SDK 35); `assembleDebug` GREEN → app-debug.apk |
 | 2026-07-11 | Fable 5 | Owner manually tested session screen v1 ✓. Liquid-glass restyle: Haze 1.6.10 + BOM 2025.05.01, Glass.kt (GlassSurface/GlowBackground), glass top bar/FAB/rest bubble, translucent cards. Added: Home dashboard (weekly ring, streak, Mo–Su strip, quick-start, stat tiles — sample data), built-in stopwatch (top bar), warm-up ramp generator (exercise menu). `assembleDebug` GREEN |
