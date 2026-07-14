@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Android / IntelliJ / Gradle
+*.iml
+.idea/
+.gradle/
+build/
+**/build/
+android/local.properties
+captures/
+.cxx/
+*.apk
+*.aab
+output-metadata.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env

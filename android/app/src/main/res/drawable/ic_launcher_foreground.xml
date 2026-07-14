@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- RepForge mark ("Molten Forge" identity, 2026-07-13): an anvil struck so hard a
+     molten-gold spark flies off the face, with a small ember trailing it. Steel body
+     in warm off-white, ember slit glowing along the anvil's waist.
+     Geometry stays inside the adaptive-icon safe zone (24..84 on both axes). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- anvil: horn, face, waist, flared base -->
+    <path
+        android:fillColor="#F2EDE4"
+        android:pathData="M26,48.5
+            Q31,41 42,41
+            L77,41
+            Q78.5,41 78.5,42.5
+            L78.5,49
+            Q78.5,50.5 77,50.5
+            L66,50.5
+            L63.5,59
+            L71,59
+            Q73.5,59 74,61.5
+            L75,65
+            Q75.5,67 73.5,67
+            L44.5,67
+            Q42.5,67 43,65
+            L44,61.5
+            Q44.5,59 47,59
+            L54.5,59
+            L52,50.5
+            L44,50.5
+            Q33,50 26,48.5 Z" />
+    <!-- ember glow line across the waist: the metal is still hot where it was struck -->
+    <path
+        android:fillColor="#FF5A1F"
+        android:pathData="M52.6,52.5 L65.4,52.5 L64.7,55 L53.3,55 Z" />
+    <!-- molten spark struck off the face (four-point star) -->
+    <path
+        android:fillColor="#FFC93C"
+        android:pathData="M80,22
+            L82.4,28.6 L89,31 L82.4,33.4 L80,40 L77.6,33.4 L71,31 L77.6,28.6 Z" />
+    <!-- small trailing ember -->
+    <path
+        android:fillColor="#FF5A1F"
+        android:pathData="M68.5,24.5 A2.4,2.4 0 1 0 73.3,24.5 A2.4,2.4 0 1 0 68.5,24.5 Z" />
+</vector>

@@ -1,0 +1,142 @@
+// Purpose: Home dashboard state — active-program day > repeat-last > sample, plus real stats
+// Inputs: WorkoutRepository (stats, next program day, latest-workout template)
+// Outputs: HomeUiState via StateFlow (reloads on workout-count changes and on refresh())
+package com.gymtracker.ui.screens.home
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.gymtracker.data.ProgressionImporter
+import com.gymtracker.data.SampleData
+import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.utils.Formats
+import com.gymtracker.utils.PlateCalculator
+import java.time.DayOfWeek
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+data class PlanRow(val name: String, val muscle: String, val detail: String)
+
+data class HomeUiState(
+    val hasData: Boolean = false,
+    val workoutsThisWeek: Int = SampleData.workoutsThisWeek,
+    val weeklyGoal: Int = SampleData.weeklyGoal,
+    val streakWeeks: Int = SampleData.streakWeeks,
+    val lastWorkoutDaysAgo: Int? = SampleData.lastWorkoutDaysAgo,
+    val doneWeekdays: Set<DayOfWeek> = SampleData.doneWeekdays,
+    val planLabel: String = "UP NEXT",
+    val planTitle: String = SampleData.todaysPlanName,
+    val planMuscles: String = SampleData.todaysPlanMuscles,
+    val planRows: List<PlanRow> = SampleData.todaysPlan.map {
+        PlanRow(it.name, it.muscleGroup, "${it.sets}×${it.reps} · ${PlateCalculator.fmt(it.weightKg)} kg")
+    },
+    val programDayId: String? = null,   // non-null when the plan card shows the active program
+    val userName: String = "",
+    val needsProfile: Boolean = false,  // true until the first-run profile is saved
+)
+
+class HomeViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val repo = WorkoutRepository.get(app)
+    private val _ui = MutableStateFlow(HomeUiState())
+    val ui = _ui.asStateFlow()
+
+    init {
+        viewModelScope.launch { repo.workoutCount.collect { reload() } }
+    }
+
+    /** Re-check the active program when the screen comes back into view. */
+    fun refresh() {
+        viewModelScope.launch { reload() }
+    }
+
+    fun saveProfile(name: String, weightKg: Double?, heightCm: Int?, weeklyGoal: Int) {
+        repo.saveProfile(name, weightKg, heightCm, weeklyGoal)
+        refresh()
+    }
+
+    private suspend fun reload() {
+        val stats = repo.homeStats()
+        val profile = repo.profile()
+        fun HomeUiState.withProfile() = copy(
+            userName = profile.name,
+            weeklyGoal = profile.weeklyGoal,
+            needsProfile = !repo.isProfileSet(),
+        )
+
+        // 1st priority: next day of the active program
+        val next = repo.nextProgramDay()
+        val programDetail = next?.let { repo.dayDetail(it.day.id) }
+        if (next != null && programDetail != null && programDetail.exercises.isNotEmpty()) {
+            _ui.value = statsPart(stats).copy(
+                planLabel = "PROGRAM · ${next.programName.uppercase()}",
+                planTitle = programDetail.day.name,
+                planMuscles = programDetail.exercises
+                    .mapNotNull { it.exercise?.muscles }
+                    .flatMap { it.split("·").map(String::trim) }
+                    .mapNotNull(ProgressionImporter::canonicalMuscle)
+                    .distinct()
+                    .joinToString(", "),
+                planRows = programDetail.exercises.map { pe ->
+                    PlanRow(
+                        name = pe.exercise?.name ?: "Unknown exercise",
+                        muscle = pe.exercise?.muscles.orEmpty(),
+                        detail = "${pe.row.targetSets} × ${Formats.repRange(pe.row.repMin, pe.row.repMax)}",
+                    )
+                },
+                programDayId = programDetail.day.id,
+            ).withProfile()
+            return
+        }
+
+        // 2nd: repeat the latest logged workout
+        if (stats.hasData) {
+            val template = repo.latestWorkoutTemplate()
+            if (template != null) {
+                _ui.value = statsPart(stats).copy(
+                    planLabel = "REPEAT LAST",
+                    planTitle = template.name.ifBlank { "Workout" },
+                    planMuscles = template.exercises
+                        .flatMap { it.muscleGroup.split("·").map(String::trim) }
+                        .mapNotNull(ProgressionImporter::canonicalMuscle)
+                        .distinct()
+                        .joinToString(", ")
+                        .ifEmpty { "Based on your last session" },
+                    planRows = template.exercises.map { ex ->
+                        val top = ex.sets.maxByOrNull { it.weightKg ?: 0.0 }
+                        val weight = top?.weightKg
+                        val reps = top?.reps
+                        PlanRow(
+                            name = ex.name,
+                            muscle = ex.muscleGroup,
+                            detail = when {
+                                weight != null -> "${ex.sets.size}×${reps ?: "–"} · ${PlateCalculator.fmt(weight)} kg"
+                                reps != null -> "${ex.sets.size}×$reps"
+                                else -> "${ex.sets.size} sets"
+                            },
+                        )
+                    },
+                ).withProfile()
+                return
+            }
+        }
+
+        // fallback: sample
+        _ui.value = HomeUiState().withProfile()
+    }
+
+    private fun statsPart(stats: WorkoutRepository.HomeStats): HomeUiState =
+        if (stats.hasData) {
+            HomeUiState(
+                hasData = true,
+                workoutsThisWeek = stats.workoutsThisWeek,
+                weeklyGoal = SampleData.weeklyGoal,
+                streakWeeks = stats.streakWeeks,
+                lastWorkoutDaysAgo = stats.lastWorkoutDaysAgo,
+                doneWeekdays = stats.doneWeekdays,
+            )
+        } else {
+            HomeUiState()
+        }
+}

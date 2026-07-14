@@ -1,0 +1,9 @@
+# GymTracker backend — Phase 3. Versions get pinned when backend work starts
+# (AGENTS.md hard constraint 6: never build Phase N+1 early).
+# fastapi
+# uvicorn[standard]
+# sqlalchemy[asyncio]>=2.0
+# asyncpg
+# pydantic>=2
+# langgraph
+# faiss-cpu

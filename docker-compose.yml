@@ -1,0 +1,3 @@
+# GymTracker — Phase 3 scaffold. Inert until backend work begins
+# (AGENTS.md hard constraint 6). Will define: postgres 16 + FastAPI backend.
+services: {}
