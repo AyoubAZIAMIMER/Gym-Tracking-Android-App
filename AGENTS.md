@@ -32,7 +32,7 @@ Use /model to switch. Check /usage before long sessions.
 - Every new file: 3-line header (purpose / inputs / outputs).
 
 ## UI philosophy
-The 3 reference images in the project folder are starting points, not strict rules.
+The 3 reference images in `design/references/` are starting points, not strict rules.
 Extract from them: layout structure, spacing density, color palette, component style.
 Then be creative — surprise the developer with a design that is better than the reference
 while staying true to the core spirit: minimal, fast, distraction-free, gym-focused.
@@ -40,7 +40,7 @@ No AI gimmicks. No excessive animations. No onboarding carousels.
 The UI should feel like a precision tool, not a lifestyle app.
 
 ## When UI reference images are present
-1. Read all images in the project folder at session start.
+1. Read all images in `design/references/` at session start.
 2. Extract: layout, color palette, typography weight, component shapes, spacing density.
 3. Identify the design language (Material3 baseline? Custom? Dark-first? etc.)
 4. Log findings in MEMORY.md under "UI decisions" before writing any Compose code.

@@ -18,7 +18,7 @@ Next: smart progression prefill, program target editing, measurements/strength s
 - No ML on Android. No TensorFlow Lite. No on-device LLM.
 
 ## UI decisions
-_Extracted 2026-07-10 from the 3 reference images (renamed: ui_reference_1.jpg = home dashboard, ui_reference_2.jpg = exercise library, ui_reference_3.jpg = exercise detail — dark-mode screenshots of a German-language gym app)._
+_Extracted 2026-07-10 from the 3 reference images (renamed: design/references/ui_reference_1.jpg = home dashboard, design/references/ui_reference_2.jpg = exercise library, design/references/ui_reference_3.jpg = exercise detail — dark-mode screenshots of a German-language gym app)._
 
 - **Design language**: dark-first; layered dark surfaces on a near-black background with a subtle indigo glow; Material3 baseline heavily tuned — large corner radii, pill chips, squircle icon tiles, floating bottom nav; number-forward layouts (big bold numerals, grey captions).
 - **Color palette (dark = designed theme)**:

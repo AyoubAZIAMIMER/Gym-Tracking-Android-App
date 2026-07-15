@@ -12,7 +12,9 @@ Forged is a precision workout logging app for Android with a molten-forge design
     <img src="https://img.shields.io/github/forks/AyoubAZIAMIMER/Gym-Tracking-Android-App?style=for-the-badge&logo=github&logoColor=white&labelColor=0E0D0B&color=9FB6C2" alt="GitHub forks" />
   </a>
   <img src="https://img.shields.io/badge/Phase%201-MVP%20Live-FFC93C?style=for-the-badge&labelColor=0E0D0B" alt="Phase 1 MVP" />
-  <img src="https://img.shields.io/badge/License-Personal%20Use-1A1815?style=for-the-badge&labelColor=0E0D0B" alt="License" />
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-FFC93C?style=for-the-badge&labelColor=0E0D0B" alt="License" />
+  </a>
 </p>
 
 ---
@@ -127,9 +129,13 @@ Gym-Tracking-Android-App/
 │       ├── service/         # Rest timer foreground service
 │       └── utils/           # 1RM, plate calc, formatting
 ├── backend/                 # FastAPI scaffold (Phase 3)
-├── design/                  # Motion design system (MOTION.md)
+├── design/                  # Motion design system (MOTION.md) + UI references
 ├── exercises_db/            # Exercise catalog assets
+├── screenshots/             # App screenshots used in this README
+├── licenses/                # Third-party license texts (font, exercise data)
+├── docs/                    # Project history / original build prompt
 ├── docker-compose.yml       # Postgres + API (Phase 3)
+├── LICENSE                  # MIT
 ├── AGENTS.md                # Agent / contributor constraints
 └── MEMORY.md                # Living project state
 ```
