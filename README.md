@@ -82,6 +82,19 @@ Forged is a precision workout logging app for Android with a molten-forge design
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/home.png" width="200" alt="Home screen" />
+  <img src="screenshots/history.png" width="200" alt="History screen" />
+  <img src="screenshots/plan.png" width="200" alt="Plan screen" />
+  <img src="screenshots/library.png" width="200" alt="Exercise library" />
+  <img src="screenshots/recovery.png" width="200" alt="Recovery muscle map" />
+  <img src="screenshots/stats.png" width="200" alt="Stats charts" />
+</p>
+
+---
+
 ## Star History
 
 <p align="center">
