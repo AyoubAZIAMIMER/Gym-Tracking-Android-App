@@ -4,8 +4,8 @@
 package com.gymtracker.ui.screens.plan
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +45,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gymtracker.ui.components.FlatRow
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.forgedEntrance
+import com.gymtracker.ui.theme.forgedPress
 
 @Composable
 fun PlanScreen(
@@ -57,6 +61,9 @@ fun PlanScreen(
     val state by vm.ui.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.refresh() }
+    // §10: entrance plays once per screen entry, never on tab return
+    var entered by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
 
     GlowBackground {
         Column(
@@ -74,8 +81,9 @@ fun PlanScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // the hero: the one full-weight card on this screen
             state.next?.let { next ->
-                GlassSurface {
+                GlassSurface(modifier = Modifier.forgedEntrance(0, entered)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
                             text = "UP NEXT · ${next.programName.uppercase()}",
@@ -83,11 +91,14 @@ fun PlanScreen(
                             color = GymTheme.colors.hint,
                         )
                         Text(next.day.name, style = MaterialTheme.typography.titleLarge)
+                        val pressSource = remember { MutableInteractionSource() }
                         Button(
                             onClick = { onStartDay(next.day.id) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .height(48.dp)
+                                .forgedPress(pressSource),
+                            interactionSource = pressSource,
                             shape = RoundedCornerShape(50),
                         ) {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = null)
@@ -121,17 +132,17 @@ fun PlanScreen(
                 }
             }
 
-            state.programs.forEach { program ->
-                val isActive = program.id == state.activeProgramId
-                GlassSurface(onClick = { onOpenProgram(program.id) }) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+            // programs are a directory, not a card gallery — flat rows, less chrome
+            Column {
+                state.programs.forEachIndexed { index, program ->
+                    val isActive = program.id == state.activeProgramId
+                    FlatRow(
+                        modifier = Modifier.forgedEntrance(index + 1, entered),
+                        onClick = { onOpenProgram(program.id) },
+                        divider = index != state.programs.lastIndex,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text(program.name, style = MaterialTheme.typography.titleMedium)
+                            Text(program.name, style = MaterialTheme.typography.titleSmall)
                             Text(
                                 text = if (isActive) "Active — drives your Home plan" else "Tap to edit",
                                 style = MaterialTheme.typography.labelMedium,
@@ -168,7 +179,13 @@ fun PlanScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 state.templates.forEach { template ->
-                    GlassSurface(modifier = Modifier.width(230.dp)) {
+                    // quiet card: templates support the screen, they don't compete with it
+                    Box(
+                        Modifier
+                            .width(230.dp)
+                            .clip(MaterialTheme.shapes.large)
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)),
+                    ) {
                         Column(
                             Modifier.padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -193,10 +210,11 @@ fun PlanScreen(
                 }
             }
 
+            // clearance for the floating bottom nav (measured, not the OS bar alone)
             Spacer(
                 Modifier
                     .navigationBarsPadding()
-                    .height(88.dp)
+                    .height(112.dp)
             )
         }
     }

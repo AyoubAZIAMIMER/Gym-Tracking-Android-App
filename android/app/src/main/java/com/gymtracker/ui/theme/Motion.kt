@@ -15,7 +15,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.min
@@ -34,6 +38,7 @@ object Motion {
     const val STAGGER = 30       // per-item list entrance delay
     const val STAGGER_CAP = 8    // only the first items stagger
     const val HANDOFF = 80       // heat transfer delay between elements
+    const val COUNT_UP = 600     // number roll cap, regardless of digit distance
 
     // --- easing (§4): four curves, no raw beziers anywhere else ----------------
     /** The signature: launches hard, lands with exponential calm (Law of Cooling). */
@@ -88,6 +93,23 @@ fun Modifier.forgedPress(
         scaleX = scale
         scaleY = scale
     }
+}
+
+/**
+ * §7.4 — numbers have mass: values count up on first entry (capped [Motion.COUNT_UP]),
+ * and later changes roll from the previous value instead of swapping. Reads the
+ * animated value; the caller formats it.
+ */
+@Composable
+fun rollUpValue(target: Float): Float {
+    var played by rememberSaveable { mutableStateOf(false) }
+    val v by animateFloatAsState(
+        targetValue = if (played) target else 0f,
+        animationSpec = Motion.settle(Motion.COUNT_UP),
+        label = "rollUp",
+    )
+    LaunchedEffect(Unit) { played = true }
+    return v
 }
 
 /**

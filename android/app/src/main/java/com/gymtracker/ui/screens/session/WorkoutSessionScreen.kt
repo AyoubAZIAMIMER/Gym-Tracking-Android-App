@@ -777,7 +777,7 @@ private fun SetRow(
             val weight = set.effectiveWeightKg
             val reps = set.effectiveReps
             if (set.completed && weight != null && reps != null && reps > 0) {
-                OneRmBadge(OneRM.estimate(weight, reps), isPr = set.isPr)
+                OneRmBadge(OneRM.estimate(weight, reps), isPr = set.isPr, intensity = set.intensity)
             } else {
                 Text(
                     text = if (set.prevWeightKg != null && set.prevReps != null) {
@@ -816,11 +816,14 @@ private fun SetRow(
 }
 
 @Composable
-private fun OneRmBadge(oneRm: Double, isPr: Boolean = false) {
+private fun OneRmBadge(oneRm: Double, isPr: Boolean = false, intensity: Float? = null) {
     val rounded = (oneRm * 2).roundToInt() / 2.0 // nearest 0.5 kg
+    // Identity v5: gold is for PRs only — ordinary sets wear their temperature instead
+    // (steel warm-up → bronze back-off → glowing top set), from e1RM ÷ all-time best
+    val color = if (isPr) GymTheme.colors.prGold else GymTheme.colors.heat.at(1f - (intensity ?: 0.6f))
     Surface(
         shape = RoundedCornerShape(50),
-        color = GymTheme.colors.prGold.copy(alpha = if (isPr) 0.28f else 0.16f),
+        color = color.copy(alpha = if (isPr) 0.28f else 0.16f),
     ) {
         Text(
             text = if (isPr) "★ ${PlateCalculator.fmt(rounded)}" else "1RM ${PlateCalculator.fmt(rounded)}",
@@ -828,7 +831,7 @@ private fun OneRmBadge(oneRm: Double, isPr: Boolean = false) {
             style = MaterialTheme.typography.labelSmall.copy(
                 fontFeatureSettings = FONT_FEATURE_TABULAR
             ),
-            color = GymTheme.colors.prGold,
+            color = color,
         )
     }
 }

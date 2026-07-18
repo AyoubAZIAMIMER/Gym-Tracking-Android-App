@@ -163,9 +163,11 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                         )
                         // Forged Moment (rung 4): a working set that beats the all-time e1RM.
                         // First-ever lifts have no baseline and are no PR (same rule as analytics).
-                        done.copy(isPr = isPr(ex.dbExerciseId, done))
+                        // isPr first: a PR raises the baseline, so its own intensity reads 1.0
+                        val pr = isPr(ex.dbExerciseId, done)
+                        done.copy(isPr = pr, intensity = intensityOf(ex.dbExerciseId, done))
                     } else {
-                        s.copy(completed = false, isPr = false)
+                        s.copy(completed = false, isPr = false, intensity = null)
                     }
                 })
             }
@@ -190,6 +192,17 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             return true
         }
         return false
+    }
+
+    // Identity v5: how hot was this set relative to the all-time e1RM? Drives the
+    // heat-tinted badge (steel warm-up → glowing top set); null when there's no baseline.
+    private fun intensityOf(dbExerciseId: String?, s: SessionSet): Float? {
+        if (dbExerciseId == null) return null
+        val w = s.effectiveWeightKg ?: return null
+        val r = s.effectiveReps ?: return null
+        if (r <= 0) return null
+        val best = bestE1rm[dbExerciseId] ?: return null
+        return (com.gymtracker.utils.OneRM.estimate(w, r) / best).toFloat().coerceIn(0f, 1f)
     }
 
     private fun nextIncompleteSetId(exercises: List<SessionExercise>, afterSetId: Long): Long? {

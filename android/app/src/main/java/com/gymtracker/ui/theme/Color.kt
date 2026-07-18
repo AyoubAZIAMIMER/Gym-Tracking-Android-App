@@ -5,7 +5,9 @@
 // Outputs: Color values consumed by Theme.kt (never reference these directly from screens)
 package com.gymtracker.ui.theme
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 // --- Dark palette (the designed, default theme: a night forge) ----------------
 val Ink = Color(0xFF0E0D0B)            // charcoal iron — screen background
@@ -42,6 +44,46 @@ val TagDropset = Color(0xFFC9A2E8)
 val TagNegative = Color(0xFFFF8A6B)
 val TagTempo = Color(0xFF9FB6C2)
 val TagFailure = Color(0xFFFF4B36)
+
+// --- Heat scale (Identity v5, design/IDENTITY_V5.md: "heat is data") ----------
+// Steel reads its temperature: quenched blue = recovered/calm, glowing red = just
+// worked. Screens never hand-pick a heat hue — they ask GymTheme.colors.heat.at().
+@Immutable
+class HeatScale(
+    val steel: Color,   // quenched — fully recovered, ready to strike
+    val bronze: Color,  // warming — mid recovery / moderate effort
+    val ember: Color,   // working — the one hot color
+    val red: Color,     // glowing — just trained / maximal effort
+) {
+    /** Maps freshness (1f = fully recovered … 0f = just worked) onto the spectrum. */
+    fun at(freshness: Float): Color {
+        val heat = 1f - freshness.coerceIn(0f, 1f)
+        return when {
+            heat <= 0.45f -> lerp(steel, bronze, heat / 0.45f)
+            heat <= 0.75f -> lerp(bronze, ember, (heat - 0.45f) / 0.30f)
+            else -> lerp(ember, red, (heat - 0.75f) / 0.25f)
+        }
+    }
+}
+
+// Night forge: hot hues read against dark iron
+val DarkHeat = HeatScale(
+    steel = Color(0xFF8FB4C7),
+    bronze = Color(0xFFD08A45),
+    ember = AccentPrimary,
+    red = Color(0xFFFF3320),
+)
+
+// Daylight workshop: every stop deepened so it holds ≥3:1 contrast on bone paper
+val LightHeat = HeatScale(
+    steel = Color(0xFF4E7086),
+    bronze = Color(0xFF9A5A1D),
+    ember = Color(0xFFC63D08),  // = AccentPrimaryLight (declared below; literal avoids
+                                //   a forward reference in top-level init order)
+    red = Color(0xFFB3230F),
+)
+
+val HeatWhite = Color(0xFFFFE3C2)      // white-hot flash — momentary highlights only
 
 // --- Liquid glass tokens ------------------------------------------------------
 // Fallback wash for glass panels that sit inside the blur source (cards)

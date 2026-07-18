@@ -3,10 +3,14 @@
 // Outputs: renders Home / Plan / Library / Recovery / Stats / Session / Data / subpages
 package com.gymtracker
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -30,6 +34,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.service.TrainingReminderWorker
+import com.gymtracker.widget.ForgeWidgetProvider
 import com.gymtracker.ui.components.GlassBottomNav
 import com.gymtracker.ui.screens.data.DataScreen
 import com.gymtracker.ui.screens.history.HistoryScreen
@@ -54,6 +60,11 @@ private fun tabIndex(route: String?): Int = TabOrder.indexOf(route)
 private fun isTab(route: String?): Boolean = tabIndex(route) >= 0
 
 class MainActivity : ComponentActivity() {
+
+    // Rest-timer countdown + training reminders both need this on Android 13+
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -63,6 +74,14 @@ class MainActivity : ComponentActivity() {
             val repo = WorkoutRepository.get(this@MainActivity)
             repo.seedCatalogIfNeeded()
             repo.fillExerciseInfo()
+        }
+        TrainingReminderWorker.schedule(this)
+        ForgeWidgetProvider.requestUpdate(this)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
             GymTrackerTheme {

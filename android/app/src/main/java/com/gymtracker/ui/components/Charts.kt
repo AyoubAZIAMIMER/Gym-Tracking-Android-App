@@ -190,8 +190,8 @@ fun WeeklyBarChart(
     modifier: Modifier = Modifier,
 ) {
     val measurer = rememberTextMeasurer()
-    val barColor = MaterialTheme.colorScheme.primary
     val avgColor = MaterialTheme.colorScheme.secondary
+    val heatScale = GymTheme.colors.heat
     val labelStyle = TextStyle(fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     // bars rise with a light stagger, once per screen entry (Forged Motion §10)
@@ -218,10 +218,13 @@ fun WeeklyBarChart(
         weeks.forEachIndexed { i, (_, v) ->
             val barT = ((rise - i * stagger) / 0.5f).coerceIn(0f, 1f)
             val h = (chartH * (v / maxV)).toFloat() * barT
+            // Identity v5: effort is temperature — the heaviest week glows, light
+            // weeks stay quenched steel (design/IDENTITY_V5.md)
+            val heat = heatScale.at(1f - (v / maxV).toFloat())
             if (h > 0f) {
                 drawRoundRect(
                     brush = Brush.verticalGradient(
-                        listOf(barColor, barColor.copy(alpha = 0.55f)),
+                        listOf(heat, heat.copy(alpha = 0.55f)),
                         startY = insetTop + chartH - h,
                         endY = insetTop + chartH,
                     ),
@@ -317,6 +320,51 @@ fun ForgedRing(
                         radius = 9.dp.toPx(),
                     ),
                     radius = 9.dp.toPx(),
+                    center = tip,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Linear Hot Tip bar (§7.4): the fill is led by a small molten glow and fills once per
+ * screen entry via `settle`/`slow`. Used by Recovery's per-muscle freshness rows.
+ */
+@Composable
+fun ForgedBar(
+    progress: Float,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    var played by rememberSaveable { mutableStateOf(false) }
+    val target = progress.coerceIn(0f, 1f)
+    val p by animateFloatAsState(
+        targetValue = if (played) target else 0f,
+        animationSpec = Motion.settle(Motion.SLOW),
+        label = "barFill",
+    )
+    LaunchedEffect(Unit) { played = true }
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
+    Canvas(modifier.height(6.dp)) {
+        val r = CornerRadius(size.height / 2f)
+        drawRoundRect(track, cornerRadius = r)
+        val w = size.width * p
+        if (w > 0f) {
+            drawRoundRect(color, size = Size(w, size.height), cornerRadius = r)
+            if (p < target - 0.01f && p > 0.02f) {
+                val tip = Offset(w, size.height / 2f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.8f),
+                            color.copy(alpha = 0.4f),
+                            Color.Transparent,
+                        ),
+                        center = tip,
+                        radius = 7.dp.toPx(),
+                    ),
+                    radius = 7.dp.toPx(),
                     center = tip,
                 )
             }

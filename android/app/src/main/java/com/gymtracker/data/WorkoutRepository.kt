@@ -15,6 +15,7 @@ import com.gymtracker.data.db.ProgramExerciseEntity
 import com.gymtracker.data.db.SetEntity
 import com.gymtracker.data.db.WorkoutEntity
 import com.gymtracker.utils.OneRM
+import com.gymtracker.widget.ForgeWidgetProvider
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -130,6 +131,8 @@ class WorkoutRepository(
 
         parsed.restPeriodSeconds?.let { prefs.edit().putInt(KEY_REST_SECONDS, it).apply() }
         parsed.barWeightKg?.let { prefs.edit().putFloat(KEY_BAR_KG, it.toFloat()).apply() }
+        // launcher widget shows streak/days-since — refresh the moment they change
+        ForgeWidgetProvider.requestUpdate(appContext)
         return ImportSummary(
             parsed.workouts.size, parsed.sets.size, parsed.exercises.size, importedPrograms,
         )
@@ -241,6 +244,8 @@ class WorkoutRepository(
             listOf(WorkoutEntity(workoutId, name, startedAt, System.currentTimeMillis(), comment))
         )
         db.setDao().upsertAll(rows)
+        // launcher widget shows streak/days-since — refresh the moment they change
+        ForgeWidgetProvider.requestUpdate(appContext)
     }
 
     // --- home stats ----------------------------------------------------------------

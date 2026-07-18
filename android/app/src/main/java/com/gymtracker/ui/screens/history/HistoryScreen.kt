@@ -43,10 +43,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gymtracker.ui.components.FlatRow
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
+import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.forgedEntrance
+import com.gymtracker.ui.theme.rollUpValue
+import com.gymtracker.utils.Formats
+import kotlin.math.roundToInt
 
 @Composable
 fun HistoryScreen(
@@ -69,47 +74,53 @@ fun HistoryScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("History", style = MaterialTheme.typography.headlineLarge)
-            Text(
-                text = state.monthSummary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // §7.4: the month's numbers roll — count up on entry, re-roll on month change
+            if (state.monthWorkouts > 0) {
+                val rolledWorkouts = rollUpValue(state.monthWorkouts.toFloat()).roundToInt()
+                val rolledVolume = rollUpValue(state.monthVolumeKg.toFloat())
+                Text(
+                    text = "$rolledWorkouts workouts · ${Formats.volumeKg(rolledVolume.toDouble())} kg",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFeatureSettings = FONT_FEATURE_TABULAR
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = state.monthSummary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             MonthCalendar(state, vm::previousMonth, vm::nextMonth, vm::toggleDay)
 
-            state.rows.forEachIndexed { index, row ->
-                GlassSurface(
-                    modifier = Modifier.forgedEntrance(index, entered),
-                    onClick = { onOpenWorkout(row.workoutId) },
-                ) {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
+            // the calendar above is the hero; the log reads as a flat, denser list (1b)
+            Column {
+                state.rows.forEachIndexed { index, row ->
+                    FlatRow(
+                        modifier = Modifier.forgedEntrance(index, entered),
+                        onClick = { onOpenWorkout(row.workoutId) },
+                        divider = index != state.rows.lastIndex,
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = row.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = row.subtitle,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             Text(
-                                text = row.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(
-                                text = row.subtitle,
+                                text = row.detail +
+                                    if (row.muscles.isNotEmpty()) "  ·  ${row.muscles}" else "",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            text = row.detail,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (row.muscles.isNotEmpty()) {
-                            Text(
-                                text = row.muscles,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = GymTheme.colors.hint,
                             )
                         }
                     }
@@ -123,10 +134,11 @@ fun HistoryScreen(
                 )
             }
 
+            // clearance for the floating bottom nav (measured, not the OS bar alone)
             Spacer(
                 Modifier
                     .navigationBarsPadding()
-                    .height(88.dp)
+                    .height(112.dp)
             )
         }
     }

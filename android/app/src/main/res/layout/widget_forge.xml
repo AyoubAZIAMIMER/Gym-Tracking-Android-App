@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Forge widget: streak in Anton + flame, days-since in heat color. RemoteViews-safe
+     views only (LinearLayout / TextView / ImageView). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_streak"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/anton"
+            android:includeFontPadding="false"
+            android:text="0"
+            android:textColor="#F2EDE4"
+            android:textSize="34sp" />
+
+        <ImageView
+            android:id="@+id/widget_flame"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="7dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_flame"
+            android:tint="#FFC93C" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_streak_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:letterSpacing="0.14"
+        android:text="WEEK STREAK"
+        android:textColor="#A89F91"
+        android:textSize="10sp" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_heat_dot"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_heat_dot" />
+
+        <TextView
+            android:id="@+id/widget_since"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="7dp"
+            android:text=""
+            android:textColor="#A89F91"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

@@ -3,6 +3,8 @@
 // Outputs: user-triggered import/export actions
 package com.gymtracker.ui.screens.data
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.TableChart
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,6 +57,7 @@ import com.gymtracker.ui.components.ProfileSheet
 import com.gymtracker.ui.components.SteelSheen
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.widget.ForgeWidgetProvider
 
 @Composable
 fun DataScreen(
@@ -147,6 +152,21 @@ fun DataScreen(
                 subtitle = "completed_at, workout, exercise, weight, reps, tag, e1RM",
                 enabled = !state.busy,
             ) { csvLauncher.launch("repforge-sets.csv") }
+
+            val context = LocalContext.current
+            val widgetManager = remember { context.getSystemService(AppWidgetManager::class.java) }
+            if (widgetManager?.isRequestPinAppWidgetSupported == true) {
+                ActionCard(
+                    icon = Icons.Rounded.Widgets,
+                    title = "Add launcher widget",
+                    subtitle = "Streak + days since your last strike, on the home screen",
+                    enabled = true,
+                ) {
+                    widgetManager.requestPinAppWidget(
+                        ComponentName(context, ForgeWidgetProvider::class.java), null, null,
+                    )
+                }
+            }
 
             if (state.busy) {
                 SteelSheen(Modifier.fillMaxWidth())

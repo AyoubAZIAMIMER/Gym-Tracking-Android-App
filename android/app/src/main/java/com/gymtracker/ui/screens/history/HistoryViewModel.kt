@@ -39,6 +39,8 @@ data class HistoryUiState(
     val maxDayVolume: Double = 0.0,
     val selectedDay: Int? = null,
     val monthSummary: String = "",
+    val monthWorkouts: Int = 0,         // for the count-up roll in the header
+    val monthVolumeKg: Double = 0.0,
     val rows: List<HistoryListRow> = emptyList(),
 )
 
@@ -110,6 +112,8 @@ class HistoryViewModel(app: Application) : AndroidViewModel(app) {
                     else -> "${history.rows.size} workouts · " +
                         "${Formats.volumeKg(history.rows.sumOf { it.volumeKg })} kg"
                 },
+                monthWorkouts = history.rows.size,
+                monthVolumeKg = history.rows.sumOf { it.volumeKg },
             )
         )
     }

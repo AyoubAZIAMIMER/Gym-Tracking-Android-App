@@ -61,6 +61,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.ui.components.ForgedRing
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
+import com.gymtracker.ui.components.MuscleTargetFigure
 import com.gymtracker.ui.components.ProfileSheet
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
@@ -109,7 +110,11 @@ fun HomeScreen(
                     value = state.lastWorkoutDaysAgo?.let { "${it}d" } ?: "–",
                     label = "Since last strike",
                     icon = Icons.Rounded.HourglassBottom,
-                    iconTint = MaterialTheme.colorScheme.secondary,
+                    // v5: the hourglass cools like the metal — glowing right after a
+                    // strike, quenched steel once you've rested ~3 days
+                    iconTint = state.lastWorkoutDaysAgo
+                        ?.let { GymTheme.colors.heat.at((it / 3f).coerceIn(0f, 1f)) }
+                        ?: MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
@@ -307,18 +312,24 @@ private fun PlanCard(state: HomeUiState, onStartWorkout: (String?) -> Unit, sess
                 color = if (sessionActive) GymTheme.colors.success else GymTheme.colors.hint,
             )
             Text(state.planTitle, style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = state.planMuscles,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // v5: today's targets glow on the physique — the muscle list as a body,
+            // not a sentence (canonical names arrive comma-joined from the ViewModel)
+            MuscleTargetFigure(
+                muscles = state.planMuscles.split(",").map(String::trim),
+                modifier = Modifier.height(170.dp),
             )
             state.planRows.forEach { row ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // v5: each exercise's dot is its primary muscle's heat — steel says
+                    // "recovered, hit it", red says "still glowing from last time"
                     Box(
                         Modifier
                             .size(6.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                            .background(
+                                row.freshness?.let { GymTheme.colors.heat.at(it / 100f) }
+                                    ?: MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                            )
                     )
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {

@@ -23,6 +23,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Launcher widget: streak + days since last strike in heat colors -->
+        <receiver
+            android:name=".widget.ForgeWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_forge_info" />
+        </receiver>
+
         <!-- Countdown lives in a foreground service so rest timing survives app-switch -->
         <service
             android:name=".service.RestTimerService"

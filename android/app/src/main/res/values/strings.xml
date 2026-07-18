@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Forged</string>
+    <string name="widget_description">Week streak and days since your last strike.</string>
 </resources>

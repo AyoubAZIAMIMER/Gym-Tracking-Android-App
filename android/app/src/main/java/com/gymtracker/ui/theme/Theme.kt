@@ -30,6 +30,8 @@ data class ExtendedColors(
     val glassTintBlur: Color,
     val glassHighlight: Color,
     val glassOutline: Color,
+    // Identity v5 heat spectrum — per-theme so daylight keeps contrast
+    val heat: HeatScale,
 )
 
 private val DarkExtended = ExtendedColors(
@@ -46,6 +48,7 @@ private val DarkExtended = ExtendedColors(
     glassTintBlur = GlassTintBlurDark,
     glassHighlight = GlassHighlightDark,
     glassOutline = GlassOutlineDark,
+    heat = DarkHeat,
 )
 
 private val LightExtended = ExtendedColors(
@@ -62,6 +65,7 @@ private val LightExtended = ExtendedColors(
     glassTintBlur = GlassTintBlurLight,
     glassHighlight = GlassHighlightLight,
     glassOutline = GlassOutlineLight,
+    heat = LightHeat,
 )
 
 val LocalExtendedColors = staticCompositionLocalOf { DarkExtended }

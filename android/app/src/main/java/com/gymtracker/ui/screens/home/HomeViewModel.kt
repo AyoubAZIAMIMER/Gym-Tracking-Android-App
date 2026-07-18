@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-data class PlanRow(val name: String, val muscle: String, val detail: String)
+// freshness = primary muscle's recovery % (heat-tints the row dot, Identity v5)
+data class PlanRow(val name: String, val muscle: String, val detail: String, val freshness: Int? = null)
 
 data class HomeUiState(
     val hasData: Boolean = false,
@@ -59,6 +60,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun reload() {
         val stats = repo.homeStats()
         val profile = repo.profile()
+        // Identity v5: today's plan shows each exercise's readiness as a heat dot
+        val freshness =
+            if (stats.hasData) repo.muscleFreshness().associate { it.muscle to it.freshnessPercent }
+            else emptyMap()
+        fun primaryFreshness(muscles: String?): Int? = muscles
+            ?.split("·")?.map(String::trim)
+            ?.firstNotNullOfOrNull { m -> ProgressionImporter.canonicalMuscle(m)?.let(freshness::get) }
         fun HomeUiState.withProfile() = copy(
             userName = profile.name,
             weeklyGoal = profile.weeklyGoal,
@@ -83,6 +91,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                         name = pe.exercise?.name ?: "Unknown exercise",
                         muscle = pe.exercise?.muscles.orEmpty(),
                         detail = "${pe.row.targetSets} × ${Formats.repRange(pe.row.repMin, pe.row.repMax)}",
+                        freshness = primaryFreshness(pe.exercise?.muscles),
                     )
                 },
                 programDayId = programDetail.day.id,
@@ -115,6 +124,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                                 reps != null -> "${ex.sets.size}×$reps"
                                 else -> "${ex.sets.size} sets"
                             },
+                            freshness = primaryFreshness(ex.muscleGroup),
                         )
                     },
                 ).withProfile()

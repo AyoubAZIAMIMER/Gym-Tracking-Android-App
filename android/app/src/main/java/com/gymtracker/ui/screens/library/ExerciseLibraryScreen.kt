@@ -46,9 +46,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,11 +66,13 @@ import com.gymtracker.data.ProgressionImporter
 import com.gymtracker.ui.components.EditExerciseSheet
 import com.gymtracker.ui.components.ExerciseDemo
 import com.gymtracker.ui.components.ExercisePickerSheet
+import com.gymtracker.ui.components.FlatRow
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.MuscleTargetFigure
 import com.gymtracker.ui.screens.session.PickerItem
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.forgedEntrance
 import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,6 +105,12 @@ fun ExerciseLibraryScreen(
         matchesQuery && matchesFilter
     }
     val grouped = filtered.groupBy { it.name.firstOrNull()?.uppercaseChar() ?: '#' }.toSortedMap()
+    // §10: rows rise in once per screen entry (first STAGGER_CAP only), never on tab return
+    var entered by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+    val staggerIndex = remember(filtered) {
+        filtered.mapIndexed { i, r -> (r.id ?: r.name) to i }.toMap()
+    }
 
     Scaffold(
         containerColor = Color.Transparent,
@@ -188,35 +198,34 @@ fun ExerciseLibraryScreen(
                                 )
                             }
                         }
+                        // a directory, not a card gallery: flat dense rows, hairline dividers
                         items(exercises, key = { it.id ?: it.name }) { row ->
-                            GlassSurface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
+                            FlatRow(
+                                modifier = Modifier.forgedEntrance(
+                                    staggerIndex[row.id ?: row.name] ?: Int.MAX_VALUE,
+                                    entered,
+                                ),
                                 onClick = { selected = row },
+                                verticalPadding = 9.dp,
                             ) {
-                                Row(
-                                    Modifier.padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(row.name, style = MaterialTheme.typography.titleMedium)
-                                        Text(
-                                            text = row.muscles.ifBlank { "No muscle assigned yet" },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (row.isPlaceholder) {
-                                        Pill("IMPORTED", GymTheme.colors.prGold)
-                                    } else if (row.isCustom) {
-                                        Pill("CUSTOM", MaterialTheme.colorScheme.primary)
-                                    }
-                                    Icon(
-                                        Icons.Rounded.ChevronRight,
-                                        contentDescription = null,
-                                        tint = GymTheme.colors.hint,
+                                Column(Modifier.weight(1f)) {
+                                    Text(row.name, style = MaterialTheme.typography.titleSmall)
+                                    Text(
+                                        text = row.muscles.ifBlank { "No muscle assigned yet" },
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                                if (row.isPlaceholder) {
+                                    Pill("IMPORTED", GymTheme.colors.prGold)
+                                } else if (row.isCustom) {
+                                    Pill("CUSTOM", MaterialTheme.colorScheme.primary)
+                                }
+                                Icon(
+                                    Icons.Rounded.ChevronRight,
+                                    contentDescription = null,
+                                    tint = GymTheme.colors.hint,
+                                )
                             }
                         }
                     }

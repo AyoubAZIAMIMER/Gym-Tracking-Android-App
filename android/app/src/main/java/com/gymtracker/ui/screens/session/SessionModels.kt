@@ -23,6 +23,7 @@ data class SessionSet(
     val tag: SetTag? = null,
     val completed: Boolean = false,
     val isPr: Boolean = false,      // beat the all-time e1RM at the moment of logging
+    val intensity: Float? = null,   // e1RM ÷ all-time best at logging (heat badge, Identity v5)
 ) {
     // Empty fields fall back to last session's values — "accept the hint" behavior
     val effectiveWeightKg: Double? get() = weightText.toDoubleOrNull() ?: prevWeightKg
