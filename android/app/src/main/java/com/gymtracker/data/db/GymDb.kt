@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProgramDayEntity::class,
         ProgramExerciseEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class GymDb : RoomDatabase() {
@@ -51,6 +51,14 @@ abstract class GymDb : RoomDatabase() {
             }
         }
 
+        // v2 → v3: per-exercise sticky note (machine settings live at the exercise, not
+        // the workout — they're the same every session)
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE exercises ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var instance: GymDb? = null
 
         fun get(context: Context): GymDb =
@@ -60,7 +68,7 @@ abstract class GymDb : RoomDatabase() {
                     GymDb::class.java,
                     "repforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                     .also { instance = it }
             }

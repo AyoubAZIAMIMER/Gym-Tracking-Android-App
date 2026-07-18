@@ -45,13 +45,19 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.TrendingDown
+import androidx.compose.material.icons.rounded.TrendingFlat
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -87,6 +93,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gymtracker.domain.Progression
 import com.gymtracker.service.RestTimerService
 import com.gymtracker.ui.components.DragNumberField
 import com.gymtracker.ui.components.ExercisePickerSheet
@@ -279,6 +286,7 @@ fun WorkoutSessionScreen(
                         onGenerateWarmup = { vm.generateWarmupSets(exercise.id) },
                         onToggleSuperset = { vm.toggleSupersetWithNext(exercise.id) },
                         onRemove = { vm.removeExercise(exercise.id) },
+                        onSaveNote = { vm.setExerciseNote(exercise.id, it) },
                         modifier = Modifier
                             .onSizeChanged { itemHeights[exercise.id] = it.height }
                             .zIndex(if (draggedId == exercise.id) 1f else 0f)
@@ -535,10 +543,12 @@ private fun ExerciseCard(
     onGenerateWarmup: () -> Unit,
     onToggleSuperset: () -> Unit,
     onRemove: () -> Unit,
+    onSaveNote: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val supersetColor = MaterialTheme.colorScheme.primary
     val inSuperset = exercise.supersetGroup != null
+    var noteDialog by remember { mutableStateOf(false) }
 
     // Law 7: the incoming exercise warms while the handoff lasts, then cools
     val handoffColor by animateColorAsState(
@@ -623,6 +633,13 @@ private fun ExerciseCard(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text(if (exercise.note.isBlank()) "Add machine note" else "Edit machine note") },
+                            onClick = {
+                                menuOpen = false
+                                noteDialog = true
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Remove exercise") },
                             onClick = {
                                 menuOpen = false
@@ -630,6 +647,52 @@ private fun ExerciseCard(
                             },
                         )
                     }
+                }
+            }
+
+            // the loading call — double progression speaks before the first set
+            exercise.plan?.let { plan ->
+                val planColor = when (plan.kind) {
+                    Progression.Kind.INCREASE -> MaterialTheme.colorScheme.primary
+                    Progression.Kind.DELOAD -> GymTheme.colors.heat.bronze
+                    Progression.Kind.HOLD -> GymTheme.colors.heat.steel
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        when (plan.kind) {
+                            Progression.Kind.INCREASE -> Icons.Rounded.TrendingUp
+                            Progression.Kind.DELOAD -> Icons.Rounded.TrendingDown
+                            Progression.Kind.HOLD -> Icons.Rounded.TrendingFlat
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp),
+                        tint = planColor,
+                    )
+                    Text(plan.line, style = MaterialTheme.typography.labelMedium, color = planColor)
+                }
+            }
+
+            // sticky machine note: seat height, pin, grip — tap to edit
+            if (exercise.note.isNotBlank()) {
+                Row(
+                    Modifier.clickable { noteDialog = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        Icons.Rounded.StickyNote2,
+                        contentDescription = "Machine note",
+                        modifier = Modifier.size(15.dp),
+                        tint = GymTheme.colors.hint,
+                    )
+                    Text(
+                        text = exercise.note,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
@@ -663,6 +726,39 @@ private fun ExerciseCard(
                 Text("Add set")
             }
         }
+    }
+
+    if (noteDialog) {
+        var text by remember(exercise.note) { mutableStateOf(exercise.note) }
+        AlertDialog(
+            onDismissRequest = { noteDialog = false },
+            title = { Text("Machine note") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Seat height, pin, grip width — pinned to ${exercise.name} every session.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.take(120) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        placeholder = { Text("Seat 4 · pin 12 · narrow grip") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onSaveNote(text)
+                    noteDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { noteDialog = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -795,7 +891,9 @@ private fun SetRow(
 
         DragNumberField(
             value = set.weightText,
-            hint = set.prevWeightKg?.let(PlateCalculator::fmt) ?: "kg",
+            // progression suggestion outranks last session as the hint (PREV column
+            // still shows the actuals, so both stories stay visible)
+            hint = (set.suggestedWeightKg ?: set.prevWeightKg)?.let(PlateCalculator::fmt) ?: "kg",
             onValueChange = onWeightChange,
             onDragStep = onWeightDrag,
             modifier = Modifier.weight(1.2f),
@@ -804,7 +902,7 @@ private fun SetRow(
         )
         DragNumberField(
             value = set.repsText,
-            hint = set.prevReps?.toString() ?: "reps",
+            hint = (set.suggestedReps ?: set.prevReps)?.toString() ?: "reps",
             onValueChange = onRepsChange,
             onDragStep = onRepsDrag,
             modifier = Modifier.weight(1f),

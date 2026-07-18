@@ -102,14 +102,25 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun fromTemplate(template: WorkoutRepository.SessionTemplate): WorkoutSessionUiState {
         val exercises = template.exercises.map { ex ->
+            // INCREASE/DELOAD plans repoint every working set's hint at the new load;
+            // HOLD keeps last session's actuals as the hint (plan carries only the why)
+            val suggestion = ex.plan?.takeIf { it.weightKg != null }
             SessionExercise(
                 id = nextId++,
                 name = ex.name,
                 muscleGroup = ex.muscleGroup,
                 dbExerciseId = ex.exerciseId,
                 sets = ex.sets.map { s ->
-                    SessionSet(id = nextId++, prevWeightKg = s.weightKg, prevReps = s.reps)
+                    SessionSet(
+                        id = nextId++,
+                        prevWeightKg = s.weightKg,
+                        prevReps = s.reps,
+                        suggestedWeightKg = suggestion?.weightKg,
+                        suggestedReps = suggestion?.reps,
+                    )
                 }.ifEmpty { List(3) { SessionSet(id = nextId++) } },
+                note = ex.note,
+                plan = ex.plan,
             )
         }
         return WorkoutSessionUiState(
@@ -121,6 +132,17 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- set edits ------------------------------------------------------------
 
+    /** Save the sticky machine note — state now, Room when the exercise exists there. */
+    fun setExerciseNote(exerciseId: Long, note: String) {
+        var dbId: String? = null
+        _ui.update { st ->
+            st.copy(exercises = st.exercises.map { ex ->
+                if (ex.id != exerciseId) ex else ex.copy(note = note.trim()).also { dbId = it.dbExerciseId }
+            })
+        }
+        dbId?.let { id -> viewModelScope.launch { repo.setExerciseNote(id, note) } }
+    }
+
     fun setWeightText(exerciseId: Long, setId: Long, text: String) =
         updateSet(exerciseId, setId) { it.copy(weightText = sanitizeDecimal(text)) }
 
@@ -130,13 +152,13 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     fun dragWeight(exerciseId: Long, setId: Long, steps: Int) =
         updateSet(exerciseId, setId) {
             // ±2.5 kg per step: smallest standard plate pair (owner-approved deviation from ±1)
-            val base = it.weightText.toDoubleOrNull() ?: it.prevWeightKg ?: 0.0
+            val base = it.weightText.toDoubleOrNull() ?: it.suggestedWeightKg ?: it.prevWeightKg ?: 0.0
             it.copy(weightText = PlateCalculator.fmt((base + steps * 2.5).coerceAtLeast(0.0)))
         }
 
     fun dragReps(exerciseId: Long, setId: Long, steps: Int) =
         updateSet(exerciseId, setId) {
-            val base = it.repsText.toIntOrNull() ?: it.prevReps ?: 0
+            val base = it.repsText.toIntOrNull() ?: it.suggestedReps ?: it.prevReps ?: 0
             it.copy(repsText = (base + steps).coerceAtLeast(0).toString())
         }
 
@@ -157,9 +179,11 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                         val done = s.copy(
                             completed = true,
                             weightText = s.weightText.ifEmpty {
-                                s.prevWeightKg?.let(PlateCalculator::fmt) ?: ""
+                                (s.suggestedWeightKg ?: s.prevWeightKg)?.let(PlateCalculator::fmt) ?: ""
                             },
-                            repsText = s.repsText.ifEmpty { s.prevReps?.toString() ?: "" },
+                            repsText = s.repsText.ifEmpty {
+                                (s.suggestedReps ?: s.prevReps)?.toString() ?: ""
+                            },
                         )
                         // Forged Moment (rung 4): a working set that beats the all-time e1RM.
                         // First-ever lifts have no baseline and are no PR (same rule as analytics).

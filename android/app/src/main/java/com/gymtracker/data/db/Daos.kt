@@ -27,6 +27,9 @@ interface ExerciseDao {
     @Query("DELETE FROM exercises WHERE id = :id")
     suspend fun delete(id: String)
 
+    @Query("UPDATE exercises SET note = :note WHERE id = :id")
+    suspend fun updateNote(id: String, note: String)
+
     @Query("SELECT COUNT(*) FROM exercises")
     fun observeCount(): Flow<Int>
 }

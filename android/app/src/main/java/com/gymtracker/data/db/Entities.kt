@@ -16,6 +16,7 @@ data class ExerciseEntity(
     val isCustom: Boolean = false,
     val archived: Boolean = false,
     val description: String = "",    // short how-to; shown in the detail sheet (v2)
+    val note: String = "",           // owner's sticky note: seat height, pin, grip (v3)
 )
 
 @Entity(tableName = "workouts")

@@ -14,6 +14,7 @@ import com.gymtracker.data.db.ProgramEntity
 import com.gymtracker.data.db.ProgramExerciseEntity
 import com.gymtracker.data.db.SetEntity
 import com.gymtracker.data.db.WorkoutEntity
+import com.gymtracker.domain.Progression
 import com.gymtracker.utils.OneRM
 import com.gymtracker.widget.ForgeWidgetProvider
 import java.time.DayOfWeek
@@ -163,6 +164,8 @@ class WorkoutRepository(
         val name: String,
         val muscleGroup: String,
         val sets: List<TemplateSet>,
+        val note: String = "",                       // sticky machine note (v3)
+        val plan: Progression.Plan? = null,          // double-progression call (program days)
     )
     data class SessionTemplate(val name: String, val exercises: List<TemplateExercise>)
 
@@ -189,6 +192,7 @@ class WorkoutRepository(
                         .filter { it.tag == null }
                         .ifEmpty { exSets }
                         .map { TemplateSet(it.weightKg, it.reps) },
+                    note = exercises[exId]?.note.orEmpty(),
                 )
             },
         )
@@ -762,7 +766,7 @@ class WorkoutRepository(
             name = day.name,
             exercises = rows.mapNotNull { row ->
                 val exercise = exercises[row.exerciseId] ?: return@mapNotNull null
-                val history = lastSessionSets(row.exerciseId)
+                val (history, older) = lastTwoSessionSets(row.exerciseId)
                 TemplateExercise(
                     exerciseId = exercise.id,
                     name = exercise.name,
@@ -774,18 +778,33 @@ class WorkoutRepository(
                             reps = h?.reps ?: row.repMax,
                         )
                     },
+                    note = exercise.note,
+                    // program days carry a rep range → the app makes the loading call
+                    plan = Progression.plan(
+                        repMin = row.repMin,
+                        repMax = row.repMax,
+                        last = history.map { it.weightKg to it.reps },
+                        previous = older.map { it.weightKg to it.reps },
+                    ),
                 )
             },
         )
     }
 
-    /** Working sets of the most recent workout containing this exercise. */
-    private suspend fun lastSessionSets(exerciseId: String): List<SetEntity> {
-        val recent = db.setDao().recentForExercise(exerciseId)
-        val lastWorkoutId = recent.firstOrNull()?.workoutId ?: return emptyList()
-        return recent.filter { it.workoutId == lastWorkoutId && it.tag != "W" }
-            .sortedBy { it.orderInWorkout }
+    /** Working sets of the two most recent workouts containing this exercise
+     *  (newest first — second list may be empty). */
+    private suspend fun lastTwoSessionSets(exerciseId: String): Pair<List<SetEntity>, List<SetEntity>> {
+        val recent = db.setDao().recentForExercise(exerciseId).filter { it.tag != "W" }
+        val workoutIds = recent.map { it.workoutId }.distinct().take(2)
+        fun of(id: String?) = if (id == null) emptyList() else {
+            recent.filter { it.workoutId == id }.sortedBy { it.orderInWorkout }
+        }
+        return of(workoutIds.getOrNull(0)) to of(workoutIds.getOrNull(1))
     }
+
+    /** Sticky machine note (seat height, pin, grip) — lives on the exercise. */
+    suspend fun setExerciseNote(exerciseId: String, note: String) =
+        db.exerciseDao().updateNote(exerciseId, note.trim())
 
     companion object {
         private const val KEY_REST_SECONDS = "rest_seconds"
