@@ -157,6 +157,21 @@ fun WorkoutSessionScreen(
     // plate calculator follows whichever weight field currently has focus
     var focusedWeightSetId by remember { mutableStateOf<Long?>(null) }
 
+    // Strike Mode (UX v6): default surface while a set is live; the table is one
+    // gesture away and becomes the surface once every set is struck
+    var strikeMode by rememberSaveable { mutableStateOf(true) }
+    val activeStrike = state.activeSetId?.let { activeId ->
+        state.exercises.firstNotNullOfOrNull { ex ->
+            val idx = ex.sets.indexOfFirst { it.id == activeId }
+            if (idx >= 0) ActiveStrike(ex, ex.sets[idx], idx) else null
+        }
+    }
+    LaunchedEffect(activeStrike == null) {
+        // last strike lands → surface the table so Finish is in reach
+        if (activeStrike == null) strikeMode = false
+    }
+    val strikeShowing = strikeMode && activeStrike != null
+
     // drag-to-reorder state; heights tracked per exercise so swaps stay under the finger
     var draggedId by remember { mutableStateOf<Long?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
@@ -216,6 +231,20 @@ fun WorkoutSessionScreen(
                 .fillMaxSize()
                 .imePadding()
         ) {
+            if (strikeShowing && activeStrike != null) {
+                StrikeModePanel(
+                    active = activeStrike,
+                    barKg = state.barKg,
+                    topPadding = topPadding,
+                    onScrubWeight = vm::dragWeight,
+                    onScrubReps = vm::dragReps,
+                    onStrike = vm::toggleCompleted,
+                    onOpenTable = { strikeMode = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(hazeState),
+                )
+            } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -296,6 +325,7 @@ fun WorkoutSessionScreen(
                     )
                 }
             }
+            }
 
             SessionTopBar(
                 name = state.workoutName,
@@ -326,25 +356,45 @@ fun WorkoutSessionScreen(
                 )
             }
 
-            // glass FAB
-            GlassSurface(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(50),
-                hazeState = hazeState,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
-                blurTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                onClick = { vm.showExercisePicker(true) },
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            // table mode only: add-exercise FAB + the way back to the anvil
+            if (!strikeShowing) {
+                if (activeStrike != null) {
+                    GlassSurface(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(50),
+                        hazeState = hazeState,
+                        onClick = { strikeMode = true },
+                    ) {
+                        Text(
+                            text = "STRIKE MODE",
+                            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                GlassSurface(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(50),
+                    hazeState = hazeState,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+                    blurTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    onClick = { vm.showExercisePicker(true) },
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = null, tint = Color.White)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Exercise", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    Row(
+                        Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Exercise", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    }
                 }
             }
         }

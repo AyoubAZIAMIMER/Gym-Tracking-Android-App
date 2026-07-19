@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.ui.components.ForgedRing
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
@@ -66,6 +67,8 @@ import com.gymtracker.ui.components.ProfileSheet
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.forgedPress
+import com.gymtracker.utils.Formats
+import com.gymtracker.utils.TimeFormat
 import java.time.DayOfWeek
 import kotlin.math.PI
 import kotlin.math.sin
@@ -74,10 +77,19 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as JavaTextStyle
 import java.util.Locale
 
+// Live-session snapshot for the Now Card, derived from the activity-scoped session VM
+data class LiveSessionInfo(
+    val name: String,
+    val completedSets: Int,
+    val totalSets: Int,
+    val startedAtMillis: Long,
+    val currentExercise: String?,
+)
+
 @Composable
 fun HomeScreen(
     onStartWorkout: (String?) -> Unit,
-    sessionActive: Boolean = false,
+    liveSession: LiveSessionInfo? = null,
     onOpenData: () -> Unit = {},
     vm: HomeViewModel = viewModel(),
 ) {
@@ -95,7 +107,16 @@ fun HomeScreen(
         ) {
             HeaderRow(state.userName, onOpenData)
             WeeklyGoalCard(state)
-            PlanCard(state, onStartWorkout, sessionActive)
+            // UX v6 Now Card: Home leads with the current state of the forge
+            when {
+                liveSession != null ->
+                    LiveSessionCard(liveSession, onResume = { onStartWorkout(null) })
+                state.todayForged != null -> {
+                    ForgedTodayCard(state.todayForged!!)
+                    PlanCard(state, onStartWorkout)   // demoted: next time's work
+                }
+                else -> PlanCard(state, onStartWorkout)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 // forge-native tile icons: hammer = sessions struck, hourglass = cooling
                 // since the last strike, blazing flame = the furnace kept burning
@@ -298,18 +319,115 @@ private fun WeekStrip(doneWeekdays: Set<DayOfWeek>) {
     }
 }
 
-// Plan preview: active program day > repeat-last workout > sample
+// Now Card, mid-session state: the anvil is hot — one tap back to it
 @Composable
-private fun PlanCard(state: HomeUiState, onStartWorkout: (String?) -> Unit, sessionActive: Boolean) {
+private fun LiveSessionCard(live: LiveSessionInfo, onResume: () -> Unit) {
+    // ticking elapsed clock — the card must feel live, not archived
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1_000)
+            now = System.currentTimeMillis()
+        }
+    }
     GlassSurface {
         Column(
             Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = if (sessionActive) "IN PROGRESS" else state.planLabel,
+                text = "AT THE ANVIL · ${TimeFormat.clock(now - live.startedAtMillis)}",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (sessionActive) GymTheme.colors.success else GymTheme.colors.hint,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(live.name, style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = buildString {
+                    append("${live.completedSets} of ${live.totalSets} sets struck")
+                    live.currentExercise?.let { append(" · up now: $it") }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            val pressSource = remember { MutableInteractionSource() }
+            Button(
+                onClick = onResume,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .forgedPress(pressSource),
+                interactionSource = pressSource,
+                shape = RoundedCornerShape(50),
+            ) {
+                Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Back to the anvil", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
+}
+
+// Now Card, finished-today state: the payoff — what you forged, glowing on the body
+@Composable
+private fun ForgedTodayCard(forged: WorkoutRepository.TodayForged) {
+    GlassSurface {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "SESSION FORGED",
+                style = MaterialTheme.typography.labelSmall,
+                color = GymTheme.colors.success,
+            )
+            Text(forged.name, style = MaterialTheme.typography.titleLarge)
+            MuscleTargetFigure(
+                muscles = forged.muscles,
+                modifier = Modifier.height(150.dp),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                ForgedStat(Formats.volumeKg(forged.volumeKg), "kg moved")
+                ForgedStat("${forged.workingSets}", "working sets")
+                forged.durationMin?.let { ForgedStat("$it", "minutes") }
+            }
+            Text(
+                text = "The metal rests. Strike again when it's cooled.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ForgedStat(value: String, label: String) {
+    Column {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontFeatureSettings = FONT_FEATURE_TABULAR
+            ),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+// Plan preview: active program day > repeat-last workout > sample
+@Composable
+private fun PlanCard(state: HomeUiState, onStartWorkout: (String?) -> Unit) {
+    GlassSurface {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = state.planLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = GymTheme.colors.hint,
             )
             Text(state.planTitle, style = MaterialTheme.typography.titleLarge)
             // v5: today's targets glow on the physique — the muscle list as a body,
@@ -363,10 +481,7 @@ private fun PlanCard(state: HomeUiState, onStartWorkout: (String?) -> Unit, sess
             ) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (sessionActive) "Back to the anvil" else "Fire it up",
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Text("Fire it up", style = MaterialTheme.typography.titleMedium)
             }
         }
     }

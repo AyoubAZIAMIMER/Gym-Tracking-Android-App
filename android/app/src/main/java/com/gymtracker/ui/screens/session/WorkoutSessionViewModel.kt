@@ -53,6 +53,9 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                         barKg = repo.barWeightKg(),
                         pickerItems = pickerItems,
                         programDayId = programDayId,
+                        // template build races the screen's markSessionActive() — never
+                        // let the async replace wipe a flag the screen already set
+                        sessionActive = it.sessionActive,
                     )
                 }
             } else {
@@ -74,6 +77,7 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                     fromTemplate(template).copy(
                         barKg = repo.barWeightKg(),
                         pickerItems = pickerItems,
+                        sessionActive = it.sessionActive,   // same race as prepareStart
                     )
                 }
             } else {
@@ -95,7 +99,11 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                 current.copy(barKg = repo.barWeightKg(), pickerItems = pickerItems)
             } else {
                 (template?.let(::fromTemplate) ?: sampleSession())
-                    .copy(barKg = repo.barWeightKg(), pickerItems = pickerItems)
+                    .copy(
+                        barKg = repo.barWeightKg(),
+                        pickerItems = pickerItems,
+                        sessionActive = current.sessionActive,   // same race as prepareStart
+                    )
             }
         }
     }

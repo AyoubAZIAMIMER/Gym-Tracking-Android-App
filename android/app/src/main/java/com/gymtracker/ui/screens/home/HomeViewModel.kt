@@ -35,6 +35,7 @@ data class HomeUiState(
     val programDayId: String? = null,   // non-null when the plan card shows the active program
     val userName: String = "",
     val needsProfile: Boolean = false,  // true until the first-run profile is saved
+    val todayForged: WorkoutRepository.TodayForged? = null, // non-null → Now Card leads with it
 )
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
@@ -64,6 +65,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val freshness =
             if (stats.hasData) repo.muscleFreshness().associate { it.muscle to it.freshnessPercent }
             else emptyMap()
+        // UX v6 Now Card: a session finished today outranks the plan as Home's hero
+        val forged = if (stats.hasData && stats.lastWorkoutDaysAgo == 0) repo.todayForged() else null
         fun primaryFreshness(muscles: String?): Int? = muscles
             ?.split("·")?.map(String::trim)
             ?.firstNotNullOfOrNull { m -> ProgressionImporter.canonicalMuscle(m)?.let(freshness::get) }
@@ -95,6 +98,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 },
                 programDayId = programDetail.day.id,
+                todayForged = forged,
             ).withProfile()
             return
         }
@@ -127,6 +131,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                             freshness = primaryFreshness(ex.muscleGroup),
                         )
                     },
+                    todayForged = forged,
                 ).withProfile()
                 return
             }

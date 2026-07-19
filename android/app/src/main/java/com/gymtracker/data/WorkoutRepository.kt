@@ -286,6 +286,38 @@ class WorkoutRepository(
         )
     }
 
+    // --- today's forged session (Home Now Card, UX v6) --------------------------------
+
+    data class TodayForged(
+        val name: String,
+        val workingSets: Int,
+        val volumeKg: Double,
+        val durationMin: Int?,
+        val muscles: List<String>,   // canonical, for the physique
+    )
+
+    /** The workout finished today, if any — Home leads with it instead of the plan. */
+    suspend fun todayForged(): TodayForged? {
+        val zone = ZoneId.systemDefault()
+        val startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val workout = db.workoutDao().latest() ?: return null
+        if (workout.startedAt < startOfDay) return null
+        val sets = db.setDao().forWorkout(workout.id)
+        if (sets.isEmpty()) return null
+        val exercises = db.exerciseDao().getAll().associateBy { it.id }
+        val working = sets.filter { it.tag != "W" }
+        return TodayForged(
+            name = workout.name.ifBlank { "Workout" },
+            workingSets = working.size,
+            volumeKg = working.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) },
+            durationMin = workout.endedAt?.let { ((it - workout.startedAt) / 60_000L).toInt() },
+            muscles = sets.mapNotNull { exercises[it.exerciseId]?.muscles }
+                .flatMap { it.split("·").map(String::trim) }
+                .mapNotNull(ProgressionImporter::canonicalMuscle)
+                .distinct(),
+        )
+    }
+
     // --- muscle freshness (recovery) --------------------------------------------------
 
     data class MuscleFreshness(

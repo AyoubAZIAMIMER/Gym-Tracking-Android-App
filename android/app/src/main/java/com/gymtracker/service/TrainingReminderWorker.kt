@@ -69,6 +69,16 @@ class TrainingReminderWorker(
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
                 )
+                // one gesture in (UX v6): the notification IS the start button
+                .addAction(
+                    0, "Fire it up",
+                    PendingIntent.getActivity(
+                        ctx, 1,
+                        Intent(ctx, MainActivity::class.java)
+                            .putExtra(MainActivity.EXTRA_FIRE_UP, true),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    ),
+                )
                 .build(),
         )
         return Result.success()

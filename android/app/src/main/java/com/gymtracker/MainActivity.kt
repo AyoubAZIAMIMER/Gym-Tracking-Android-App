@@ -22,8 +22,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +46,7 @@ import com.gymtracker.ui.screens.data.DataScreen
 import com.gymtracker.ui.screens.history.HistoryScreen
 import com.gymtracker.ui.screens.history.WorkoutDetailScreen
 import com.gymtracker.ui.screens.home.HomeScreen
+import com.gymtracker.ui.screens.home.LiveSessionInfo
 import com.gymtracker.ui.screens.library.ExerciseLibraryScreen
 import com.gymtracker.ui.screens.plan.PlanScreen
 import com.gymtracker.ui.screens.plan.ProgramEditorScreen
@@ -83,19 +89,26 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        // UX v6 move 3 — one gesture in: widget/notification arrive with FIRE_UP set
+        val fireUp = intent?.getBooleanExtra(EXTRA_FIRE_UP, false) == true
         setContent {
             GymTrackerTheme {
-                AppNavHost()
+                AppNavHost(fireUp = fireUp)
             }
         }
+    }
+
+    companion object {
+        const val EXTRA_FIRE_UP = "fire_up"
     }
 }
 
 @Composable
-private fun AppNavHost() {
+private fun AppNavHost(fireUp: Boolean = false) {
     val nav = rememberNavController()
     val backStackEntry by nav.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
+    val context = LocalContext.current
 
     // Activity-scoped: an in-progress workout survives Back/app-switch (Home offers "Resume")
     val sessionVm: WorkoutSessionViewModel = viewModel()
@@ -104,6 +117,21 @@ private fun AppNavHost() {
     fun startSession(programDayId: String?) {
         sessionVm.prepareStart(programDayId)
         nav.navigate("session")
+    }
+
+    // one gesture in: pocket → session (Strike Mode takes over from there);
+    // consumed once so rotation/return doesn't re-fire it
+    var fireConsumed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (fireUp && !fireConsumed) {
+            fireConsumed = true
+            if (!sessionVm.ui.value.sessionActive) {
+                val dayId = WorkoutRepository.get(context).nextProgramDay()?.day?.id
+                startSession(dayId)
+            } else {
+                nav.navigate("session")   // already at the anvil — go back to it
+            }
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -152,7 +180,19 @@ private fun AppNavHost() {
             composable("home") {
                 HomeScreen(
                     onStartWorkout = { dayId -> startSession(dayId) },
-                    sessionActive = sessionState.sessionActive,
+                    // Now Card's live state: snapshot of the activity-scoped session
+                    liveSession = if (sessionState.sessionActive) {
+                        LiveSessionInfo(
+                            name = sessionState.workoutName,
+                            completedSets = sessionState.completedSets,
+                            totalSets = sessionState.totalSets,
+                            startedAtMillis = sessionState.startedAtMillis,
+                            currentExercise = sessionState.activeSetId?.let { activeId ->
+                                sessionState.exercises
+                                    .firstOrNull { ex -> ex.sets.any { it.id == activeId } }?.name
+                            },
+                        )
+                    } else null,
                     onOpenData = { nav.navigate("data") },
                 )
             }
