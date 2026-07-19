@@ -165,6 +165,11 @@ fun WorkoutSessionScreen(
             val idx = ex.sets.indexOfFirst { it.id == activeId }
             if (idx >= 0) ActiveStrike(ex, ex.sets[idx], idx) else null
         }
+    } ?: state.exercises.firstNotNullOfOrNull { ex ->
+        // un-completing a set leaves activeSetId null — fall back to the first
+        // incomplete set so Strike Mode stays reachable
+        val idx = ex.sets.indexOfFirst { !it.completed }
+        if (idx >= 0) ActiveStrike(ex, ex.sets[idx], idx) else null
     }
     LaunchedEffect(activeStrike == null) {
         // last strike lands → surface the table so Finish is in reach
@@ -217,8 +222,11 @@ fun WorkoutSessionScreen(
         }
     }
 
-    // Recoil (§9): finishing with zero completed sets is a strike on cold metal
+    // Recoil (§9): finishing with zero completed sets is a strike on cold metal —
+    // but one-gesture entry means accidental sessions exist, so recoil now also
+    // offers the way out (discard, nothing saved)
     var recoilTick by remember { mutableIntStateOf(0) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     val topPadding = if (topBarHeightPx > 0) {
         with(LocalDensity.current) { topBarHeightPx.toDp() } + 8.dp
     } else {
@@ -333,7 +341,12 @@ fun WorkoutSessionScreen(
                 showStopwatch = showStopwatch,
                 onToggleStopwatch = { showStopwatch = !showStopwatch },
                 onFinishClick = {
-                    if (state.completedSets == 0) recoilTick++ else vm.showFinishSheet(true)
+                    if (state.completedSets == 0) {
+                        recoilTick++
+                        showDiscardDialog = true
+                    } else {
+                        vm.showFinishSheet(true)
+                    }
                 },
                 recoilTick = recoilTick,
                 hazeState = hazeState,
@@ -405,6 +418,22 @@ fun WorkoutSessionScreen(
             items = state.pickerItems,
             onPick = vm::addExercise,
             onDismiss = { vm.showExercisePicker(false) },
+        )
+    }
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Cold metal") },
+            text = { Text("Nothing logged yet. Leave the forge and discard this session?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardDialog = false
+                    vm.discardSession()
+                }) { Text("Leave the forge") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep working") }
+            },
         )
     }
     if (state.showFinishSheet) {

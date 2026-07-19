@@ -108,11 +108,12 @@ fun HomeScreen(
             HeaderRow(state.userName, onOpenData)
             WeeklyGoalCard(state)
             // UX v6 Now Card: Home leads with the current state of the forge
+            val forged = state.todayForged
             when {
                 liveSession != null ->
                     LiveSessionCard(liveSession, onResume = { onStartWorkout(null) })
-                state.todayForged != null -> {
-                    ForgedTodayCard(state.todayForged!!)
+                forged != null -> {
+                    ForgedTodayCard(forged)
                     PlanCard(state, onStartWorkout)   // demoted: next time's work
                 }
                 else -> PlanCard(state, onStartWorkout)

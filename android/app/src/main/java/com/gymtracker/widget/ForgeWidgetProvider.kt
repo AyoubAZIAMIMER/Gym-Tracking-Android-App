@@ -59,11 +59,13 @@ class ForgeWidgetProvider : AppWidgetProvider() {
             )
             setTextColor(R.id.widget_since, heat)
             setInt(R.id.widget_heat_dot, "setColorFilter", heat)
-            // one gesture in (UX v6): the widget doesn't open the app, it fires it up
+            // one gesture in (UX v6): the widget doesn't open the app, it fires it up.
+            // requestCode 2: PendingIntent matching ignores extras, so this must not
+            // share an identity with the reminder notification's plain content intent
             setOnClickPendingIntent(
                 R.id.widget_root,
                 PendingIntent.getActivity(
-                    context, 0,
+                    context, 2,
                     Intent(context, MainActivity::class.java)
                         .putExtra(MainActivity.EXTRA_FIRE_UP, true),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,

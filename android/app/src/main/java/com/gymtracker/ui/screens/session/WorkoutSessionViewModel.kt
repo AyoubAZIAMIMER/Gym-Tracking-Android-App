@@ -140,6 +140,12 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- set edits ------------------------------------------------------------
 
+    /** Leave the forge with nothing logged — one-gesture entry made accidental sessions
+     *  easy to start, so they must be as easy to abandon (nothing is saved). */
+    fun discardSession() {
+        _ui.update { it.copy(sessionActive = false, finished = true) }
+    }
+
     /** Save the sticky machine note — state now, Room when the exercise exists there. */
     fun setExerciseNote(exerciseId: Long, note: String) {
         var dbId: String? = null

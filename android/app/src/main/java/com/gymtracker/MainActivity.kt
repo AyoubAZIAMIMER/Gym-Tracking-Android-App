@@ -4,6 +4,7 @@
 package com.gymtracker
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -25,8 +26,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -89,12 +88,31 @@ class MainActivity : ComponentActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // UX v6 move 3 — one gesture in: widget/notification arrive with FIRE_UP set
-        val fireUp = intent?.getBooleanExtra(EXTRA_FIRE_UP, false) == true
+        // UX v6 move 3 — one gesture in: widget/notification arrive with FIRE_UP set.
+        // The extra is removed after reading so a rotation's re-read can't re-fire.
+        consumeFireUpExtra(intent)
         setContent {
             GymTrackerTheme {
-                AppNavHost(fireUp = fireUp)
+                AppNavHost(
+                    fireUpRequest = fireUpRequest.value,
+                    onFireUpHandled = { fireUpRequest.value = false },
+                )
             }
+        }
+    }
+
+    // singleTask: a deep link while the app is alive lands here, not in onCreate
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        consumeFireUpExtra(intent)
+    }
+
+    private val fireUpRequest = mutableStateOf(false)
+
+    private fun consumeFireUpExtra(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_FIRE_UP, false) == true) {
+            intent.removeExtra(EXTRA_FIRE_UP)
+            fireUpRequest.value = true
         }
     }
 
@@ -104,7 +122,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun AppNavHost(fireUp: Boolean = false) {
+private fun AppNavHost(
+    fireUpRequest: Boolean = false,
+    onFireUpHandled: () -> Unit = {},
+) {
     val nav = rememberNavController()
     val backStackEntry by nav.currentBackStackEntryAsState()
     val route = backStackEntry?.destination?.route
@@ -119,18 +140,18 @@ private fun AppNavHost(fireUp: Boolean = false) {
         nav.navigate("session")
     }
 
-    // one gesture in: pocket → session (Strike Mode takes over from there);
-    // consumed once so rotation/return doesn't re-fire it
-    var fireConsumed by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (fireUp && !fireConsumed) {
-            fireConsumed = true
+    // one gesture in: pocket → session (Strike Mode takes over from there).
+    // Consume LAST: flipping the key mid-effect would cancel this coroutine
+    // before the suspend lookup finishes and the deep link would die silently.
+    LaunchedEffect(fireUpRequest) {
+        if (fireUpRequest) {
             if (!sessionVm.ui.value.sessionActive) {
                 val dayId = WorkoutRepository.get(context).nextProgramDay()?.day?.id
                 startSession(dayId)
-            } else {
+            } else if (route != "session") {
                 nav.navigate("session")   // already at the anvil — go back to it
             }
+            onFireUpHandled()
         }
     }
 

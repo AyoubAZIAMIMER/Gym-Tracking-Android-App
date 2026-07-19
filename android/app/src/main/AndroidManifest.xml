@@ -13,9 +13,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.GymTracker">
 
+        <!-- singleTask: widget/notification deep links must land in the existing
+             instance (a second instance would carry a second, empty session VM) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
