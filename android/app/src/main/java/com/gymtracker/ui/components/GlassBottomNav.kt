@@ -40,7 +40,7 @@ fun GlassBottomNav(
 ) {
     GlassSurface(modifier = modifier, shape = RoundedCornerShape(32.dp)) {
         Row(
-            // 6 tabs: tighter than the 5-tab layout so "Recovery" still fits a 412 dp phone
+            // 6 tabs on a 412 dp phone; short labels keep them comfortable
             Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -48,7 +48,7 @@ fun GlassBottomNav(
             NavItem("history", "History", Icons.Rounded.History, current, onSelect)
             NavItem("plan", "Plan", Icons.Rounded.CalendarMonth, current, onSelect)
             NavItem("library", "Library", Icons.Rounded.FitnessCenter, current, onSelect)
-            NavItem("recovery", "Recovery", Icons.Rounded.MonitorHeart, current, onSelect)
+            NavItem("recovery", "Body", Icons.Rounded.MonitorHeart, current, onSelect)
             NavItem("stats", "Stats", Icons.Rounded.BarChart, current, onSelect)
         }
     }

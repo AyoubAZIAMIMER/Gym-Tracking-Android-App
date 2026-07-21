@@ -63,7 +63,7 @@ fun RecoveryScreen(vm: RecoveryViewModel = viewModel()) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Recovery", style = MaterialTheme.typography.headlineLarge)
+            Text("Body", style = MaterialTheme.typography.headlineLarge)
             Text(
                 text = if (state.isSample) {
                     "Sample data — import your history or log workouts to see real freshness."
