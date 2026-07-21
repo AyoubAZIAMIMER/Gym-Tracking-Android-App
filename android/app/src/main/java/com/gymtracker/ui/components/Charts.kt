@@ -191,7 +191,7 @@ fun WeeklyBarChart(
 ) {
     val measurer = rememberTextMeasurer()
     val avgColor = MaterialTheme.colorScheme.secondary
-    val heatScale = GymTheme.colors.heat
+    val barColor = MaterialTheme.colorScheme.primary
     val labelStyle = TextStyle(fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     // bars rise with a light stagger, once per screen entry (Forged Motion §10)
@@ -218,13 +218,13 @@ fun WeeklyBarChart(
         weeks.forEachIndexed { i, (_, v) ->
             val barT = ((rise - i * stagger) / 0.5f).coerceIn(0f, 1f)
             val h = (chartH * (v / maxV)).toFloat() * barT
-            // Identity v5: effort is temperature — the heaviest week glows, light
-            // weeks stay quenched steel (design/IDENTITY_V5.md)
-            val heat = heatScale.at(1f - (v / maxV).toFloat())
+            // Identity v7: single-hue intensity (Apple Activity style) — the heavier
+            // the week, the brighter the volt; readiness ramps are for recovery only
+            val tone = barColor.copy(alpha = 0.35f + 0.65f * (v / maxV).toFloat())
             if (h > 0f) {
                 drawRoundRect(
                     brush = Brush.verticalGradient(
-                        listOf(heat, heat.copy(alpha = 0.55f)),
+                        listOf(tone, tone.copy(alpha = tone.alpha * 0.55f)),
                         startY = insetTop + chartH - h,
                         endY = insetTop + chartH,
                     ),

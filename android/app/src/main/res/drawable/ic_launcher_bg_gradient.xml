@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- RepForge launcher background: charcoal iron with furnace heat rising from below -->
+<!-- Forged launcher background v8 "Blue Hour": blue-biased black floor with a faint
+     indigo wash rising from the bottom edge -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -14,9 +15,9 @@
                 android:startY="0"
                 android:endX="54"
                 android:endY="108"
-                android:startColor="#FF14110D"
-                android:centerColor="#FF1E140C"
-                android:endColor="#FF54200A" />
+                android:startColor="#FF090A10"
+                android:centerColor="#FF0A0C14"
+                android:endColor="#FF14163A" />
         </aapt:attr>
     </path>
 </vector>

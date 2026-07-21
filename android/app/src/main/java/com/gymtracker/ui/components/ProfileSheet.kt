@@ -57,7 +57,7 @@ fun ProfileSheet(
                 .imePadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Who's at the anvil?", style = MaterialTheme.typography.headlineMedium)
+            Text("Who's training?", style = MaterialTheme.typography.headlineMedium)
             Text(
                 text = "Your name shapes the greeting; body weight and height feed " +
                     "future strength standards; the weekly goal drives the Home ring.",

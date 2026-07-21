@@ -68,7 +68,7 @@ fun RecoveryScreen(vm: RecoveryViewModel = viewModel()) {
                 text = if (state.isSample) {
                     "Sample data — import your history or log workouts to see real freshness."
                 } else {
-                    "Muscles cool between sessions — strike where the metal is ready."
+                    "Readiness per muscle group — train what's recovered."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -208,9 +208,9 @@ private fun HeatLegend(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "COOLED · READY",
+            text = "READY",
             style = MaterialTheme.typography.labelSmall,
-            color = heat.steel,
+            color = heat.ready,
         )
         Box(
             Modifier
@@ -219,14 +219,14 @@ private fun HeatLegend(modifier: Modifier = Modifier) {
                 .clip(RoundedCornerShape(50))
                 .background(
                     Brush.horizontalGradient(
-                        listOf(heat.steel, heat.bronze, heat.ember, heat.red)
+                        listOf(heat.ready, heat.worn, heat.hot, heat.spent)
                     )
                 )
         )
         Text(
-            text = "GLOWING",
+            text = "SPENT",
             style = MaterialTheme.typography.labelSmall,
-            color = heat.red,
+            color = heat.spent,
         )
     }
 }

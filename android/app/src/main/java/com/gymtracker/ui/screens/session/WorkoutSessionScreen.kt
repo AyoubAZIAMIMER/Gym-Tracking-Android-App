@@ -382,7 +382,7 @@ fun WorkoutSessionScreen(
                         onClick = { strikeMode = true },
                     ) {
                         Text(
-                            text = "STRIKE MODE",
+                            text = "FOCUS MODE",
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
@@ -423,16 +423,16 @@ fun WorkoutSessionScreen(
     if (showDiscardDialog) {
         AlertDialog(
             onDismissRequest = { showDiscardDialog = false },
-            title = { Text("Cold metal") },
-            text = { Text("Nothing logged yet. Leave the forge and discard this session?") },
+            title = { Text("Nothing logged") },
+            text = { Text("Discard this session? Nothing will be saved.") },
             confirmButton = {
                 TextButton(onClick = {
                     showDiscardDialog = false
                     vm.discardSession()
-                }) { Text("Leave the forge") }
+                }) { Text("Discard") }
             },
             dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep working") }
+                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep going") }
             },
         )
     }
@@ -733,8 +733,8 @@ private fun ExerciseCard(
             exercise.plan?.let { plan ->
                 val planColor = when (plan.kind) {
                     Progression.Kind.INCREASE -> MaterialTheme.colorScheme.primary
-                    Progression.Kind.DELOAD -> GymTheme.colors.heat.bronze
-                    Progression.Kind.HOLD -> GymTheme.colors.heat.steel
+                    Progression.Kind.DELOAD -> GymTheme.colors.heat.worn
+                    Progression.Kind.HOLD -> MaterialTheme.colorScheme.secondary
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -995,9 +995,17 @@ private fun SetRow(
 @Composable
 private fun OneRmBadge(oneRm: Double, isPr: Boolean = false, intensity: Float? = null) {
     val rounded = (oneRm * 2).roundToInt() / 2.0 // nearest 0.5 kg
-    // Identity v5: gold is for PRs only — ordinary sets wear their temperature instead
-    // (steel warm-up → bronze back-off → glowing top set), from e1RM ÷ all-time best
-    val color = if (isPr) GymTheme.colors.prGold else GymTheme.colors.heat.at(1f - (intensity ?: 0.6f))
+    // Identity v7: gold is for PRs only — ordinary sets scale ice → volt by intensity
+    // (e1RM ÷ all-time best): brighter signal = harder set, Apple Activity style
+    val color = if (isPr) {
+        GymTheme.colors.prGold
+    } else {
+        androidx.compose.ui.graphics.lerp(
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.primary,
+            intensity ?: 0.6f,
+        )
+    }
     Surface(
         shape = RoundedCornerShape(50),
         color = color.copy(alpha = if (isPr) 0.28f else 0.16f),

@@ -89,7 +89,7 @@ fun WorkoutDetailScreen(
                     Stat(state.durationText ?: "—", "duration")
                     Stat("${state.totalSets}", "sets")
                     Stat(state.totalVolume, "kg volume")
-                    if (state.prCount > 0) Stat("★ ${state.prCount}", "forged", gold = true)
+                    if (state.prCount > 0) Stat("★ ${state.prCount}", "PRs", gold = true)
                 }
             }
 

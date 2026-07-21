@@ -159,7 +159,7 @@ fun DataScreen(
                 ActionCard(
                     icon = Icons.Rounded.Widgets,
                     title = "Add launcher widget",
-                    subtitle = "Streak + days since your last strike, on the home screen",
+                    subtitle = "Streak + days since your last session, on the home screen",
                     enabled = true,
                 ) {
                     widgetManager.requestPinAppWidget(

@@ -164,8 +164,8 @@ private fun StrikeSet(
         exercise.plan?.let { plan ->
             val planColor = when (plan.kind) {
                 Progression.Kind.INCREASE -> MaterialTheme.colorScheme.primary
-                Progression.Kind.DELOAD -> GymTheme.colors.heat.bronze
-                Progression.Kind.HOLD -> GymTheme.colors.heat.steel
+                Progression.Kind.DELOAD -> GymTheme.colors.heat.worn
+                Progression.Kind.HOLD -> MaterialTheme.colorScheme.secondary
             }
             Row(
                 Modifier.padding(top = 10.dp),
@@ -294,12 +294,12 @@ private fun StrikeSet(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "STRIKE",
-                    style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 8.sp),
+                    text = "LOG SET",
+                    style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 6.sp),
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
                 Text(
-                    text = "press to log · rest starts",
+                    text = "rest starts automatically",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
                 )

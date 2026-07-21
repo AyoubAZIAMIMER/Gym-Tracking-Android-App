@@ -95,7 +95,7 @@ fun FinishSummarySheet(
                     modifier = Modifier.size(32.dp), tint = GymTheme.colors.success,
                 )
             }
-            Text("Session forged", style = MaterialTheme.typography.headlineMedium)
+            Text("Session complete", style = MaterialTheme.typography.headlineMedium)
             Text(
                 text = state.workoutName,
                 style = MaterialTheme.typography.bodyMedium,

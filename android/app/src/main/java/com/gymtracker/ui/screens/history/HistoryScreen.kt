@@ -128,7 +128,7 @@ fun HistoryScreen(
             }
             if (state.rows.isEmpty()) {
                 Text(
-                    text = "Nothing forged here yet — finish a session and it lands in this list.",
+                    text = "Nothing here yet — finish a session and it lands in this list.",
                     style = MaterialTheme.typography.bodySmall,
                     color = GymTheme.colors.hint,
                 )

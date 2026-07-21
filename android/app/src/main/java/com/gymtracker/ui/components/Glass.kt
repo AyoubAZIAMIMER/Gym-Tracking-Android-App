@@ -101,13 +101,13 @@ fun GlassSurface(
                 } else Modifier
             )
     ) {
-        // specular top highlight — the "liquid" part of the glass, warmed like firelight
+        // specular top highlight — the "liquid" part of the glass, neutral white (v7)
         Box(
             Modifier
                 .matchParentSize()
                 .background(
                     Brush.verticalGradient(
-                        0f to Color(0xFFFFE3C2).copy(alpha = 0.08f),
+                        0f to Color.White.copy(alpha = 0.06f),
                         0.4f to Color.Transparent,
                     )
                 )
@@ -121,22 +121,22 @@ fun GlassSurface(
 }
 
 /**
- * Forge-light ambience behind every screen: the main ember glow rises from the bottom
- * (standing over the coals), a faint molten-gold spark light sits top-right, and a cool
- * quenched-steel wash balances the top-left. The glow layer is a `hazeSource`, so glass
- * panels above it show genuinely blurred color — that is what makes the glass read as
- * liquid instead of grey translucency.
+ * Blue-hour ambience behind every screen: a calm indigo floodlight rises from the floor
+ * (brighter mid-session), a barely-there gold spark sits top-right, and a cool cyan wash
+ * balances the top-left. Deliberately quiet — more graphite than glow. The glow layer is a
+ * `hazeSource`, so glass panels above it show genuinely blurred color — that is what makes
+ * the glass read as liquid instead of grey translucency.
  */
 @Composable
 fun GlowBackground(
     modifier: Modifier = Modifier,
-    emberHeat: Float = 1f,   // §11: the forge burns hotter during a session (~1.25)
+    emberHeat: Float = 1f,   // §11: the floor lifts brighter during a session (~1.25)
     content: @Composable BoxScope.() -> Unit,
 ) {
     val background = MaterialTheme.colorScheme.background
     val onBackground = MaterialTheme.colorScheme.onBackground
-    val ember = MaterialTheme.colorScheme.primary
-    val steel = MaterialTheme.colorScheme.secondary
+    val current = MaterialTheme.colorScheme.primary     // indigo — the machine
+    val ice = MaterialTheme.colorScheme.secondary        // cyan — calm spill
     val gold = MaterialTheme.colorScheme.tertiary
     val backgroundHaze = remember { HazeState() }
 
@@ -147,10 +147,12 @@ fun GlowBackground(
                 .matchParentSize()
                 .hazeSource(backgroundHaze)
                 .drawBehind {
+                    // v8 floodlight: a faint indigo wash off the floor (brighter mid-
+                    // session), cyan spill top-left, the gold corner nearly silent
                     drawRect(
                         Brush.radialGradient(
                             colors = listOf(
-                                ember.copy(alpha = (0.30f * emberHeat).coerceIn(0f, 0.42f)),
+                                current.copy(alpha = (0.10f * emberHeat).coerceIn(0f, 0.15f)),
                                 Color.Transparent,
                             ),
                             center = Offset(size.width * 0.50f, size.height * 1.06f),
@@ -159,14 +161,14 @@ fun GlowBackground(
                     )
                     drawRect(
                         Brush.radialGradient(
-                            colors = listOf(gold.copy(alpha = 0.10f), Color.Transparent),
+                            colors = listOf(gold.copy(alpha = 0.04f), Color.Transparent),
                             center = Offset(size.width * 0.92f, size.height * 0.04f),
                             radius = size.width * 0.65f,
                         )
                     )
                     drawRect(
                         Brush.radialGradient(
-                            colors = listOf(steel.copy(alpha = 0.10f), Color.Transparent),
+                            colors = listOf(ice.copy(alpha = 0.07f), Color.Transparent),
                             center = Offset(size.width * 0.04f, size.height * 0.10f),
                             radius = size.width * 0.75f,
                         )

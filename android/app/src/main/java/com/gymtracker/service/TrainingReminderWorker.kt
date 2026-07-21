@@ -51,7 +51,7 @@ class TrainingReminderWorker(
         val next = repo.nextProgramDay()
         val text = buildString {
             if (next != null) append("${next.day.name} is waiting — ")
-            append(if (days == 1) "1 day since your last strike." else "$days days since your last strike.")
+            append(if (days == 1) "1 day since your last session." else "$days days since your last session.")
         }
 
         val manager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -59,7 +59,7 @@ class TrainingReminderWorker(
             NOTIFICATION_ID,
             NotificationCompat.Builder(ctx, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_widget_flame)
-                .setContentTitle("The forge is cooling")
+                .setContentTitle("Time to train")
                 .setContentText(text)
                 .setAutoCancel(true)
                 .setContentIntent(
@@ -71,7 +71,7 @@ class TrainingReminderWorker(
                 )
                 // one gesture in (UX v6): the notification IS the start button
                 .addAction(
-                    0, "Fire it up",
+                    0, "Start now",
                     PendingIntent.getActivity(
                         ctx, 1,
                         Intent(ctx, MainActivity::class.java)
@@ -96,7 +96,7 @@ class TrainingReminderWorker(
             manager.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_ID, "Training reminders", NotificationManager.IMPORTANCE_DEFAULT
-                ).apply { description = "Evening nudge when the forge has gone cold" }
+                ).apply { description = "Evening reminder on days you haven't trained" }
             )
 
             val now = LocalDateTime.now()

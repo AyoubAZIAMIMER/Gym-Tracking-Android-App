@@ -31,7 +31,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.Hardware
 import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -123,14 +122,14 @@ fun HomeScreen(
                 // since the last strike, blazing flame = the furnace kept burning
                 StatTile(
                     value = "${state.workoutsThisWeek}/${state.weeklyGoal}",
-                    label = "Strikes this week",
-                    icon = Icons.Rounded.Hardware,
+                    label = "Sessions this week",
+                    icon = Icons.Rounded.FitnessCenter,
                     iconTint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
                 )
                 StatTile(
                     value = state.lastWorkoutDaysAgo?.let { "${it}d" } ?: "–",
-                    label = "Since last strike",
+                    label = "Since last session",
                     icon = Icons.Rounded.HourglassBottom,
                     // v5: the hourglass cools like the metal — glowing right after a
                     // strike, quenched steel once you've rested ~3 days
@@ -178,7 +177,7 @@ private fun HeaderRow(userName: String, onOpenData: () -> Unit) {
                 style = MaterialTheme.typography.headlineLarge,
             )
             Text(
-                text = "The forge is hot.",
+                text = "Lights on.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -337,14 +336,14 @@ private fun LiveSessionCard(live: LiveSessionInfo, onResume: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "AT THE ANVIL · ${TimeFormat.clock(now - live.startedAtMillis)}",
+                text = "IN SESSION · ${TimeFormat.clock(now - live.startedAtMillis)}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(live.name, style = MaterialTheme.typography.titleLarge)
             Text(
                 text = buildString {
-                    append("${live.completedSets} of ${live.totalSets} sets struck")
+                    append("${live.completedSets} of ${live.totalSets} sets logged")
                     live.currentExercise?.let { append(" · up now: $it") }
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -362,7 +361,7 @@ private fun LiveSessionCard(live: LiveSessionInfo, onResume: () -> Unit) {
             ) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Back to the anvil", style = MaterialTheme.typography.titleMedium)
+                Text("Resume session", style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -377,7 +376,7 @@ private fun ForgedTodayCard(forged: WorkoutRepository.TodayForged) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "SESSION FORGED",
+                text = "SESSION COMPLETE",
                 style = MaterialTheme.typography.labelSmall,
                 color = GymTheme.colors.success,
             )
@@ -392,7 +391,7 @@ private fun ForgedTodayCard(forged: WorkoutRepository.TodayForged) {
                 forged.durationMin?.let { ForgedStat("$it", "minutes") }
             }
             Text(
-                text = "The metal rests. Strike again when it's cooled.",
+                text = "Logged. Recovery starts now.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -482,7 +481,7 @@ private fun PlanCard(state: HomeUiState, onStartWorkout: (String?) -> Unit) {
             ) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Fire it up", style = MaterialTheme.typography.titleMedium)
+                Text("Start session", style = MaterialTheme.typography.titleMedium)
             }
         }
     }

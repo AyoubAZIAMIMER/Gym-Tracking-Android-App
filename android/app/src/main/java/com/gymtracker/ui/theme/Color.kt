@@ -1,6 +1,9 @@
-// Purpose: All RepForge colors — "Molten Forge" identity (2026-07-13): dark iron and
-//          smoked steel with ONE hot color (ember orange); molten gold strictly for PRs,
-//          quenched steel blue-grey for cool/secondary data. Owner-approved direction.
+// Purpose: All Forged colors — Identity v8 "Blue Hour" (2026-07-21): cold machine,
+//          hot body. Blue-biased near-black floor, graphite surfaces, chalk type.
+//          ONE interface signal = ELECTRIC INDIGO (nav, action, active, work done).
+//          Heat (ember ramp) is reserved for the BODY only — muscle readiness/fatigue.
+//          Gold is strictly the earned (PRs, top rank). Cyan is calm time/data, sparingly.
+//          Identifier names kept from earlier identities so theme wiring is stable.
 // Inputs: none (constants)
 // Outputs: Color values consumed by Theme.kt (never reference these directly from screens)
 package com.gymtracker.ui.theme
@@ -9,108 +12,110 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
-// --- Dark palette (the designed, default theme: a night forge) ----------------
-val Ink = Color(0xFF0E0D0B)            // charcoal iron — screen background
-val SurfaceDark = Color(0xFF1A1815)    // smoked steel — cards
-val SurfaceRaised = Color(0xFF242019)  // nested cards, input fields (warm coal)
-val OutlineDark = Color(0xFF35302A)
-val OutlineFaint = Color(0xFF272319)
+// --- Dark palette (the designed, default theme: the gym at blue hour) ----------
+val Ink = Color(0xFF06070B)            // blue-biased near-black — screen background
+val SurfaceDark = Color(0xFF12141B)    // graphite — cards
+val SurfaceRaised = Color(0xFF191C25)  // nested cards, input fields
+val OutlineDark = Color(0xFF242835)
+val OutlineFaint = Color(0xFF1B1E28)
 
-// Primary: ember orange — the single hot color; everything else stays metal
-val AccentPrimary = Color(0xFFFF5A1F)
-val AccentPrimaryDim = Color(0xFF3A1608)     // tinted containers / icon tiles
-val AccentPrimaryBright = Color(0xFFFFB294)  // on-container text
-val OnAccentPrimary = Color(0xFF1C0800)
+// Primary: ELECTRIC INDIGO — the single interface signal (the machine)
+val AccentPrimary = Color(0xFF5B5BF7)
+val AccentPrimaryDim = Color(0xFF1B1D3A)     // tinted containers / icon tiles
+val AccentPrimaryBright = Color(0xFF8A8CFF)  // on-container text / brightest intensity
+val OnAccentPrimary = Color(0xFFFFFFFF)      // chalk on the indigo action surface
 
-// Secondary: quenched steel — cool blue-grey for timers/durations/secondary data
-val Cyan = Color(0xFF9FB6C2)
-val CyanDim = Color(0xFF232B30)
+// Secondary: ICE — calm time/data (rest, durations, 4-week average). Used sparingly.
+val Cyan = Color(0xFF64D2FF)
+val CyanDim = Color(0xFF12262F)
 
-// Forge red — errors, failure sets (hotter, redder than the ember primary)
-val ActivityPink = Color(0xFFFF4B36)
+// Failure sets / errors (iOS red)
+val ActivityPink = Color(0xFFFF453A)
 
-val TextPrimary = Color(0xFFF2EDE4)    // warm off-white, like light on hot metal
-val TextSecondary = Color(0xFFA89F91)
-val TextHint = Color(0xFF6B6357)
+val TextPrimary = Color(0xFFF3F5FB)    // chalk white (a half-step cool)
+val TextSecondary = Color(0xFF98A0B0)
+val TextHint = Color(0xFF5B6272)
 
-val Success = Color(0xFFB8C77A)        // tempered olive — completed sets
-val SuccessDim = Color(0xFF262B12)
-val PrGold = Color(0xFFFFC93C)         // molten gold — PRs only, never decoration
+// Completed work IS the interface signal — logging a set closes the ring in indigo
+val Success = Color(0xFF5B5BF7)
+val SuccessDim = Color(0xFF15173A)
+val PrGold = Color(0xFFFFCB45)         // the earned — PRs & top rank only, never decoration
 val ErrorRed = ActivityPink
 
-// Set-tag letter chips (W/D/N/T/F)
-val TagWarmup = Color(0xFFFFC93C)
-val TagDropset = Color(0xFFC9A2E8)
-val TagNegative = Color(0xFFFF8A6B)
-val TagTempo = Color(0xFF9FB6C2)
-val TagFailure = Color(0xFFFF4B36)
+// Set-tag letter chips (W/D/N/T/F) — iOS system colors (semantic, kept distinct)
+val TagWarmup = Color(0xFFFFCB45)
+val TagDropset = Color(0xFFBF5AF2)
+val TagNegative = Color(0xFFFF9F0A)
+val TagTempo = Color(0xFF64D2FF)
+val TagFailure = Color(0xFFFF453A)
 
-// --- Heat scale (Identity v5, design/IDENTITY_V5.md: "heat is data") ----------
-// Steel reads its temperature: quenched blue = recovered/calm, glowing red = just
-// worked. Screens never hand-pick a heat hue — they ask GymTheme.colors.heat.at().
+// --- Readiness scale — the ember ramp, the ONLY warm color, and only on the body --
+// v8: fully recovered snaps to INDIGO (cool machine "ready"); anything worked graduates
+// through a warm ember sweep tan → orange → red. The snap avoids a muddy blue→tan lerp.
+// Screens never hand-pick these hues — they ask GymTheme.colors.heat.at().
 @Immutable
 class HeatScale(
-    val steel: Color,   // quenched — fully recovered, ready to strike
-    val bronze: Color,  // warming — mid recovery / moderate effort
-    val ember: Color,   // working — the one hot color
-    val red: Color,     // glowing — just trained / maximal effort
+    val ready: Color,   // fully recovered — indigo (cool "go")
+    val worn: Color,    // mid recovery — warm tan
+    val hot: Color,     // recently worked — orange
+    val spent: Color,   // just trained / maximal fatigue — red
 ) {
-    /** Maps freshness (1f = fully recovered … 0f = just worked) onto the spectrum. */
+    /** Maps freshness (1f = fully recovered … 0f = just worked) onto the ramp. */
     fun at(freshness: Float): Color {
-        val heat = 1f - freshness.coerceIn(0f, 1f)
+        val fatigue = 1f - freshness.coerceIn(0f, 1f)
         return when {
-            heat <= 0.45f -> lerp(steel, bronze, heat / 0.45f)
-            heat <= 0.75f -> lerp(bronze, ember, (heat - 0.45f) / 0.30f)
-            else -> lerp(ember, red, (heat - 0.75f) / 0.25f)
+            fatigue <= 0.10f -> ready                                       // recovered → indigo
+            fatigue <= 0.55f -> lerp(worn, hot, (fatigue - 0.10f) / 0.45f)  // tan → orange
+            else -> lerp(hot, spent, (fatigue - 0.55f) / 0.45f)            // orange → red
         }
     }
 }
 
-// Night forge: hot hues read against dark iron
+// Blue-hour floor: crisp indigo "ready", warm ember sweep for worked muscle
 val DarkHeat = HeatScale(
-    steel = Color(0xFF8FB4C7),
-    bronze = Color(0xFFD08A45),
-    ember = AccentPrimary,
-    red = Color(0xFFFF3320),
+    ready = AccentPrimary,
+    worn = Color(0xFFC98A4E),
+    hot = Color(0xFFFF7A2F),
+    spent = Color(0xFFFF4D3D),
 )
 
-// Daylight workshop: every stop deepened so it holds ≥3:1 contrast on bone paper
+// Daylight: every stop deepened so it holds ≥3:1 contrast on paper white
 val LightHeat = HeatScale(
-    steel = Color(0xFF4E7086),
-    bronze = Color(0xFF9A5A1D),
-    ember = Color(0xFFC63D08),  // = AccentPrimaryLight (declared below; literal avoids
-                                //   a forward reference in top-level init order)
-    red = Color(0xFFB3230F),
+    ready = Color(0xFF4A45E0),  // = AccentPrimaryLight (declared below; literal
+                                //   avoids a forward reference in top-level init order)
+    worn = Color(0xFFB06A28),
+    hot = Color(0xFFD9591E),
+    spent = Color(0xFFD70015),
 )
 
-val HeatWhite = Color(0xFFFFE3C2)      // white-hot flash — momentary highlights only
+val HeatWhite = Color(0xFFEAF0FF)      // flash highlights only (celebrations) — cool white
 
 // --- Liquid glass tokens ------------------------------------------------------
 // Fallback wash for glass panels that sit inside the blur source (cards)
-val GlassTintDark = Color(0xB31A1815)        // ~70% SurfaceDark — ember glow bleeds through
-val GlassTintBlurDark = Color(0x661A1815)    // wash over real backdrop blur
-val GlassHighlightDark = Color(0x2EFFD9B8)   // warm hairline top edge (firelight, not white)
-val GlassOutlineDark = Color(0x0DFFB68A)     // warm hairline bottom edge
+val GlassTintDark = Color(0xB312141B)        // ~70% SurfaceDark
+val GlassTintBlurDark = Color(0x6612141B)    // wash over real backdrop blur
+val GlassHighlightDark = Color(0x22FFFFFF)   // neutral hairline top edge
+val GlassOutlineDark = Color(0x12FFFFFF)     // neutral hairline bottom edge
 
-val GlassTintLight = Color(0xCCFFFCF6)
-val GlassTintBlurLight = Color(0x99FFFCF6)
+val GlassTintLight = Color(0xCCFFFFFF)
+val GlassTintBlurLight = Color(0x99FFFFFF)
 val GlassHighlightLight = Color(0xF2FFFFFF)
-val GlassOutlineLight = Color(0x4DE8DCC8)
+val GlassOutlineLight = Color(0x33D0D3D8)
 
-// --- Light palette (daylight workshop: warm bone paper, iron text, deep ember) -
-val PaperLight = Color(0xFFF4EFE6)
-val SurfaceLight = Color(0xFFFDFAF3)
-val SurfaceRaisedLight = Color(0xFFEDE5D6)
-val OutlineLight = Color(0xFFDCD2BF)
-val OutlineFaintLight = Color(0xFFE8E0CF)
-val TextPrimaryLight = Color(0xFF1B150E)
-val TextSecondaryLight = Color(0xFF6C6152)
-val TextHintLight = Color(0xFFA19684)
-val AccentPrimaryLight = Color(0xFFC63D08)       // ember, deepened for light surfaces
-val AccentContainerLight = Color(0xFFFFDCC9)
-val OnAccentContainerLight = Color(0xFF571B00)
-val CyanLight = Color(0xFF54707E)                // quenched steel, darkened
-val SuccessLight = Color(0xFF5F7A2A)
-val SuccessDimLight = Color(0xFFE9EFD3)
-val PrGoldLight = Color(0xFFB07E0C)
-val ErrorLight = Color(0xFFC02D14)
+// --- Light palette (daylight: cool paper-grey, iron text, deepened indigo) ------
+val PaperLight = Color(0xFFF4F5F8)
+val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceRaisedLight = Color(0xFFECEEF3)
+val OutlineLight = Color(0xFFDCDFE6)
+val OutlineFaintLight = Color(0xFFE7E9EF)
+val TextPrimaryLight = Color(0xFF111219)
+val TextSecondaryLight = Color(0xFF5C616E)
+val TextHintLight = Color(0xFF9AA0AC)
+val AccentPrimaryLight = Color(0xFF4A45E0)       // indigo, deepened for light surfaces
+val AccentContainerLight = Color(0xFFE5E5FB)
+val OnAccentContainerLight = Color(0xFF25239A)
+val CyanLight = Color(0xFF0B7FAD)                // ice, darkened
+val SuccessLight = Color(0xFF4A45E0)             // completed = the indigo signal
+val SuccessDimLight = Color(0xFFE5E5FB)
+val PrGoldLight = Color(0xFFB08900)
+val ErrorLight = Color(0xFFD70015)
