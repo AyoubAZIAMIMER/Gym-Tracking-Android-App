@@ -49,6 +49,14 @@ val TagNegative = Color(0xFFFF9F0A)
 val TagTempo = Color(0xFF64D2FF)
 val TagFailure = Color(0xFFFF453A)
 
+// Rank medals (subtle gamification, v8). Gold rank reuses PrGold; Olympian uses chalk.
+val RankWood = Color(0xFF8A7A66)
+val RankBronze = Color(0xFFB57C4A)
+val RankSilver = Color(0xFFB9C0CC)
+val RankWoodLight = Color(0xFF6E5E4A)
+val RankBronzeLight = Color(0xFF9A6636)
+val RankSilverLight = Color(0xFF71798A)
+
 // --- Readiness scale — the ember ramp, the ONLY warm color, and only on the body --
 // v8: fully recovered snaps to INDIGO (cool machine "ready"); anything worked graduates
 // through a warm ember sweep tan → orange → red. The snap avoids a muddy blue→tan lerp.

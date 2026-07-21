@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,11 +33,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,6 +49,7 @@ import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.LineChart
 import com.gymtracker.ui.components.WeeklyBarChart
+import com.gymtracker.domain.Rank
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.forgedEntrance
@@ -89,6 +93,8 @@ fun StatsScreen(
                     )
                 }
             } else {
+                RankVolumeCard(state, Modifier.forgedEntrance(0, entered))
+
                 ChartCard(
                     title = "Weekly volume",
                     subtitle = "working sets · dashed = 4-week average",
@@ -210,6 +216,119 @@ fun StatsScreen(
             )
         }
     }
+}
+
+/**
+ * Blue Hour rank header: the Movo "Total Weight" tile made real, with a SUBTLE rank cue
+ * (Wood → Olympian by lifetime tonnage) — one quiet medal pill and a "N to next" line, no
+ * badges or level-up theatre.
+ */
+@Composable
+private fun RankVolumeCard(state: StatsUiState, modifier: Modifier = Modifier) {
+    val standing = remember(state.totalVolumeKg) { Rank.standing(state.totalVolumeKg) }
+    val medal = rankColor(standing.rank)
+    GlassSurface(modifier = modifier) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(15.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.FitnessCenter,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = "Total volume moved",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = Formats.volumeKg(state.totalVolumeKg),
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontFeatureSettings = FONT_FEATURE_TABULAR
+                            ),
+                        )
+                        Text(
+                            text = " kg",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 3.dp),
+                        )
+                    }
+                }
+                RankPill(standing.rank, medal)
+            }
+            val progress = standing.progress
+            if (progress != null && standing.next != null && standing.toNextKg != null) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(progress)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(medal),
+                        )
+                    }
+                    Text(
+                        text = "${Formats.volumeKg(standing.toNextKg)} kg to ${standing.next.label}",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontFeatureSettings = FONT_FEATURE_TABULAR
+                        ),
+                        color = GymTheme.colors.hint,
+                    )
+                }
+            } else {
+                Text(
+                    text = "Top rank — ${state.totalWorkouts} sessions logged",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = medal,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RankPill(rank: Rank, color: Color) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.15f))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Box(Modifier.size(9.dp).clip(CircleShape).background(color))
+        Text(rank.label, style = MaterialTheme.typography.labelLarge, color = color)
+    }
+}
+
+@Composable
+private fun rankColor(rank: Rank): Color = when (rank) {
+    Rank.WOOD -> GymTheme.colors.rankWood
+    Rank.BRONZE -> GymTheme.colors.rankBronze
+    Rank.SILVER -> GymTheme.colors.rankSilver
+    Rank.GOLD -> GymTheme.colors.prGold
+    Rank.OLYMPIAN -> MaterialTheme.colorScheme.onSurface
 }
 
 @Composable

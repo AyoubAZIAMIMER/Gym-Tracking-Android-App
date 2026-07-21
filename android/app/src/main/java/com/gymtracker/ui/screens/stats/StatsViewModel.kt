@@ -18,6 +18,8 @@ import kotlinx.coroutines.withContext
 
 data class StatsUiState(
     val hasData: Boolean = false,
+    val totalVolumeKg: Double = 0.0,   // lifetime working-set tonnage (drives the rank)
+    val totalWorkouts: Int = 0,
     val weeklyVolume: List<Pair<LocalDate, Double>> = emptyList(),
     val weekDeltaPct: Int? = null,
     val calendar: Map<LocalDate, Double> = emptyMap(),
@@ -46,8 +48,13 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
                     (((last[1].second - last[0].second) / last[0].second) * 100).roundToInt()
                 } else null
             }
+            val totalVolume = snap.sets
+                .filter { it.tag != "W" }
+                .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
             StatsUiState(
                 hasData = true,
+                totalVolumeKg = totalVolume,
+                totalWorkouts = snap.workouts.size,
                 weeklyVolume = weekly,
                 weekDeltaPct = delta,
                 calendar = AnalyticsEngine.calendarVolume(snap.sets),
