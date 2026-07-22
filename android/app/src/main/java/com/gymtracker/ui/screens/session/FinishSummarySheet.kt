@@ -37,10 +37,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import com.gymtracker.ui.components.ConfettiBurst
+import com.gymtracker.ui.components.PrBanner
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.ui.theme.rollUpValue
 import com.gymtracker.utils.Formats
 import com.gymtracker.utils.PlateCalculator
 import com.gymtracker.utils.TimeFormat
@@ -54,6 +59,9 @@ fun FinishSummarySheet(
     onDismiss: () -> Unit,
 ) {
     var comment by remember { mutableStateOf("") }
+    val prCount = remember(state) {
+        state.exercises.sumOf { ex -> ex.sets.count { it.completed && it.isPr } }
+    }
     // Forge Moment (rung 3): the check strikes in and settles — steel doesn't wobble;
     // the stats arrive 60 ms apart, carrying the eye down the sheet
     var checkVisible by remember { mutableStateOf(false) }
@@ -62,13 +70,21 @@ fun FinishSummarySheet(
         animationSpec = Motion.settle(Motion.STANDARD),
         label = "checkStrike",
     )
-    LaunchedEffect(Unit) { checkVisible = true }
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(Unit) {
+        checkVisible = true
+        // reward buzz: firmer when the session set personal records
+        haptic.performHapticFeedback(
+            if (prCount > 0) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove
+        )
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
+        Box(Modifier.fillMaxWidth()) {
         Column(
             Modifier
                 .fillMaxWidth()
@@ -101,13 +117,19 @@ fun FinishSummarySheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            PrBanner(
+                visible = checkVisible && prCount > 0,
+                label = "$prCount new PR${if (prCount > 1) "s" else ""}",
+            )
+            // §7.4: the headline number rolls up from zero on entry
+            val volRolled = rollUpValue(state.totalVolumeKg.toFloat()).toDouble()
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 StaggeredStat(0, checkVisible, "Duration", TimeFormat.clock(elapsedMillis), Modifier.weight(1f))
                 StaggeredStat(1, checkVisible, "Sets", "${state.completedSets}/${state.totalSets}", Modifier.weight(1f))
-                StaggeredStat(2, checkVisible, "Volume", "${Formats.volumeKg(state.totalVolumeKg)} kg", Modifier.weight(1f))
+                StaggeredStat(2, checkVisible, "Volume", "${Formats.volumeKg(volRolled)} kg", Modifier.weight(1f))
             }
             OutlinedTextField(
                 value = comment,
@@ -126,6 +148,8 @@ fun FinishSummarySheet(
             ) {
                 Text("Save workout", style = MaterialTheme.typography.titleMedium)
             }
+        }
+            ConfettiBurst(run = checkVisible, modifier = Modifier.matchParentSize())
         }
     }
 }

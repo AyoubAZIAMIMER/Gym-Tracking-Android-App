@@ -1,10 +1,19 @@
 // Purpose: The Forged physique — anatomically drawn front + back human figures with
-//          individual muscle bellies tinted by forge heat (Identity v5: quenched steel
-//          = recovered, glowing red = just worked; hot muscles emit a halo)
-// Inputs: freshness map (canonical muscle → percent 0..100) or a target-muscle list
+//          individually sculpted muscle bellies (Blue Hour v8): a soft radial sheen gives
+//          each muscle depth, the Body screen tints them by ember readiness, the exercise
+//          figure lights PRIMARY movers at full indigo and SECONDARY movers dimmer, with a
+//          spring fill-in whenever the target changes and a gentle breath on the primaries.
+// Inputs: freshness map (canonical muscle → percent 0..100) or an ordered target-muscle list
+//         (first = primary mover, rest = secondary)
 // Outputs: none (pure visualization)
 package com.gymtracker.ui.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,13 +21,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
@@ -30,6 +42,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.dp
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.Motion
 import kotlin.math.min
 
 // Figures are authored in a 100×170 unit space (≈7.7 head heights — heroic but human),
@@ -49,12 +62,30 @@ private fun Path.mirrored(): Path {
     }
 }
 
-/** One muscle belly: canonical group name + its path(s), mirrored across the spine. */
-private class MusclePath(val muscle: String, d: String, mirror: Boolean = true) {
-    val paths: List<Path> = buildList {
+/**
+ * One muscle belly: canonical group + its path, mirrored across the spine. Carries the
+ * belly [center] and [radius] used to lay a soft radial sheen (the sculpted, 3-D read).
+ */
+private class MusclePath(
+    val muscle: String,
+    d: String,
+    val center: Offset,
+    val radius: Float = 15f,
+    mirror: Boolean = true,
+) {
+    // parallel lists: each path with its own (mirrored) sheen centre
+    val paths: List<Path>
+    val centers: List<Offset>
+
+    init {
         val p = path(d)
-        add(p)
-        if (mirror) add(p.mirrored())
+        if (mirror) {
+            paths = listOf(p, p.mirrored())
+            centers = listOf(center, Offset(BODY_W - center.x, center.y))
+        } else {
+            paths = listOf(p)
+            centers = listOf(center)
+        }
     }
 }
 
@@ -105,44 +136,59 @@ private val FrontMuscles: List<MusclePath> by lazy {
         MusclePath( // upper traps visible from the front, along the neck slope
             "Back",
             "M46.4 20.8 C42.8 22.2 37.4 24 33 26.4 C36.6 27.2 41.6 26.8 44.8 24.8 " +
-                "C45.7 23.4 46.2 22 46.4 20.8 Z"
+                "C45.7 23.4 46.2 22 46.4 20.8 Z",
+            center = Offset(40f, 23.5f), radius = 10f,
         ),
         MusclePath(
             "Shoulders",
             "M31.4 27 C27.9 28.1 25.9 31.3 25.7 35.3 C25.7 38.2 26.6 40.2 28.1 40.8 " +
-                "C30.5 41.3 32.7 39.4 33.5 36 C34.1 32.5 33.5 28.8 31.4 27 Z"
+                "C30.5 41.3 32.7 39.4 33.5 36 C34.1 32.5 33.5 28.8 31.4 27 Z",
+            center = Offset(29.5f, 34f), radius = 9f,
         ),
         MusclePath(
             "Chest",
             "M49.3 30.5 C44 30 38.2 30.6 34.7 32.6 C34 35.1 34 38 35 40.4 " +
-                "C37.2 44.4 42 46.4 46.4 45.9 C48.4 45.4 49.2 43.9 49.3 41.5 Z"
+                "C37.2 44.4 42 46.4 46.4 45.9 C48.4 45.4 49.2 43.9 49.3 41.5 Z",
+            center = Offset(42.5f, 38f), radius = 12f,
         ),
         MusclePath(
             "Biceps",
             "M26.6 42.6 C25.7 46 25.1 50.4 25.3 53.9 C26.4 56.4 28.8 56.7 30.2 54.4 " +
-                "C31 51 31.4 46.6 30.8 43.6 C29.5 41.6 27.7 41.9 26.6 42.6 Z"
+                "C31 51 31.4 46.6 30.8 43.6 C29.5 41.6 27.7 41.9 26.6 42.6 Z",
+            center = Offset(28f, 48.5f), radius = 8f,
+        ),
+        MusclePath( // forearm flexors, biceps → wrist (anatomical completeness)
+            "Forearms",
+            "M25.4 57.5 C24 61.5 22.6 66 21.7 70.5 C21 74.5 20.7 78 20.9 81 " +
+                "C21.6 82.6 23 82.5 23.7 80.9 C24.5 77.4 25.1 73.5 25.7 69.5 " +
+                "C26.3 65 26.7 60.8 26.5 57.8 C26.3 57 25.8 57 25.4 57.5 Z",
+            center = Offset(23f, 69f), radius = 8f,
         ),
         MusclePath( // rectus abdominis; the mirror gap forms the linea alba
             "Abs",
             "M45.2 48.6 C42.8 49.1 41.6 50.1 41.4 52 L41.4 75.5 " +
-                "C41.5 78.8 43.1 81.4 45.6 82.4 C47.3 83.1 49 83.4 49.5 83.4 L49.5 48.8 Z"
+                "C41.5 78.8 43.1 81.4 45.6 82.4 C47.3 83.1 49 83.4 49.5 83.4 L49.5 48.8 Z",
+            center = Offset(45.5f, 65f), radius = 11f,
         ),
         MusclePath( // obliques flank the rectus
             "Abs",
             "M38.3 50.5 C37.4 55.5 37 60.5 37.3 65.5 C37.8 70 38.8 74 40.2 77 " +
-                "C40.8 72.8 40.8 67.5 40.5 62 C40.2 56.8 39.5 52.8 38.3 50.5 Z"
+                "C40.8 72.8 40.8 67.5 40.5 62 C40.2 56.8 39.5 52.8 38.3 50.5 Z",
+            center = Offset(39f, 63f), radius = 7f,
         ),
         MusclePath( // quad mass with the medialis teardrop toward the inner knee
             "Quads",
             "M37.2 82 C36.2 88 36 95 36.4 101 C37 108 38.4 113.8 40.4 118.2 " +
                 "C42.6 119.2 44.4 117.8 44.7 114.8 C45.3 107.8 46.1 99.8 46.9 92 " +
-                "C47.3 87 46.1 83.6 43.6 82.2 C41.4 81.2 39 81.2 37.2 82 Z"
+                "C47.3 87 46.1 83.6 43.6 82.2 C41.4 81.2 39 81.2 37.2 82 Z",
+            center = Offset(41.5f, 99f), radius = 18f,
         ),
         MusclePath( // lower leg from the front (tibialis + visible calf edges)
             "Calves",
             "M37.9 123.5 C37.1 130 36.9 138 37.6 144.8 C38.4 150.8 39.7 154.8 41.6 156.8 " +
                 "C43.4 155.2 44.8 150.8 45.6 144.8 C46.4 138 46.3 130.5 45.6 124.5 " +
-                "C43.1 122.6 40.1 122.6 37.9 123.5 Z"
+                "C43.1 122.6 40.1 122.6 37.9 123.5 Z",
+            center = Offset(41.7f, 140f), radius = 14f,
         ),
     )
 }
@@ -163,62 +209,82 @@ private val BackMuscles: List<MusclePath> by lazy {
         MusclePath( // trapezius diamond, neck to mid-spine
             "Back",
             "M49.8 20.5 C46.4 22 41.6 24.2 38.2 26.2 C41 27.6 44.2 30.1 46.2 33.7 " +
-                "C48.2 38.2 49.5 43.8 49.8 48.8 Z"
+                "C48.2 38.2 49.5 43.8 49.8 48.8 Z",
+            center = Offset(44f, 33f), radius = 13f,
         ),
         MusclePath(
             "Shoulders",
             "M31.4 27 C27.9 28.1 25.9 31.3 25.7 35.3 C25.7 38.2 26.6 40.2 28.1 40.8 " +
-                "C30.5 41.3 32.7 39.4 33.5 36 C34.1 32.5 33.5 28.8 31.4 27 Z"
+                "C30.5 41.3 32.7 39.4 33.5 36 C34.1 32.5 33.5 28.8 31.4 27 Z",
+            center = Offset(29.5f, 34f), radius = 9f,
         ),
         MusclePath(
             "Triceps",
             "M26.4 42.2 C25.5 46.6 24.9 51.4 25.2 55.4 C26.3 57.9 28.7 58.1 30.1 55.7 " +
-                "C31 51.5 31.3 46.7 30.7 43.1 C29.4 40.9 27.5 41.3 26.4 42.2 Z"
+                "C31 51.5 31.3 46.7 30.7 43.1 C29.4 40.9 27.5 41.3 26.4 42.2 Z",
+            center = Offset(28f, 49f), radius = 8f,
+        ),
+        MusclePath( // forearm extensors (back of the arm)
+            "Forearms",
+            "M25.4 57.5 C24 61.5 22.6 66 21.7 70.5 C21 74.5 20.7 78 20.9 81 " +
+                "C21.6 82.6 23 82.5 23.7 80.9 C24.5 77.4 25.1 73.5 25.7 69.5 " +
+                "C26.3 65 26.7 60.8 26.5 57.8 C26.3 57 25.8 57 25.4 57.5 Z",
+            center = Offset(23f, 69f), radius = 8f,
         ),
         MusclePath( // lats sweeping armpit → waist: the V-taper
             "Back",
             "M34.6 40.2 C33.9 44 34.1 48 35.1 52 C36.6 57.4 39.5 61.8 43.4 65.2 " +
                 "C45.9 67.2 48.4 68.3 49.6 68.6 L49.6 55 C49.6 50 48 45.2 45.1 42.7 " +
-                "C41.7 40.2 37.6 39.5 34.6 40.2 Z"
+                "C41.7 40.2 37.6 39.5 34.6 40.2 Z",
+            center = Offset(42f, 53f), radius = 15f,
         ),
         MusclePath( // spinal erectors
             "Back",
             "M46.1 69.2 C44.6 72.2 44.1 76 44.4 79.8 C45.6 82.2 47.8 83.3 49.6 83.5 " +
-                "L49.6 69.7 C48.4 69.6 47.1 69.4 46.1 69.2 Z"
+                "L49.6 69.7 C48.4 69.6 47.1 69.4 46.1 69.2 Z",
+            center = Offset(47f, 76f), radius = 8f,
         ),
         MusclePath(
             "Glutes",
             "M43.1 84.2 C39.6 85.2 37.6 88.2 37.4 92.2 C37.3 96.6 39.1 100.1 42.6 101.6 " +
                 "C46.1 103 48.9 101.8 49.6 98.6 C49.9 94.2 49.8 89.2 49.4 85.7 " +
-                "C47.6 84.2 45.1 83.8 43.1 84.2 Z"
+                "C47.6 84.2 45.1 83.8 43.1 84.2 Z",
+            center = Offset(43.5f, 93f), radius = 13f,
         ),
         MusclePath(
             "Hamstrings",
             "M38.1 104.2 C37.3 110 37.1 116 37.7 121 C38.5 125 40.1 127.4 42.1 128.4 " +
                 "C44.1 127.4 45.7 125 46.4 121 C47.1 115.4 47.1 109.2 46.5 104.6 " +
-                "C43.9 102.9 40.6 102.9 38.1 104.2 Z"
+                "C43.9 102.9 40.6 102.9 38.1 104.2 Z",
+            center = Offset(42f, 115f), radius = 14f,
         ),
         MusclePath( // gastrocnemius diamond
             "Calves",
             "M38.3 131.2 C37.6 136 37.6 141.6 38.5 146.4 C39.5 150.9 41.1 153.9 42.3 154.9 " +
                 "C43.6 153.9 45.1 150.9 46 146.4 C46.8 141.6 46.7 136 45.9 131.2 " +
-                "C43.4 129.3 40.6 129.3 38.3 131.2 Z"
+                "C43.4 129.3 40.6 129.3 38.3 131.2 Z",
+            center = Offset(42f, 143f), radius = 13f,
         ),
     )
 }
 
 /**
- * Recovery hero: front + back physique, every muscle tinted by forge heat.
- * No % pills on the body (they hid the anatomy in v4) — exact numbers belong to the
- * BY MUSCLE list; the body reads by color against the heat legend.
+ * Recovery ("Body") hero: front + back physique, every muscle tinted by ember readiness
+ * and sculpted with a soft sheen. Fills in once on entry. Exact numbers belong to the
+ * BY MUSCLE list; the body reads by colour against the READY→SPENT legend.
  */
 @Composable
 fun MuscleBodyMap(freshness: Map<String, Int>, modifier: Modifier = Modifier) {
     val base = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
+    val baseHi = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.11f)
     val noData = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.13f)
     val ink = MaterialTheme.colorScheme.background
     val hint = GymTheme.colors.hint
     val heatScale = GymTheme.colors.heat
+
+    // §10: the physique settles in once when the screen opens (never on tab return)
+    val lit = remember { Animatable(0f) }
+    LaunchedEffect(Unit) { lit.animateTo(1f, animationSpec = Motion.settle(Motion.SLOW)) }
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Canvas(
@@ -235,8 +301,10 @@ fun MuscleBodyMap(freshness: Map<String, Int>, modifier: Modifier = Modifier) {
                     muscles = muscles,
                     details = if (muscles === FrontMuscles) FrontDetails else emptyList(),
                     slotX = slotX, slotW = slotW,
-                    base = base, noData = noData, ink = ink,
+                    base = base, baseHi = baseHi, noData = noData, ink = ink,
+                    litProgress = lit.value,
                     tintFor = { m -> freshness[m]?.let { heatScale.at(it / 100f) } },
+                    emphasisFor = { 1f },
                     glowFor = { m ->
                         val f = freshness[m]
                         if (f == null) 0f
@@ -256,16 +324,35 @@ fun MuscleBodyMap(freshness: Map<String, Int>, modifier: Modifier = Modifier) {
 }
 
 /**
- * Exercise detail: same physique, target muscles at full ember glow, the rest cold —
- * works offline for every exercise, including custom ones.
+ * Exercise figure: the ordered muscle list drives PRIMARY (first) at full indigo and
+ * SECONDARY (rest) dimmer. The highlight springs in whenever the target changes, and the
+ * primary movers breathe gently so the eye lands on the working muscle. Works offline for
+ * every exercise, including custom ones.
  */
 @Composable
 fun MuscleTargetFigure(muscles: List<String>, modifier: Modifier = Modifier) {
     val base = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
+    val baseHi = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.11f)
     val cold = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
     val hot = MaterialTheme.colorScheme.primary
     val ink = MaterialTheme.colorScheme.background
-    val targets = muscles.toSet()
+
+    val primary = muscles.firstOrNull()
+    val secondary = muscles.drop(1).toSet() - setOfNotNull(primary)
+
+    // fill-in that replays on every target change (spring settle, §7)
+    val lit = remember { Animatable(0f) }
+    LaunchedEffect(muscles) {
+        lit.snapTo(0f)
+        lit.animateTo(1f, animationSpec = Motion.settle(Motion.SLOW))
+    }
+    // ambient breath on the primary mover (temper curve; ambient only, §7.3)
+    val breath = rememberInfiniteTransition(label = "targetBreath")
+    val pulse by breath.animateFloat(
+        initialValue = 0.74f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_500, easing = Motion.Temper), RepeatMode.Reverse),
+        label = "targetPulse",
+    )
 
     Canvas(
         modifier
@@ -281,9 +368,23 @@ fun MuscleTargetFigure(muscles: List<String>, modifier: Modifier = Modifier) {
                 muscles = group,
                 details = if (group === FrontMuscles) FrontDetails else emptyList(),
                 slotX = slotX, slotW = slotW,
-                base = base, noData = cold, ink = ink,
-                tintFor = { m -> if (m in targets) hot else null },
-                glowFor = { m -> if (m in targets) 1f else 0f },
+                base = base, baseHi = baseHi, noData = cold, ink = ink,
+                litProgress = lit.value,
+                tintFor = { m -> if (m == primary || m in secondary) hot else null },
+                emphasisFor = { m ->
+                    when {
+                        m == primary -> pulse                    // full + breathing
+                        m in secondary -> 0.42f                  // clearly dimmer
+                        else -> 0f
+                    }
+                },
+                glowFor = { m ->
+                    when {
+                        m == primary -> pulse
+                        m in secondary -> 0.28f
+                        else -> 0f
+                    }
+                },
             )
         }
     }
@@ -295,9 +396,12 @@ private fun DrawScope.drawPhysique(
     slotX: Float,
     slotW: Float,
     base: Color,
+    baseHi: Color,
     noData: Color,
     ink: Color,
+    litProgress: Float,
     tintFor: (String) -> Color?,
+    emphasisFor: (String) -> Float,
     glowFor: (String) -> Float,
 ) {
     val s = min(slotW / BODY_W, size.height / BODY_H)
@@ -307,16 +411,21 @@ private fun DrawScope.drawPhysique(
         translate(dx, dy)
         scale(s, s, pivot = Offset.Zero)
     }) {
-        drawPath(Silhouette, base)
+        // sculpted base: a faint top-lit gradient gives the blank physique volume
+        drawPath(
+            Silhouette,
+            Brush.verticalGradient(listOf(baseHi, base), startY = 0f, endY = BODY_H),
+        )
         muscles.forEach { m ->
             val tint = tintFor(m.muscle)
-            val glow = if (tint != null) glowFor(m.muscle) else 0f
-            m.paths.forEach { p ->
-                if (tint == null) {
+            val emph = (if (tint != null) emphasisFor(m.muscle) else 0f) * litProgress
+            val glow = (if (tint != null) glowFor(m.muscle) else 0f) * litProgress
+            m.paths.forEachIndexed { i, p ->
+                if (tint == null || emph <= 0.02f) {
                     drawPath(p, noData)
                 } else {
                     if (glow > 0f) {
-                        // hot metal radiates: two widening translucent strokes as halo
+                        // radiating halo: two widening translucent strokes
                         drawPath(
                             p, tint, alpha = 0.16f * glow,
                             style = Stroke(width = 6f, join = StrokeJoin.Round),
@@ -326,9 +435,22 @@ private fun DrawScope.drawPhysique(
                             style = Stroke(width = 2.5f, join = StrokeJoin.Round),
                         )
                     }
-                    drawPath(p, tint, alpha = 0.95f)
+                    // flat belly fill
+                    drawPath(p, tint, alpha = 0.95f * emph)
+                    // sculpt: a soft radial sheen at the belly centre = 3-D pop
+                    drawPath(
+                        p,
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.34f * emph),
+                                Color.Transparent,
+                            ),
+                            center = m.centers[i],
+                            radius = m.radius,
+                        ),
+                    )
                     // ink seam so adjacent hot muscles stay individually readable
-                    drawPath(p, ink, alpha = 0.35f, style = Stroke(width = 0.5f))
+                    drawPath(p, ink, alpha = 0.35f * emph, style = Stroke(width = 0.5f))
                 }
             }
         }

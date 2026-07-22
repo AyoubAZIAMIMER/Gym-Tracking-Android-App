@@ -104,6 +104,8 @@ import com.gymtracker.ui.components.RestTimerBubble
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.ui.components.ConfettiBurst
+import com.gymtracker.ui.components.PrBanner
 import com.gymtracker.utils.OneRM
 import com.gymtracker.utils.PlateCalculator
 import com.gymtracker.utils.TimeFormat
@@ -233,12 +235,50 @@ fun WorkoutSessionScreen(
         120.dp
     }
 
+    // PR reveal: the frame a set logs a new all-time best, a gold trophy banner drops in
+    // and confetti falls for ~2 s, with a firm reward buzz. Count-up rides the e1RM label.
+    val prCount = state.exercises.sumOf { ex -> ex.sets.count { it.completed && it.isPr } }
+    var prevPrCount by remember { mutableIntStateOf(prCount) }
+    var prVisible by remember { mutableStateOf(false) }
+    var prLabel by remember { mutableStateOf("") }
+    val prHaptic = LocalHapticFeedback.current
+    LaunchedEffect(prCount) {
+        if (prCount > prevPrCount) {
+            val best = state.exercises.flatMap { it.sets }
+                .filter { it.completed && it.isPr }
+                .mapNotNull { s ->
+                    val w = s.effectiveWeightKg
+                    val r = s.effectiveReps
+                    if (w != null && r != null) OneRM.estimate(w, r) else null
+                }
+                .maxOrNull()
+            prLabel = best?.let { "New PR · ${PlateCalculator.fmt(it)} kg" } ?: "New PR"
+            prVisible = true
+            prHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            delay(2_200)
+            prVisible = false
+        }
+        prevPrCount = prCount
+    }
+
     GlowBackground(emberHeat = emberHeat) {
         Box(
             Modifier
                 .fillMaxSize()
                 .imePadding()
         ) {
+            // PR celebration floats above everything (confetti + trophy banner)
+            if (prVisible) {
+                ConfettiBurst(run = true, modifier = Modifier.matchParentSize().zIndex(4f))
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(5f)
+                    .padding(top = topPadding + 8.dp),
+            ) {
+                PrBanner(visible = prVisible, label = prLabel)
+            }
             if (strikeShowing && activeStrike != null) {
                 StrikeModePanel(
                     active = activeStrike,
