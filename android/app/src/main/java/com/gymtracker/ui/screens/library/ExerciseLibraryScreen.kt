@@ -66,6 +66,7 @@ import com.gymtracker.data.ProgressionImporter
 import com.gymtracker.ui.components.EditExerciseSheet
 import com.gymtracker.ui.components.ExerciseDemo
 import com.gymtracker.ui.components.ExercisePickerSheet
+import com.gymtracker.ui.components.ExerciseRowSkeleton
 import com.gymtracker.ui.components.FlatRow
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
@@ -182,6 +183,13 @@ fun ExerciseLibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 130.dp),
                 ) {
+                    // rows is empty only before the first DB emission (an empty library
+                    // falls back to starters) — so this uniquely means "still loading"
+                    if (rows.isEmpty()) {
+                        items(9, key = { "skeleton-$it" }) {
+                            ExerciseRowSkeleton()
+                        }
+                    }
                     grouped.forEach { (letter, exercises) ->
                         item(key = "letter-$letter") {
                             Box(

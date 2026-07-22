@@ -7,6 +7,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,11 +54,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.ui.components.ConfettiBurst
 import com.gymtracker.ui.components.ForgedRing
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
@@ -65,11 +69,14 @@ import com.gymtracker.ui.components.MuscleTargetFigure
 import com.gymtracker.ui.components.ProfileSheet
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.Motion
+import com.gymtracker.ui.theme.rollUpValue
 import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.utils.Formats
 import com.gymtracker.utils.TimeFormat
 import java.time.DayOfWeek
 import kotlin.math.PI
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -201,7 +208,27 @@ private fun HeaderRow(userName: String, onOpenData: () -> Unit) {
 
 @Composable
 private fun WeeklyGoalCard(state: HomeUiState) {
-    GlassSurface {
+    val goalMet = state.weeklyGoal > 0 && state.workoutsThisWeek >= state.weeklyGoal
+    // Celebrate the moment the weekly goal is completed (a false→true flip this session) —
+    // never on every app open when it's already met.
+    var prevGoalMet by remember { mutableStateOf(goalMet) }
+    var celebrate by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(goalMet) {
+        if (goalMet && !prevGoalMet) {
+            celebrate = true
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        prevGoalMet = goalMet
+    }
+    // the streak flame swells and holds bright once the week is complete
+    val flameScale by animateFloatAsState(
+        targetValue = if (goalMet) 1.3f else 1f,
+        animationSpec = Motion.springMass(),
+        label = "flameSwell",
+    )
+    Box {
+        GlassSurface {
         Column(
             Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -226,8 +253,10 @@ private fun WeeklyGoalCard(state: HomeUiState) {
                         text = "${state.workoutsThisWeek} of ${state.weeklyGoal} workouts",
                         style = MaterialTheme.typography.titleLarge,
                     )
+                    // §7.4: the streak count rolls up from zero on entry
+                    val streak = rollUpValue(state.streakWeeks.toFloat()).roundToInt()
                     Text(
-                        text = "this week · ${state.streakWeeks}-week streak",
+                        text = "this week · $streak-week streak",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -259,12 +288,22 @@ private fun WeeklyGoalCard(state: HomeUiState) {
                             .graphicsLayer {
                                 val s = sin(fa * 2f * PI.toFloat()) * sin(fb * 2f * PI.toFloat())
                                 alpha = 0.92f + 0.08f * (0.5f + 0.5f * s)
+                                scaleX = flameScale
+                                scaleY = flameScale
                             },
                         tint = GymTheme.colors.prGold,
                     )
                 }
             }
             WeekStrip(state.doneWeekdays)
+        }
+        }
+        if (celebrate) {
+            ConfettiBurst(
+                run = true,
+                modifier = Modifier.matchParentSize(),
+                onFinished = { celebrate = false },
+            )
         }
     }
 }

@@ -1,8 +1,11 @@
 // Purpose: The Forged physique — anatomically drawn front + back human figures with
-//          individually sculpted muscle bellies (Blue Hour v8): a soft radial sheen gives
-//          each muscle depth, the Body screen tints them by ember readiness, the exercise
-//          figure lights PRIMARY movers at full indigo and SECONDARY movers dimmer, with a
-//          spring fill-in whenever the target changes and a gentle breath on the primaries.
+//          individually sculpted muscle bellies (Blue Hour v8). Major groups are broken
+//          into their real heads (quads → vastus lateralis / rectus femoris / vastus
+//          medialis; hamstrings and calves into two heads; pec, lats, traps shaped from
+//          anatomy) with an always-on striation layer for definition. A soft radial sheen
+//          gives each belly depth; the Body screen tints them by ember readiness, the
+//          exercise figure lights PRIMARY movers full indigo and SECONDARY movers dimmer,
+//          springing in on target change with a gentle breath on the primaries.
 // Inputs: freshness map (canonical muscle → percent 0..100) or an ordered target-muscle list
 //         (first = primary mover, rest = secondary)
 // Outputs: none (pure visualization)
@@ -65,15 +68,15 @@ private fun Path.mirrored(): Path {
 /**
  * One muscle belly: canonical group + its path, mirrored across the spine. Carries the
  * belly [center] and [radius] used to lay a soft radial sheen (the sculpted, 3-D read).
+ * A canonical group (e.g. Quads) can have several of these — its anatomical heads.
  */
 private class MusclePath(
     val muscle: String,
     d: String,
     val center: Offset,
-    val radius: Float = 15f,
+    val radius: Float = 12f,
     mirror: Boolean = true,
 ) {
-    // parallel lists: each path with its own (mirrored) sheen centre
     val paths: List<Path>
     val centers: List<Offset>
 
@@ -133,74 +136,93 @@ private val Silhouette: Path by lazy {
 // --- Front muscles ------------------------------------------------------------
 private val FrontMuscles: List<MusclePath> by lazy {
     listOf(
-        MusclePath( // upper traps visible from the front, along the neck slope
+        MusclePath( // upper trapezius, along the neck slope
             "Back",
-            "M46.4 20.8 C42.8 22.2 37.4 24 33 26.4 C36.6 27.2 41.6 26.8 44.8 24.8 " +
-                "C45.7 23.4 46.2 22 46.4 20.8 Z",
-            center = Offset(40f, 23.5f), radius = 10f,
+            "M47 18.5 C43.5 20 38.5 22.2 33.5 26 C37 27.2 42 26.6 45.2 24.4 " +
+                "C46.3 22.6 46.9 20.6 47 18.5 Z",
+            center = Offset(41f, 23f), radius = 9f,
         ),
-        MusclePath(
+        MusclePath( // anterior deltoid — the rounded cap
             "Shoulders",
-            "M31.4 27 C27.9 28.1 25.9 31.3 25.7 35.3 C25.7 38.2 26.6 40.2 28.1 40.8 " +
-                "C30.5 41.3 32.7 39.4 33.5 36 C34.1 32.5 33.5 28.8 31.4 27 Z",
-            center = Offset(29.5f, 34f), radius = 9f,
+            "M33.6 26 C29.2 27 25.9 30.6 25.4 35.2 C25.2 38.4 26.4 40.6 28.6 41.2 " +
+                "C31.6 41.4 33.9 38.6 34.6 34.4 C35.1 30.8 34.9 27.6 33.6 26 Z",
+            center = Offset(29.5f, 33f), radius = 9f,
         ),
-        MusclePath(
+        MusclePath( // pectoralis major (sternal + clavicular mass)
             "Chest",
-            "M49.3 30.5 C44 30 38.2 30.6 34.7 32.6 C34 35.1 34 38 35 40.4 " +
-                "C37.2 44.4 42 46.4 46.4 45.9 C48.4 45.4 49.2 43.9 49.3 41.5 Z",
+            "M48.8 29.4 C43.5 28.8 37.8 30 34.7 32.8 C34 35.6 34.2 39.4 35.8 42.4 " +
+                "C38.2 45.6 42.6 47.2 46.6 46.6 C48.2 46.1 48.8 44.3 48.8 42 Z",
             center = Offset(42.5f, 38f), radius = 12f,
         ),
-        MusclePath(
+        MusclePath( // biceps brachii peak
             "Biceps",
-            "M26.6 42.6 C25.7 46 25.1 50.4 25.3 53.9 C26.4 56.4 28.8 56.7 30.2 54.4 " +
-                "C31 51 31.4 46.6 30.8 43.6 C29.5 41.6 27.7 41.9 26.6 42.6 Z",
+            "M26.6 42.4 C25.1 46 24.6 51 25.1 55 C26.1 57.5 28.6 57.8 30.1 55.5 " +
+                "C31.1 51.5 31.4 46.6 30.6 43 C29.4 41.2 27.6 41.4 26.6 42.4 Z",
             center = Offset(28f, 48.5f), radius = 8f,
         ),
-        MusclePath( // forearm flexors, biceps → wrist (anatomical completeness)
+        MusclePath( // forearm flexors, biceps → wrist
             "Forearms",
-            "M25.4 57.5 C24 61.5 22.6 66 21.7 70.5 C21 74.5 20.7 78 20.9 81 " +
-                "C21.6 82.6 23 82.5 23.7 80.9 C24.5 77.4 25.1 73.5 25.7 69.5 " +
-                "C26.3 65 26.7 60.8 26.5 57.8 C26.3 57 25.8 57 25.4 57.5 Z",
+            "M25.5 57 C24 61 22.5 66 21.6 71 C20.9 75.5 20.6 79.5 20.9 82.5 " +
+                "C21.7 84 23.1 83.8 23.9 82 C24.8 78 25.4 73.5 26 69 " +
+                "C26.6 64.5 27 60 26.8 57.3 C26.5 56.4 26 56.4 25.5 57 Z",
             center = Offset(23f, 69f), radius = 8f,
         ),
-        MusclePath( // rectus abdominis; the mirror gap forms the linea alba
+        MusclePath( // rectus abdominis column; the mirror gap = linea alba
             "Abs",
-            "M45.2 48.6 C42.8 49.1 41.6 50.1 41.4 52 L41.4 75.5 " +
-                "C41.5 78.8 43.1 81.4 45.6 82.4 C47.3 83.1 49 83.4 49.5 83.4 L49.5 48.8 Z",
-            center = Offset(45.5f, 65f), radius = 11f,
+            "M48.9 47.5 C44.6 48 42 49.2 41.6 51.6 L41.6 76 C41.8 79.5 43.5 82 46 83 " +
+                "C47.8 83.6 48.9 83.6 49.1 83.6 L49.1 47.5 Z",
+            center = Offset(45.5f, 64f), radius = 11f,
         ),
-        MusclePath( // obliques flank the rectus
+        MusclePath( // external oblique flanking the rectus
             "Abs",
-            "M38.3 50.5 C37.4 55.5 37 60.5 37.3 65.5 C37.8 70 38.8 74 40.2 77 " +
-                "C40.8 72.8 40.8 67.5 40.5 62 C40.2 56.8 39.5 52.8 38.3 50.5 Z",
-            center = Offset(39f, 63f), radius = 7f,
+            "M41 50.5 C39 51.5 37.6 53.5 37.1 57 C36.7 61.5 37.1 66.5 38.3 70.5 " +
+                "C39.1 73.5 40.3 76 41.1 77 L41.1 51 Z",
+            center = Offset(39f, 61f), radius = 8f,
         ),
-        MusclePath( // quad mass with the medialis teardrop toward the inner knee
+        MusclePath( // vastus lateralis — the outer quad sweep
             "Quads",
-            "M37.2 82 C36.2 88 36 95 36.4 101 C37 108 38.4 113.8 40.4 118.2 " +
-                "C42.6 119.2 44.4 117.8 44.7 114.8 C45.3 107.8 46.1 99.8 46.9 92 " +
-                "C47.3 87 46.1 83.6 43.6 82.2 C41.4 81.2 39 81.2 37.2 82 Z",
-            center = Offset(41.5f, 99f), radius = 18f,
+            "M37.2 82.5 C35.7 88 35.2 95 35.7 101 C36.2 107 37.2 112.5 38.7 116.5 " +
+                "C39.5 114.5 40 108.5 40.1 101.5 C40.3 94.5 39.9 87.5 39 83 " +
+                "C38.4 82 37.7 82 37.2 82.5 Z",
+            center = Offset(37.7f, 98f), radius = 11f,
         ),
-        MusclePath( // lower leg from the front (tibialis + visible calf edges)
+        MusclePath( // rectus femoris — the central quad
+            "Quads",
+            "M40.6 82.5 C39.9 88 39.9 95 40.3 102 C40.6 108 41.3 113 42.3 116.5 " +
+                "C43.3 113 43.9 107 44.1 100 C44.3 93 43.9 86 43.1 82.5 " +
+                "C42.3 81.5 41.3 81.8 40.6 82.5 Z",
+            center = Offset(42f, 99f), radius = 10f,
+        ),
+        MusclePath( // vastus medialis — the teardrop above the inner knee
+            "Quads",
+            "M44.2 100 C44.7 104 45.4 108 46.4 111.5 C47.2 114 48 115.5 48.7 116 " +
+                "C49 112 48.8 106 48.2 101 C47.5 99 45.7 99 44.2 100 Z",
+            center = Offset(46.6f, 108f), radius = 7f,
+        ),
+        MusclePath( // tibialis / lower-leg front
             "Calves",
-            "M37.9 123.5 C37.1 130 36.9 138 37.6 144.8 C38.4 150.8 39.7 154.8 41.6 156.8 " +
-                "C43.4 155.2 44.8 150.8 45.6 144.8 C46.4 138 46.3 130.5 45.6 124.5 " +
-                "C43.1 122.6 40.1 122.6 37.9 123.5 Z",
-            center = Offset(41.7f, 140f), radius = 14f,
+            "M38 123.5 C37 130 36.8 138 37.5 145 C38.3 151 39.6 155 41.5 157 " +
+                "C43.3 155 44.7 151 45.5 145 C46.3 138 46.2 130.5 45.5 124.5 " +
+                "C43 122.5 40 122.5 38 123.5 Z",
+            center = Offset(41.5f, 139f), radius = 13f,
         ),
     )
 }
 
-// Ab cut lines — stroked, not filled; drawn in background ink for definition
+// Striation / separation lines — stroked in background ink for anatomical definition
 private val FrontDetails: List<Path> by lazy {
-    val cuts = path(
-        "M41.8 57.5 C44 58.2 47.2 58.4 49.4 58.2 " +
-            "M41.8 63.8 C44 64.5 47.2 64.7 49.4 64.5 " +
-            "M41.8 70.2 C44 70.9 47.2 71.1 49.4 70.9"
+    val pecAndDelt = path(
+        "M35 32.8 C39 31.2 44 30.9 48.6 31.6 " +          // clavicular pec border
+            "M34.7 33 C34.2 37 34.8 41 36.1 43.7 " +      // front-delt / pec seam
+            "M35.6 45.6 L37.4 48.3 M36.5 49.6 L38.3 52.3 M37.4 53.6 L39.1 56.2" // serratus fingers
     )
-    listOf(cuts, cuts.mirrored())
+    val abCuts = path(
+        "M41.8 57.5 C44 58.2 47.2 58.4 49.2 58.2 " +
+            "M41.8 63.8 C44 64.5 47.2 64.7 49.2 64.5 " +
+            "M41.8 70.2 C44 70.9 47.2 71.1 49.2 70.9"
+    )
+    val shin = path("M42 124.5 C41.6 134 41.4 145 41.7 155")
+    listOf(pecAndDelt, pecAndDelt.mirrored(), abCuts, abCuts.mirrored(), shin, shin.mirrored())
 }
 
 // --- Back muscles ---------------------------------------------------------------
@@ -208,64 +230,101 @@ private val BackMuscles: List<MusclePath> by lazy {
     listOf(
         MusclePath( // trapezius diamond, neck to mid-spine
             "Back",
-            "M49.8 20.5 C46.4 22 41.6 24.2 38.2 26.2 C41 27.6 44.2 30.1 46.2 33.7 " +
-                "C48.2 38.2 49.5 43.8 49.8 48.8 Z",
-            center = Offset(44f, 33f), radius = 13f,
+            "M49.5 18.5 C46 20 41 22.5 37.5 25.5 C40.5 27 43.5 29.5 45.5 33 " +
+                "C47.5 37 49 42.5 49.5 47.5 Z",
+            center = Offset(44f, 32f), radius = 13f,
         ),
-        MusclePath(
+        MusclePath( // posterior deltoid
             "Shoulders",
-            "M31.4 27 C27.9 28.1 25.9 31.3 25.7 35.3 C25.7 38.2 26.6 40.2 28.1 40.8 " +
-                "C30.5 41.3 32.7 39.4 33.5 36 C34.1 32.5 33.5 28.8 31.4 27 Z",
-            center = Offset(29.5f, 34f), radius = 9f,
+            "M33.6 26 C29.2 27 25.9 30.6 25.4 35.2 C25.2 38.4 26.4 40.6 28.6 41.2 " +
+                "C31.6 41.4 33.9 38.6 34.6 34.4 C35.1 30.8 34.9 27.6 33.6 26 Z",
+            center = Offset(29.5f, 33f), radius = 9f,
         ),
-        MusclePath(
+        MusclePath( // triceps horseshoe
             "Triceps",
-            "M26.4 42.2 C25.5 46.6 24.9 51.4 25.2 55.4 C26.3 57.9 28.7 58.1 30.1 55.7 " +
-                "C31 51.5 31.3 46.7 30.7 43.1 C29.4 40.9 27.5 41.3 26.4 42.2 Z",
+            "M26.5 42 C25 46.5 24.5 51.5 25 55.5 C26 58 28.5 58.2 30 56 " +
+                "C31 51.8 31.3 47 30.5 43 C29.3 41 27.5 41.3 26.5 42 Z",
             center = Offset(28f, 49f), radius = 8f,
         ),
-        MusclePath( // forearm extensors (back of the arm)
+        MusclePath( // forearm extensors
             "Forearms",
-            "M25.4 57.5 C24 61.5 22.6 66 21.7 70.5 C21 74.5 20.7 78 20.9 81 " +
-                "C21.6 82.6 23 82.5 23.7 80.9 C24.5 77.4 25.1 73.5 25.7 69.5 " +
-                "C26.3 65 26.7 60.8 26.5 57.8 C26.3 57 25.8 57 25.4 57.5 Z",
+            "M25.5 57 C24 61 22.5 66 21.6 71 C20.9 75.5 20.6 79.5 20.9 82.5 " +
+                "C21.7 84 23.1 83.8 23.9 82 C24.8 78 25.4 73.5 26 69 " +
+                "C26.6 64.5 27 60 26.8 57.3 C26.5 56.4 26 56.4 25.5 57 Z",
             center = Offset(23f, 69f), radius = 8f,
         ),
-        MusclePath( // lats sweeping armpit → waist: the V-taper
+        MusclePath( // teres / infraspinatus, below traps by the armpit
             "Back",
-            "M34.6 40.2 C33.9 44 34.1 48 35.1 52 C36.6 57.4 39.5 61.8 43.4 65.2 " +
-                "C45.9 67.2 48.4 68.3 49.6 68.6 L49.6 55 C49.6 50 48 45.2 45.1 42.7 " +
-                "C41.7 40.2 37.6 39.5 34.6 40.2 Z",
-            center = Offset(42f, 53f), radius = 15f,
+            "M34.5 37.5 C32.8 38.2 31.8 39.8 32 41.8 C32.5 43.8 34.5 44.8 36.5 44 " +
+                "C38 42.8 38.3 40.5 37.6 38.5 C37 37.5 35.5 37.2 34.5 37.5 Z",
+            center = Offset(35.5f, 41f), radius = 6f,
         ),
-        MusclePath( // spinal erectors
+        MusclePath( // latissimus dorsi — the V-taper
             "Back",
-            "M46.1 69.2 C44.6 72.2 44.1 76 44.4 79.8 C45.6 82.2 47.8 83.3 49.6 83.5 " +
-                "L49.6 69.7 C48.4 69.6 47.1 69.4 46.1 69.2 Z",
-            center = Offset(47f, 76f), radius = 8f,
+            "M34.6 44 C33.6 48 34 53 35.4 57.5 C37 63 40 67.5 44 71 " +
+                "C46.3 72.8 48.5 73.5 49.6 73.8 L49.6 57 C49.6 52 48 47.5 45 45 " +
+                "C41.5 43 37.6 43 34.6 44 Z",
+            center = Offset(42f, 56f), radius = 14f,
         ),
-        MusclePath(
+        MusclePath( // erector spinae — lower back
+            "Back",
+            "M46 72 C44.5 75 44 79 44.3 83 C45.5 85.5 47.8 86.5 49.6 86.7 " +
+                "L49.6 72.5 C48.3 72.5 47 72.3 46 72 Z",
+            center = Offset(47f, 78f), radius = 8f,
+        ),
+        MusclePath( // gluteus maximus
             "Glutes",
-            "M43.1 84.2 C39.6 85.2 37.6 88.2 37.4 92.2 C37.3 96.6 39.1 100.1 42.6 101.6 " +
-                "C46.1 103 48.9 101.8 49.6 98.6 C49.9 94.2 49.8 89.2 49.4 85.7 " +
-                "C47.6 84.2 45.1 83.8 43.1 84.2 Z",
-            center = Offset(43.5f, 93f), radius = 13f,
+            "M43 85 C39.5 86 37.3 89 37.2 93.5 C37.1 98 39 101.5 42.5 103 " +
+                "C46 104.3 48.9 103 49.6 99.5 C49.9 95 49.8 90 49.4 86.5 " +
+                "C47.5 85 45 84.6 43 85 Z",
+            center = Offset(43f, 93f), radius = 13f,
         ),
-        MusclePath(
+        MusclePath( // biceps femoris — outer hamstring
             "Hamstrings",
-            "M38.1 104.2 C37.3 110 37.1 116 37.7 121 C38.5 125 40.1 127.4 42.1 128.4 " +
-                "C44.1 127.4 45.7 125 46.4 121 C47.1 115.4 47.1 109.2 46.5 104.6 " +
-                "C43.9 102.9 40.6 102.9 38.1 104.2 Z",
-            center = Offset(42f, 115f), radius = 14f,
+            "M38 105 C37 111 36.9 117 37.5 122 C38.2 126 39.5 128.5 41 129.5 " +
+                "C41.5 125 41.7 118 41.5 111 C41.3 107 40.8 105 40 104.5 " +
+                "C39 104 38.3 104.3 38 105 Z",
+            center = Offset(39.5f, 114f), radius = 10f,
         ),
-        MusclePath( // gastrocnemius diamond
+        MusclePath( // semitendinosus — inner hamstring
+            "Hamstrings",
+            "M42 105 C42.3 111 42.7 117 43.5 122 C44 125.5 45 128 46.3 128 " +
+                "C47 123 47 116 46.5 109 C46.2 106 45.5 104.5 44.3 104.3 " +
+                "C43.3 104.3 42.3 104.3 42 105 Z",
+            center = Offset(44.5f, 114f), radius = 9f,
+        ),
+        MusclePath( // gastrocnemius lateral head
             "Calves",
-            "M38.3 131.2 C37.6 136 37.6 141.6 38.5 146.4 C39.5 150.9 41.1 153.9 42.3 154.9 " +
-                "C43.6 153.9 45.1 150.9 46 146.4 C46.8 141.6 46.7 136 45.9 131.2 " +
-                "C43.4 129.3 40.6 129.3 38.3 131.2 Z",
-            center = Offset(42f, 143f), radius = 13f,
+            "M38.3 131 C37.6 136 37.7 141.5 38.6 146.5 C39.4 150.5 40.5 153 41.5 154 " +
+                "C42 149 42.2 142 42 136 C41.8 132 41 130 40 130 C39 130 38.5 130.3 38.3 131 Z",
+            center = Offset(39.7f, 141f), radius = 9f,
+        ),
+        MusclePath( // gastrocnemius medial head
+            "Calves",
+            "M42 131 C42.2 137 42.5 143 43.5 148 C44.2 151.5 45.2 153.5 46 153 " +
+                "C46.8 148 46.8 141 46.2 135 C45.9 132 45 130.3 43.8 130.3 " +
+                "C43 130.3 42.3 130.3 42 131 Z",
+            center = Offset(44.3f, 140f), radius = 9f,
+        ),
+        MusclePath( // soleus — lower calf toward the ankle
+            "Calves",
+            "M39.5 150 C39 154 39.2 158 40 160.5 C40.6 162.3 41.3 163 42 163 " +
+                "C42.7 162.3 43.4 160.5 44 158 C44.6 155 44.5 151.5 43.8 149.5 " +
+                "C42 149.5 40.5 149.5 39.5 150 Z",
+            center = Offset(42f, 156f), radius = 6f,
         ),
     )
+}
+
+private val BackDetails: List<Path> by lazy {
+    val upper = path(
+        "M49.2 20 C46.7 27 45.2 34 45.4 42 " +           // trapezius lateral border
+            "M35.2 46 C37 53 40.2 61 44.6 68 " +          // lat outer border (the V)
+            "M26.9 44.5 C28.2 48.5 28.4 52.5 27.6 56.5"   // tricep horseshoe
+    )
+    val spine = path("M49.4 47 L49.4 71")                  // spinal groove edge
+    val fold = path("M38 104.5 C41 103.5 45 103.5 47.6 105") // gluteal fold
+    listOf(upper, upper.mirrored(), spine, spine.mirrored(), fold, fold.mirrored())
 }
 
 /**
@@ -299,7 +358,7 @@ fun MuscleBodyMap(freshness: Map<String, Int>, modifier: Modifier = Modifier) {
             ).forEach { (muscles, slotX) ->
                 drawPhysique(
                     muscles = muscles,
-                    details = if (muscles === FrontMuscles) FrontDetails else emptyList(),
+                    details = if (muscles === FrontMuscles) FrontDetails else BackDetails,
                     slotX = slotX, slotW = slotW,
                     base = base, baseHi = baseHi, noData = noData, ink = ink,
                     litProgress = lit.value,
@@ -366,7 +425,7 @@ fun MuscleTargetFigure(muscles: List<String>, modifier: Modifier = Modifier) {
         ).forEach { (group, slotX) ->
             drawPhysique(
                 muscles = group,
-                details = if (group === FrontMuscles) FrontDetails else emptyList(),
+                details = if (group === FrontMuscles) FrontDetails else BackDetails,
                 slotX = slotX, slotW = slotW,
                 base = base, baseHi = baseHi, noData = cold, ink = ink,
                 litProgress = lit.value,
@@ -454,9 +513,10 @@ private fun DrawScope.drawPhysique(
                 }
             }
         }
+        // always-on striations: anatomical definition, subtle on the resting figure
         details.forEach {
             drawPath(
-                it, ink, alpha = 0.45f,
+                it, ink, alpha = 0.4f,
                 style = Stroke(width = 0.7f, cap = StrokeCap.Round),
             )
         }
