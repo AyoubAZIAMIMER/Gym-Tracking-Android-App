@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#0a0908;font-family:system-ui,-apple-system,sans-serif}
+  ::-webkit-scrollbar{height:0;width:0}
+  .phone{width:390px;background:#050403;border-radius:52px;padding:10px;box-shadow:0 50px 90px -34px rgba(0,0,0,.85),0 0 0 1px #201d19,inset 0 0 0 2px #000;flex:none}
+  .scr{border-radius:42px;overflow:hidden;position:relative;height:820px}
+  .sb{height:46px;display:flex;align-items:center;justify-content:space-between;padding:0 26px 0 30px;font:600 15px system-ui;flex:none}
+  .screen{position:absolute;inset:0;animation:screenIn .34s cubic-bezier(.2,.7,.2,1) both}
+  .screen.col{display:flex;flex-direction:column}
+  .rail{display:flex;gap:12px;overflow-x:auto;padding:2px 0 4px}
+  .tap{cursor:pointer;transition:transform .12s ease,filter .2s ease}
+  .tap:active{transform:scale(.96)}
+  @keyframes screenIn{0%{opacity:0;transform:translateY(10px) scale(.994)}100%{opacity:1;transform:none}}
+  @keyframes ringGlow{0%,100%{filter:drop-shadow(0 0 5px rgba(255,90,31,.45))}50%{filter:drop-shadow(0 0 13px rgba(255,90,31,.8))}}
+  @keyframes shimmer{0%{background-position:-140% 0}100%{background-position:240% 0}}
+  @keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+  @keyframes heatBreath{0%,100%{opacity:.62}50%{opacity:1}}
+  @keyframes muscFade{0%{opacity:0;transform:translateY(9px) scale(.985)}100%{opacity:1;transform:none}}
+  @keyframes fadeUp{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+  @keyframes timerAlarm{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  @keyframes rowSettle{0%{transform:scale(1.028)}100%{transform:scale(1)}}
+  @keyframes checkPop{0%{transform:scale(.55);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+</style>
+<script src="./bodyPaths.js"></script>
+</helmet>
+
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:34px 20px;box-sizing:border-box">
+{{ themeStyle }}
+<div class="phone"><div class="scr" style="background:var(--bg,#0e0d0b);color:var(--c-hi,#f2ede4)">
+
+  <!-- ============ HOME ============ -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <div class="screen" data-screen-label="Home" style="background:radial-gradient(120% 26% at 50% -8%,rgba(255,90,31,.12),transparent 60%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--ln,#1e1b16);z-index:4"><div data-em="bg" style="height:100%;width:{{ weekPct }};background:#FF5A1F;box-shadow:none;transition:width .32s cubic-bezier(.2,0,0,1)"></div></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="display:flex;align-items:center;padding:4px 22px 20px;flex:none;position:relative;z-index:2">
+        <div style="display:flex;align-items:center;gap:10px">{{ logoMark }}<span style="font-family:Anton;font-size:15px;letter-spacing:1.8px">FORGED</span></div>
+        <div style="flex:1"></div>
+        <div style="color:var(--c-mu,#a89f91);font-size:13px;margin-right:11px">Fri 17 Jul</div>
+        <div class="tap" onClick="{{ goSettings }}" style="width:30px;height:30px;border-radius:50%;background:var(--chip,#242019);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--c-emb,#ffb294);font-weight:700">A</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 0;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">TODAY</div>
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:#8FB4C7">LEGS FRESH</div>
+        </div>
+        <div style="padding:9px 22px 0">
+          <div style="font-weight:700;font-size:32px;line-height:1.05;letter-spacing:-.7px">{{ todayName }}</div>
+          <div style="color:var(--c-mu,#a89f91);font-size:14px;margin-top:6px">{{ todayMeta }}</div>
+        </div>
+        <div style="display:flex;gap:11px;padding:20px 22px 22px">
+          <div class="tap" onClick="{{ startSession }}" data-em="bg" style="flex:1;border-radius:16px;background:#FF5A1F;color:#1C0800;text-align:center;padding:17px;font-family:Anton;font-size:20px;letter-spacing:.5px;box-shadow:0 0 26px rgba(255,90,31,.45)">Start</div>
+          <div class="tap" onClick="{{ goPlan }}" style="width:56px;border-radius:16px;border:1px solid var(--ln,#332e27);color:var(--c-mu2,#a89f91);display:flex;align-items:center;justify-content:center;font-size:17px">⇄</div>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 14px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">THIS WEEK</div>
+          <div style="font-family:Anton;font-size:15px;color:var(--c-mid,#a89f91)">{{ weekCount }}</div>
+        </div>
+        {{ weekStrip }}
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">NEXT UP</div>
+          <span class="tap" onClick="{{ goPlan }}" style="font-size:12px;color:var(--c-mu,#a89f91)">Full plan</span>
+        </div>
+        {{ nextUpRows }}
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 10px;border-top:1px solid var(--ln,#272319);margin-top:8px">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">RECENT</div>
+          <span class="tap" onClick="{{ goHistory }}" style="font-size:12px;color:var(--c-mu,#a89f91)">All history</span>
+        </div>
+        {{ recentRows }}
+        <div style="height:112px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ SESSION ============ -->
+  <sc-if value="{{ isSession }}" hint-placeholder-val="{{ false }}">
+    <div class="screen col" data-screen-label="Session" style="background:radial-gradient(120% 30% at 50% -8%,rgba(255,90,31,.13),transparent 60%)">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--ln,#1e1b16);z-index:4"><div data-em="bg" style="height:100%;width:{{ progressPct }};background:#FF5A1F;box-shadow:none;transition:width .32s cubic-bezier(.2,0,0,1)"></div></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="display:flex;align-items:center;gap:16px;padding:2px 22px 0;flex:none;position:relative;z-index:2">
+        <div class="tap" onClick="{{ back }}" style="color:var(--c-mu2,#a89f91);font-size:22px">←</div>
+        <div style="font-family:Anton;font-size:24px;letter-spacing:.5px">{{ elapsed }}</div>
+        {{ restPill }}
+        <div style="flex:1"></div>
+        <div class="tap" onClick="{{ lock }}" style="color:var(--c-mu2,#a89f91);font-size:20px">⤢</div>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain;mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent);-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent)">
+        {{ partnerRow }}
+        <div style="padding:20px 22px 16px;display:flex;align-items:center;gap:15px">
+          <div data-em="dim" style="width:46px;height:46px;border-radius:16px;flex:none;background:var(--e1,#3a1608);display:flex;align-items:center;justify-content:center;font-family:Anton;font-size:18px;color:#FF5A1F">{{ exBadge }}</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:20px;line-height:1.25;letter-spacing:-.2px">{{ exName }}</div>
+            <div style="color:var(--c-mu,#a89f91);font-size:14px;margin-top:3px">{{ exMus }}</div>
+          </div>
+          <div style="color:var(--c-mu2,#a89f91);font-size:20px">⋮</div>
+        </div>
+        {{ pairNote }}
+
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">TODAY</div>
+          <div style="font:700 10px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">{{ setsDoneLabel }}</div>
+        </div>
+        {{ sessionSetRows }}
+
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 10px;border-top:1px solid var(--ln,#272319);margin-top:8px">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">{{ lastLabel }}</div>
+          <div style="font-size:12px;color:var(--c-lo,#6b6357)">{{ lastAgo }}</div>
+        </div>
+        {{ lastTimeRows }}
+        <div style="height:22px"></div>
+      </div>
+
+      <div style="flex:none;position:relative;z-index:2;background:var(--bg2,#1a1815);border-top:1px solid var(--ln,#35302a);padding:14px 22px 22px;box-shadow:0 -18px 34px -22px rgba(0,0,0,.9)">
+        <div style="display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">EFFORT</div>
+          {{ effortBars }}
+          <div style="flex:1"></div>
+          {{ effortWord }}
+        </div>
+        <div style="display:flex;align-items:stretch;margin-top:14px">
+          <div style="flex:1;text-align:center">
+            <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">WEIGHT KG</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:11px;margin-top:6px">
+              <div class="tap" onClick="{{ decW }}" style="width:38px;height:38px;border-radius:12px;flex:none;background:var(--chip,#242019);color:var(--c-hi,#f2ede4);display:flex;align-items:center;justify-content:center;font-size:20px">–</div>
+              <div style="font-family:Anton;font-size:44px;line-height:1;min-width:80px">{{ weightDisp }}</div>
+              <div class="tap" onClick="{{ incW }}" style="width:38px;height:38px;border-radius:12px;flex:none;background:var(--chip,#242019);color:var(--c-hi,#f2ede4);display:flex;align-items:center;justify-content:center;font-size:20px">+</div>
+            </div>
+          </div>
+          <div style="width:1px;background:var(--ln,#35302a);margin:6px 6px 0"></div>
+          <div style="flex:1;text-align:center">
+            <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">REPS</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:11px;margin-top:6px">
+              <div class="tap" onClick="{{ decR }}" style="width:38px;height:38px;border-radius:12px;flex:none;background:var(--chip,#242019);color:var(--c-hi,#f2ede4);display:flex;align-items:center;justify-content:center;font-size:20px">–</div>
+              <div style="font-family:Anton;font-size:44px;line-height:1;min-width:50px">{{ repsDisp }}</div>
+              <div class="tap" onClick="{{ incR }}" style="width:38px;height:38px;border-radius:12px;flex:none;background:var(--chip,#242019);color:var(--c-hi,#f2ede4);display:flex;align-items:center;justify-content:center;font-size:20px">+</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:11px;margin-top:18px">
+          <div class="tap" style="width:56px;border-radius:16px;border:1px solid var(--ln,#332e27);color:var(--c-mu2,#a89f91);display:flex;align-items:center;justify-content:center;font-size:20px">✎</div>
+          <div class="tap" onClick="{{ logSet }}" data-em="bg" style="flex:1;border-radius:16px;background:#FF5A1F;color:#1C0800;text-align:center;padding:17px;font-family:Anton;font-size:20px;letter-spacing:.5px;box-shadow:0 0 26px rgba(255,90,31,.45)">Complete set</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ RECOVERY ============ -->
+  <sc-if value="{{ isRecovery }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" data-screen-label="Recovery" style="background:radial-gradient(110% 26% at 20% -6%,rgba(143,180,199,.09),transparent 58%),radial-gradient(110% 24% at 90% -4%,rgba(255,90,31,.1),transparent 58%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="padding:4px 22px 18px;flex:none;position:relative;z-index:2">
+        <div style="font-weight:700;font-size:28px;letter-spacing:-.5px">Recovery</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 0;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">READINESS</div>
+          <div style="font:700 9.5px ui-monospace,Menlo,monospace;letter-spacing:1.1px;color:var(--c-lo,#5c554a)">WEIGHTED BY MUSCLE SIZE</div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:15px;padding:10px 22px 0">
+          <div style="font-family:Anton;font-size:54px;line-height:.88;color:#8FB4C7">{{ readinessPct }}<span style="font-size:22px">%</span></div>
+          <div style="flex:1;padding-bottom:6px">
+            <div style="font-size:14px;font-weight:600">ready to train</div>
+            <div style="color:var(--c-mu,#a89f91);font-size:12px;margin-top:3px;line-height:1.45">{{ readinessNote }}</div>
+          </div>
+        </div>
+        <div style="padding:16px 22px 20px">{{ readinessBar }}</div>
+        <div style="display:flex;justify-content:space-around;align-items:flex-end;padding:20px 22px 0;border-top:1px solid var(--ln,#272319)">
+          <div style="text-align:center">{{ recoveryFront }}<div style="font:700 9.5px ui-monospace,Menlo,monospace;letter-spacing:1.5px;color:var(--c-mu,#a89f91);margin-top:9px">FRONT</div></div>
+          <div style="text-align:center">{{ recoveryBack }}<div style="font:700 9.5px ui-monospace,Menlo,monospace;letter-spacing:1.5px;color:var(--c-mu,#a89f91);margin-top:9px">BACK</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:20px 22px 20px">
+          <span style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:#8FB4C7">FRESH</span>
+          <div style="flex:1;height:4px;border-radius:3px;background:linear-gradient(90deg,#8FB4C7,#D08A45,#FF5A1F,#FF3320)"></div>
+          <span style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:#FF3320">FATIGUED</span>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">BY MUSCLE</div>
+          <div style="font:700 9.5px ui-monospace,Menlo,monospace;letter-spacing:1.1px;color:var(--c-lo,#5c554a)">SHARE · FRESH</div>
+        </div>
+        {{ recoveryList }}
+        <div class="tap" onClick="{{ startSession }}" data-em="rail" style="display:flex;align-items:center;gap:13px;padding:15px 22px;margin-top:8px;background:var(--e1,#3a1608);border-left:3px solid #FF5A1F;border-top:1px solid var(--ln,#272319)">
+          <div style="flex:1"><div style="font-weight:700;font-size:15px">Legs are prime</div><div style="color:var(--c-mid,#a89f91);font-size:12px;margin-top:2px">Train Lower 1 today — chest &amp; delts still cooling.</div></div>
+          <div data-em="fg" style="color:#FF5A1F;font-size:18px">›</div>
+        </div>
+        <div style="height:112px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ STATS ============ -->
+  <sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" data-screen-label="Stats" style="background:radial-gradient(120% 26% at 50% -8%,rgba(255,90,31,.12),transparent 60%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="padding:4px 22px 0;flex:none;position:relative;z-index:2">
+        <div style="font-weight:700;font-size:28px;letter-spacing:-.5px">Stats</div>
+        <div style="margin-top:16px">{{ statToggle }}</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        <div style="padding:18px 22px 0;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">VOLUME THIS {{ periodUpper }}</div>
+          <div style="display:flex;align-items:baseline;gap:11px;margin-top:8px">
+            <div style="font-family:Anton;font-size:44px;line-height:.95">{{ periodVol }}<span style="font-size:17px;color:var(--c-lo,#6b6357);margin-left:4px">kg</span></div>
+            <div style="font-size:12px;font-weight:700;color:#B8C77A">▲ 12%</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:26px;padding:16px 22px 20px">
+          <div><div style="font-family:Anton;font-size:20px">{{ periodSessions }}</div><div style="font-size:11.5px;color:var(--c-mu,#a89f91);margin-top:1px">sessions</div></div>
+          <div><div style="font-family:Anton;font-size:20px;color:#FFC93C">{{ periodPRs }}</div><div style="font-size:11.5px;color:var(--c-mu,#a89f91);margin-top:1px">PRs</div></div>
+          <div><div style="font-family:Anton;font-size:20px">{{ periodHours }}</div><div style="font-size:11.5px;color:var(--c-mu,#a89f91);margin-top:1px">hours</div></div>
+        </div>
+        <div style="padding:18px 22px 14px;border-top:1px solid var(--ln,#272319)"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">WEEKLY VOLUME · 8 WKS</div></div>
+        <div style="padding:0 22px 20px">{{ statVolBars }}</div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 12px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">SQUAT · EST. 1RM</div>
+          <div data-em="fg" style="font-family:Anton;font-size:17px;color:#FF5A1F">132.5<span style="font-size:11px;color:var(--c-lo,#6b6357)">kg</span></div>
+        </div>
+        <div style="padding:0 22px 20px">{{ statSpark }}</div>
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">PERSONAL RECORDS</div></div>
+        {{ statPRs }}
+        <div style="height:112px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ HISTORY ============ -->
+  <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" data-screen-label="History" style="background:radial-gradient(120% 24% at 50% -8%,rgba(255,90,31,.1),transparent 60%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="padding:4px 22px 18px;flex:none;position:relative;z-index:2;display:flex;align-items:center;gap:14px">
+        <div style="font-weight:700;font-size:28px;letter-spacing:-.5px;flex:1">History</div>
+        <div class="tap" style="color:var(--c-mu2,#a89f91);font-size:18px">⌕</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        <div style="display:flex;align-items:center;gap:26px;padding:18px 22px 20px;border-top:1px solid var(--ln,#272319)">
+          <div><div style="font-family:Anton;font-size:22px">4</div><div style="font-size:11.5px;color:var(--c-mu,#a89f91);margin-top:1px">sessions this week</div></div>
+          <div><div style="font-family:Anton;font-size:22px">64,950<span style="font-size:11px;color:var(--c-lo,#6b6357);margin-left:3px">kg</span></div><div style="font-size:11.5px;color:var(--c-mu,#a89f91);margin-top:1px">total lifted</div></div>
+        </div>
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">SESSIONS</div></div>
+        {{ historyList }}
+        <div style="height:112px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ SETTINGS ============ -->
+  <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" data-screen-label="Settings" style="background:radial-gradient(120% 22% at 50% -8%,rgba(255,90,31,.09),transparent 60%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="padding:4px 22px 18px;flex:none;position:relative;z-index:2;display:flex;align-items:center;gap:14px">
+        <div class="tap" onClick="{{ back }}" style="color:var(--c-mu2,#a89f91);font-size:22px">←</div>
+        <div style="font-weight:700;font-size:28px;letter-spacing:-.5px">Settings</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        <div style="display:flex;align-items:center;gap:15px;padding:18px 22px 20px;border-top:1px solid var(--ln,#272319)">
+          <div data-em="dim" style="width:52px;height:52px;border-radius:50%;flex:none;background:var(--e1,#3a1608);display:flex;align-items:center;justify-content:center;font-family:Anton;font-size:21px;color:var(--c-emb,#ffb294)">A</div>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:17px">Ayoub</div>
+            <div style="color:var(--c-mu,#a89f91);font-size:13px;margin-top:2px">7-week streak · since Mar 2026</div>
+          </div>
+          <div class="tap" style="color:var(--c-mu2,#5f584e);font-size:18px">›</div>
+        </div>
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">TRAINING</div></div>
+        {{ setTraining }}
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319);margin-top:8px"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">REST TIMER</div></div>
+        {{ setRest }}
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319);margin-top:8px"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">APP</div></div>
+        {{ setApp }}
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319);margin-top:8px"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">DATA</div></div>
+        {{ setData }}
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319);margin-top:8px"><div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">ABOUT</div></div>
+        {{ setAbout }}
+        <div class="tap" style="margin:26px 22px 0;border-radius:16px;border:1px solid var(--ln,#332e27);color:var(--c-mu2,#a89f91);text-align:center;padding:15px;font-size:15px;font-weight:600">Sign out</div>
+        <div style="height:34px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ PLAN ============ -->
+  <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" data-screen-label="Plan" style="background:radial-gradient(120% 26% at 50% -8%,rgba(255,90,31,.11),transparent 60%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="padding:4px 22px 18px;flex:none;position:relative;z-index:2;display:flex;align-items:baseline;justify-content:space-between">
+        <div style="font-weight:700;font-size:28px;letter-spacing:-.5px">Plan</div>
+        <div style="font-size:12px;color:var(--c-mu,#a89f91)">Upper Lower v1</div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:18px 22px 12px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">THIS WEEK</div>
+          <div style="font-family:Anton;font-size:15px;color:var(--c-mid,#a89f91)">{{ weekCount }}</div>
+        </div>
+        {{ weekStrip }}
+        <div style="padding:18px 22px 10px;border-top:1px solid var(--ln,#272319)">
+          <div style="font:700 11px ui-monospace,Menlo,monospace;letter-spacing:1.2px;color:var(--c-mu,#a89f91)">SESSIONS</div>
+        </div>
+        {{ planRows }}
+        <div class="tap" onClick="{{ goLibrary }}" style="display:flex;align-items:center;gap:14px;padding:15px 22px;border-top:1px solid var(--ln,#272319);margin-top:8px">
+          <div style="flex:1"><div style="font-weight:600;font-size:16px">Exercise library</div><div style="color:var(--c-mu,#a89f91);font-size:12px;margin-top:2px">Browse and swap movements</div></div>
+          <div style="color:var(--c-mu2,#5f584e);font-size:18px">›</div>
+        </div>
+        <div style="height:112px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ LIBRARY ============ -->
+  <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ false }}">
+    <div class="screen" data-screen-label="Library" style="background:radial-gradient(120% 26% at 50% -8%,rgba(255,90,31,.1),transparent 60%);display:flex;flex-direction:column">
+      <div style="position:absolute;inset:0;background-image:radial-gradient(rgba(255,240,225,.035) .5px,transparent .5px);background-size:3px 3px;pointer-events:none;z-index:1"></div>
+      <div class="sb" style="position:relative;z-index:2"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="padding:4px 22px 16px;flex:none;position:relative;z-index:2;display:flex;align-items:center;gap:14px">
+        <div style="font-weight:700;font-size:28px;letter-spacing:-.5px;flex:1">Library</div>
+        <div style="font-size:12px;color:var(--c-mu,#a89f91)">{{ libCount }}</div>
+      </div>
+      <div style="flex:none;position:relative;z-index:2;padding-bottom:14px">{{ libChips }}</div>
+      <div style="flex:1;min-height:0;overflow-y:auto;position:relative;z-index:2;overscroll-behavior:contain">
+        {{ libraryRows }}
+        <div style="height:112px"></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ DONE ============ -->
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+    <div class="screen col" style="background:radial-gradient(120% 50% at 50% -8%,rgba(255,90,31,.22),transparent 60%)">
+      <div class="sb"><span>9:41</span><span style="font-size:12px;letter-spacing:1px;opacity:.85">📶 &nbsp;◗</span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px;text-align:center">
+        <div style="animation:fadeUp .5s ease both">{{ logoBig }}</div>
+        <div style="font-family:Anton;font-size:44px;line-height:.95;margin-top:18px">Lower 1<br>forged.</div>
+        <div style="color:var(--c-mid,#a89f91);font-size:14px;margin-top:12px">{{ doneSummary }}</div>
+        <div style="display:flex;gap:26px;margin-top:26px">
+          <div><div style="font-family:Anton;font-size:28px;color:#FFC93C">2</div><div style="font-size:11px;color:var(--c-mu,#a89f91)">new PRs</div></div>
+          <div><div style="font-family:Anton;font-size:28px">{{ doneMinutes }}</div><div style="font-size:11px;color:var(--c-mu,#a89f91)">{{ doneMinLabel }}</div></div>
+          <div><div style="font-family:Anton;font-size:28px;color:#B8C77A">▲9%</div><div style="font-size:11px;color:var(--c-mu,#a89f91)">vs last</div></div>
+        </div>
+        <div class="tap" onClick="{{ back }}" data-em="bg" style="margin-top:34px;border-radius:24px;background:#FF5A1F;color:#1C0800;padding:15px 40px;font-family:Anton;font-size:18px;box-shadow:0 0 26px rgba(255,90,31,.5)">Done</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ============ LIVE ACTIVITY (lock screen) ============ -->
+  <sc-if value="{{ isLock }}" hint-placeholder-val="{{ false }}">
+    <div class="screen col tap" onClick="{{ unlock }}" style="background:linear-gradient(180deg,#0d0b09,#181009 55%,#0a0806);align-items:center">
+      <div style="margin-top:14px;height:37px;border-radius:24px;background:#000;display:flex;align-items:center;gap:10px;padding:0 14px 0 6px;box-shadow:0 3px 14px rgba(0,0,0,.6)">
+        {{ diTimer }}
+        <div style="display:flex;align-items:center;gap:6px">{{ logoMarkSm }}<span style="font-family:Anton;font-size:12px;letter-spacing:.5px;color:#F2EDE4">FORGED</span></div>
+      </div>
+      <div style="margin-top:42px;text-align:center">
+        <div style="font-size:15px;color:#a89f91;letter-spacing:.3px">Friday, 17 July</div>
+        <div style="font-family:Anton;font-size:82px;line-height:.9;letter-spacing:1px;color:#F2EDE4">9:41</div>
+      </div>
+      <div style="margin:46px 16px 0;width:calc(100% - 32px);border-radius:26px;background:rgba(22,19,16,.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,182,138,.12);padding:18px;animation:fadeUp .5s ease both">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:15px">{{ logoMarkSm }}<span style="font-family:Anton;font-size:13px;letter-spacing:1px;color:#F2EDE4">FORGED</span><span style="margin-left:auto;font-size:11px;color:#a89f91">Lower 1 · live</span></div>
+        <div style="display:flex;align-items:center;gap:18px">
+          {{ laTimer }}
+          <div style="flex:1">
+            {{ lockStatus }}
+            <div style="color:#a89f91;font-size:13px;margin-top:7px">{{ lockLine }}</div>
+            <div style="color:#a89f91;font-size:12px;margin-top:2px">{{ lockNext }}</div>
+            <div style="display:flex;gap:8px;margin-top:13px">
+              <div class="tap" onClick="{{ logSet }}" data-em="bg" style="border-radius:16px;background:#FF5A1F;color:#1C0800;padding:8px 16px;font-weight:700;font-size:12px">Log set</div>
+              <div class="tap" onClick="{{ addRest }}" style="border-radius:16px;border:1px solid #3a352d;color:#F2EDE4;padding:8px 16px;font-weight:600;font-size:12px">+15s</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:6px;color:#a89f91;font-size:12px;margin-bottom:26px">↑ Swipe up to open Forged</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+    {{ restStrip }}
+    {{ nav }}
+  </sc-if>
+
+</div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;mode&quot;: {&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Dark&quot;,&quot;options&quot;:[&quot;Dark&quot;,&quot;Light&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Theme&quot;},
+  &quot;heat&quot;: {&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Ember&quot;,&quot;options&quot;:[&quot;Quenched&quot;,&quot;Ember&quot;,&quot;Molten&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel&quot;},
+  &quot;energy&quot;: {&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Alive&quot;,&quot;options&quot;:[&quot;Calm&quot;,&quot;Alive&quot;,&quot;Roaring&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel&quot;},
+  &quot;surface&quot;: {&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;Glass&quot;,&quot;options&quot;:[&quot;Flat&quot;,&quot;Soft&quot;,&quot;Glass&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Feel&quot;}
+}">
+class Component extends DCLogic {
+  WORKOUT = [
+    {name:'Squat (Barbell)', mus:'Quads · Glutes', reps:'6–10', sets:4, w:100, r:8, last:'100 × 9', hist:[[100,9],[100,8],[97.5,9]], histDate:'11 JUL', histAgo:'6 days ago'},
+    {name:'Leg Curl (Machine)', mus:'Hamstrings', reps:'8–12', sets:4, w:45, r:11, last:'42.5 × 11', hist:[[42.5,11],[42.5,10]], histDate:'11 JUL', histAgo:'6 days ago'},
+    {name:'Face Pull (Cable)', mus:'Shoulders · Back', reps:'12–15', sets:4, w:25, r:14, last:'25 × 13', pair:'A1', partner:'Hyperextension', hist:[[25,13],[25,12]], histDate:'11 JUL', histAgo:'6 days ago'},
+    {name:'Hyperextension', mus:'Back · Glutes', reps:'15–20', sets:4, w:20, r:16, last:'BW × 18', pair:'A2', partner:'Face Pull (Cable)', hist:[[20,18],[20,16]], histDate:'11 JUL', histAgo:'6 days ago'},
+    {name:'Calf Raise (Machine)', mus:'Calves', reps:'AMRAP', sets:4, w:90, r:15, last:'90 × 14', hist:[[90,14],[90,13]], histDate:'11 JUL', histAgo:'6 days ago'},
+    {name:'Ab Machine', mus:'Abs', reps:'AMRAP', sets:4, w:45, r:18, last:'45 × 17', hist:[[45,17],[45,15]], histDate:'11 JUL', histAgo:'6 days ago'},
+  ];
+  EFFORT_WORDS = ['Easy','Steady','Hard','Very hard','All out'];
+  state = { screen:'home', exIdx:0, logs:{}, weight:100, reps:8, effort:null, elapsedS:2073, resting:false, restT:90, paused:false, period:'Week', lib:'All',
+    unit:'kg', step:2.5, restDefault:90, autoStart:true, alert:true, haptics:true, theme:'Dark' };
+  mkSets(ex){ return Array.from({length:ex.sets},(_,i)=>({status:i===0?'active':'todo', w:ex.w, r:ex.r, e:null})); }
+  setsFor(logs, i){ return (logs[i] || this.mkSets(this.WORKOUT[i])).map(x=>({...x})); }
+  activateNext(sets){ const n = sets.findIndex(x=>x.status!=='done'); sets.forEach(x=>{ if(x.status==='active') x.status='todo'; }); if(n>=0) sets[n].status='active'; return n; }
+  componentDidMount(){
+    if(!window.FORGE_BODY_FRONT){
+      let n=0; const bt=setInterval(()=>{ n++; if(window.FORGE_BODY_FRONT||n>60){clearInterval(bt); this.forceUpdate();} },50);
+    }
+    this._iv = setInterval(()=>{
+      this.setState(s => {
+        const u = {};
+        if (s.resting && !s.paused) u.restT = s.restT - 1;
+        if (s.screen === 'session' || s.screen === 'lock') u.elapsedS = s.elapsedS + 1;
+        return Object.keys(u).length ? u : null;
+      });
+    }, 1000);
+  }
+  componentWillUnmount(){ if(this._iv) clearInterval(this._iv); }
+
+  setEffort = (n) => this.setState({effort:n});
+
+  logSet = () => {
+    this.setState(s => {
+      const ex = this.WORKOUT[s.exIdx];
+      const sets = this.setsFor(s.logs, s.exIdx);
+      const ai = sets.findIndex(x=>x.status==='active');
+      if (ai < 0) return null;
+      sets[ai] = {status:'done', w:s.weight, r:s.reps, e:s.effort};
+      const logs = {...s.logs, [s.exIdx]: sets};
+      const onLock = s.screen === 'lock';
+      const goTo = (i, rest) => {
+        const t = this.WORKOUT[i];
+        const ts = this.setsFor(logs, i);
+        this.activateNext(ts);
+        logs[i] = ts;
+        const act = ts.find(x=>x.status==='active');
+        return {logs, exIdx:i, weight:(act?act.w:t.w), reps:(act?act.r:t.r), effort:null,
+          resting:!!rest, restT:(rest||90), paused:false, screen: onLock ? 'lock' : 'session'};
+      };
+      // superset A1 → straight into A2, no rest
+      if (ex.pair === 'A1' && this.WORKOUT[s.exIdx+1] && this.WORKOUT[s.exIdx+1].pair === 'A2') {
+        if (this.setsFor(logs, s.exIdx+1).some(x=>x.status!=='done')) return goTo(s.exIdx+1, 0);
+      }
+      // superset A2 → back to A1 for the next round, now rest
+      if (ex.pair === 'A2' && this.WORKOUT[s.exIdx-1] && this.WORKOUT[s.exIdx-1].pair === 'A1') {
+        if (this.setsFor(logs, s.exIdx-1).some(x=>x.status!=='done')) return goTo(s.exIdx-1, 120);
+      }
+      // more sets left in this exercise
+      if (sets.some(x=>x.status!=='done')) return goTo(s.exIdx, 90);
+      // next unfinished exercise
+      for (let i = 0; i < this.WORKOUT.length; i++) {
+        if (this.setsFor(logs, i).some(x=>x.status!=='done')) return goTo(i, 90);
+      }
+      return {logs, resting:false, screen:'done'};
+    });
+  };
+
+  renderVals() {
+    const R = React.createElement;
+    const P = this.props || {};
+    const S = this.state;
+    const scr = S.screen;
+    const LM = P.mode === 'Light';
+    const heatK = ['Quenched','Ember','Molten'].includes(P.heat) ? P.heat : 'Ember';
+    const energy = ['Calm','Alive','Roaring'].includes(P.energy) ? P.energy : 'Alive';
+    const surfaceK = ['Flat','Soft','Glass'].includes(P.surface) ? P.surface : 'Soft';
+    const HEAT = ({
+      Quenched:{a:'#8FB4C7',dim:'rgba(143,180,199,.16)',glow:'rgba(143,180,199,.5)',fg:'#0C1519'},
+      Ember:{a:'#FF5A1F',dim:'#3A1608',glow:'rgba(255,90,31,.55)',fg:'#1C0800'},
+      Molten:{a:'#FF3320',dim:'rgba(255,51,32,.18)',glow:'rgba(255,51,32,.6)',fg:'#1C0400'},
+    })[heatK];
+    if (LM) HEAT.dim = ({Quenched:'rgba(143,180,199,.22)',Ember:'rgba(255,90,31,.13)',Molten:'rgba(255,51,32,.13)'})[heatK];
+    const AC = HEAT.a;
+    const motionOn = energy !== 'Calm';
+    const navSurf = (LM ? ({
+      Flat:{bg:'rgba(255,255,255,.94)',bd:'1px solid rgba(31,24,16,.10)',blur:'blur(6px)'},
+      Soft:{bg:'rgba(255,255,255,.9)',bd:'1px solid rgba(31,24,16,.08)',blur:'blur(14px)'},
+      Glass:{bg:'rgba(255,252,248,.72)',bd:'1px solid rgba(31,24,16,.08)',blur:'blur(22px)'},
+    }) : ({
+      Flat:{bg:'rgba(14,13,11,.9)',bd:'1px solid #201d18',blur:'blur(6px)'},
+      Soft:{bg:'rgba(26,24,21,.9)',bd:'1px solid rgba(255,182,138,.07)',blur:'blur(14px)'},
+      Glass:{bg:'rgba(20,18,15,.55)',bd:'1px solid rgba(255,182,138,.16)',blur:'blur(22px)'},
+    }))[surfaceK];
+    const cardSurf = (LM ? ({
+      Flat:{background:'#ffffff',border:'1px solid rgba(31,24,16,.10)',backdropFilter:'none',boxShadow:'none'},
+      Soft:{background:'#ffffff',border:'1px solid rgba(31,24,16,.08)',backdropFilter:'none',boxShadow:'0 1px 2px rgba(31,24,16,.05)'},
+      Glass:{background:'rgba(255,255,255,.72)',border:'1px solid rgba(31,24,16,.08)',backdropFilter:'blur(14px)',boxShadow:'0 14px 30px -18px rgba(31,24,16,.16)'},
+    }) : ({
+      Flat:{background:'transparent',border:'1px solid #201d18',backdropFilter:'none',boxShadow:'none'},
+      Soft:{background:'rgba(36,32,25,.5)',border:'1px solid var(--ln,#262219)',backdropFilter:'none',boxShadow:'none'},
+      Glass:{background:'rgba(26,24,21,.5)',border:'1px solid rgba(255,182,138,.1)',backdropFilter:'blur(14px)',boxShadow:'0 14px 30px -16px rgba(0,0,0,.7)'},
+    }))[surfaceK];
+
+    // ---- logo (barbell) ----
+    const barbell = (size, color) => R('svg', {viewBox:'0 0 32 32', style:{width:size,height:size}}, [
+      R('rect',{key:'bar',x:9,y:14.25,width:14,height:3.5,rx:1.5,fill:color}),
+      R('rect',{key:'il',x:6.5,y:9.5,width:3.5,height:13,rx:1.6,fill:color}),
+      R('rect',{key:'ir',x:22,y:9.5,width:3.5,height:13,rx:1.6,fill:color}),
+      R('rect',{key:'ol',x:3,y:12,width:3,height:8,rx:1.4,fill:color}),
+      R('rect',{key:'or',x:26,y:12,width:3,height:8,rx:1.4,fill:color}),
+    ]);
+    const logoMark = barbell(24, AC);
+    const logoBig = barbell(40, AC);
+    const logoMarkSm = barbell(18, AC);
+
+    // ---- rest timer ring (value-driven) ----
+    const TT = 90; const val = S.restT;
+    const over = val < 0;
+    const frac = Math.max(0, Math.min(1, val/TT));
+    const tcol = over ? '#FF3320' : (val <= 30 ? '#FF5A1F' : '#8FB4C7');
+    const mmss = (v)=>{ const a=Math.abs(v),m=Math.floor(a/60),s=a%60; return (v<0?'+':'')+m+':'+String(s).padStart(2,'0'); };
+    const timerText = mmss(val);
+    const timerRing = (size, sw, cap)=>{
+      const r=(size-sw)/2, c=2*Math.PI*r, off=c*(1-(over?1:frac));
+      return R('div',{style:{position:'relative',width:size,height:size,flex:'none',animation:(over&&motionOn&&!S.paused)?'timerAlarm .9s ease-in-out infinite':'none'}},[
+        R('svg',{key:'s',viewBox:`0 0 ${size} ${size}`,style:{width:size,height:size,transform:'rotate(-90deg)'}},[
+          R('circle',{key:'b',cx:size/2,cy:size/2,r,fill:'none',stroke:(LM?'rgba(31,24,16,.12)':'rgba(255,255,255,.09)'),strokeWidth:sw}),
+          R('circle',{key:'f',cx:size/2,cy:size/2,r,fill:'none',stroke:tcol,strokeWidth:sw,strokeLinecap:'round',strokeDasharray:c,strokeDashoffset:off,style:{transition:'stroke-dashoffset 1s linear, stroke .5s ease',filter:`drop-shadow(0 0 5px ${tcol})`}}),
+        ]),
+        R('div',{key:'l',style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',lineHeight:1}},[
+          R('div',{key:'t',style:{fontFamily:'Anton',fontSize:Math.round(size*0.27),color:tcol,fontVariantNumeric:'tabular-nums'}},timerText),
+          cap?R('div',{key:'c',style:{fontSize:Math.round(size*0.085),color:'#a89f91',letterSpacing:'1.5px',marginTop:size*0.05,fontWeight:700}},over?'OVERTIME':'REST'):null,
+        ]),
+      ]);
+    };
+    const laTimer = timerRing(96,7,true);
+    const diTimer = timerRing(30,3.5,false);
+
+    // ---- muscle map ----
+    const FRONT_G = window.FORGE_BODY_FRONT || [];
+    const BACK_G  = window.FORGE_BODY_BACK  || [];
+    const FVB = '45 95 640 1260', BVB = '765 95 640 1260';
+    const makeBody = (groups, vb, hi, o) => {
+      o = o || {};
+      const base = o.base || (LM ? '#e7ded0' : '#2c2620');
+      const strk = o.stroke || (LM ? 'rgba(31,24,16,.12)' : 'rgba(242,237,228,.13)');
+      const els = [];
+      groups.forEach((g, gi) => {
+        const head = g.s === 'head' || g.s === 'hair';
+        const on = hi && hi[g.s];
+        const col = on ? hi[g.s] : (head ? (g.s === 'head' ? (LM?'#ded4c5':'#221d17') : (LM?'#d6ccbc':'#191510')) : base);
+        let st;
+        if (motionOn && on && o.pulse) st = {animation:`heatBreath ${o.pulse}s ease-in-out infinite`, animationDelay:((gi*0.13)%1.4).toFixed(2)+'s', filter:`drop-shadow(0 0 4px ${col})`};
+        else if (motionOn && o.reveal) st = {animation:'muscFade .55s cubic-bezier(.2,.7,.2,1) both', animationDelay:(0.05+gi*0.045).toFixed(2)+'s'};
+        else if (on) st = {filter:`drop-shadow(0 0 3px ${col})`};
+        g.p.forEach((d, pi) => els.push(R('path', {key:g.s+gi+'_'+pi, d, fill:col, stroke: head?'none':strk, strokeWidth: head?0:1.5, strokeLinejoin:'round', style: st})));
+      });
+      return R('svg', {viewBox:vb, style:{height:o.h||160, display:'block', overflow:'visible'}}, els);
+    };
+    const CFRESH='#8FB4C7',CWARM='#D08A45',CHOT='#FF5A1F',CBURN='#FF3320';
+    const recHiFront = {chest:CBURN, deltoids:CHOT, biceps:CHOT, triceps:CWARM, forearm:CFRESH, abs:CFRESH, obliques:CFRESH, quadriceps:CFRESH, adductors:CFRESH, calves:CFRESH, tibialis:CFRESH};
+    const recHiBack  = {deltoids:CHOT, trapezius:CHOT, triceps:CHOT, 'upper-back':CWARM, 'lower-back':CWARM, forearm:CFRESH, gluteal:CFRESH, hamstring:CFRESH, calves:CFRESH};
+    const recPulse = energy==='Roaring' ? 1.7 : 3.6;
+    const recoveryFront = makeBody(FRONT_G, FVB, recHiFront, {h:210, pulse:recPulse});
+    const recoveryBack  = makeBody(BACK_G,  BVB, recHiBack,  {h:210, pulse:recPulse});
+    const heatOf = (v) => v>=80?CFRESH : v>=60?CWARM : v>=30?CHOT : CBURN;
+    // [name, freshness %, share of total muscle mass %] — sorted fresh → fatigued so the bar
+    // reads as one gradient and the deficit gathers on the right
+    const recList=[['Legs',92,40],['Core',91,8],['Arms',74,10],['Back',61,20],['Shoulders',34,10],['Chest',22,12]];
+    const recWeight = recList.reduce((s,m)=>s+m[2],0);
+    const readinessPct = Math.round(recList.reduce((s,m)=>s+m[1]*m[2],0)/recWeight);
+    const limiters = recList.slice().sort((x,y)=>x[1]-y[1]).slice(0,2).map(m=>m[0].toLowerCase());
+    const readinessNote = limiters[0].charAt(0).toUpperCase()+limiters[0].slice(1)+' and '+limiters[1]+' are holding you back.';
+    const readinessBar = R('div',{style:{display:'flex',gap:3,alignItems:'stretch',height:12}},
+      recList.map((m,i)=>R('div',{key:i,title:m[0],style:{flex:m[2],borderRadius:3,background:'var(--ln,#231f1a)',overflow:'hidden',display:'flex'}},
+        R('div',{style:{width:m[1]+'%',background:heatOf(m[1]),borderRadius:3,
+          boxShadow: motionOn?`0 0 8px ${heatOf(m[1])}55`:'none',
+          transition:'width .42s cubic-bezier(.2,0,0,1)'}}))));
+    const recoveryList = recList.map((m,i)=>{
+      const c = heatOf(m[1]);
+      return R('div',{key:i,style:{display:'flex',alignItems:'center',gap:13,padding:'12px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+        R('div',{key:'d',style:{width:9,height:9,borderRadius:'50%',background:c,boxShadow:`0 0 7px ${c}`,flex:'none'}}),
+        R('div',{key:'t',style:{flex:1,fontWeight:600,fontSize:15}},m[0]),
+        R('div',{key:'w',style:{font:'700 9.5px ui-monospace,Menlo,monospace',letterSpacing:'1px',color:'var(--c-lo,#5c554a)',marginRight:2}}, m[2]+'%'),
+        R('div',{key:'bar',style:{width:70,height:4,borderRadius:3,background:'var(--ln,#241f1a)',overflow:'hidden'}},
+          R('div',{style:{height:'100%',width:m[1]+'%',background:c,transition:'width .32s cubic-bezier(.2,0,0,1)'}})),
+        R('div',{key:'s',style:{width:40,textAlign:'right',fontFamily:'Anton',fontSize:16,color:'var(--c-mid,#a89f91)'}}, m[1]+'%'),
+      ]);
+    });
+
+    // ---- session derived ----
+    const exIdx = Math.min(S.exIdx, this.WORKOUT.length-1);
+    const ex = this.WORKOUT[exIdx];
+    const sets = this.setsFor(S.logs, exIdx);
+    const ai = sets.findIndex(x=>x.status==='active');
+    const curSetNo = ai<0 ? sets.length : ai+1;
+    const doneInEx = sets.filter(x=>x.status==='done').length;
+    let allSets = 0, allDone = 0;
+    this.WORKOUT.forEach((w,i)=>{ const ws = this.setsFor(S.logs, i); allSets += ws.length; allDone += ws.filter(x=>x.status==='done').length; });
+    const progressPct = Math.round(allDone/allSets*100) + '%';
+    const nextExName = this.WORKOUT[exIdx+1] ? this.WORKOUT[exIdx+1].name : 'Finish workout';
+    let totSets = 0, totVol = 0, totEx = 0;
+    this.WORKOUT.forEach((w,i)=>{ const ws = this.setsFor(S.logs, i); const d = ws.filter(x=>x.status==='done'); totSets += d.length; d.forEach(x=>{ totVol += (x.w||0)*(x.r||0); }); if (d.length === ws.length) totEx++; });
+    const doneSummary = totEx + (totEx===1?' exercise \u00b7 ':' exercises \u00b7 ') + totSets + (totSets===1?' set \u00b7 ':' sets \u00b7 ') + Math.round(totVol).toLocaleString('en-US') + ' kg moved';
+    const doneMinutes = Math.max(1, Math.round(S.elapsedS/60));
+    const doneMinLabel = doneMinutes === 1 ? 'minute' : 'minutes';
+    const mm = Math.floor(S.elapsedS/60), ss2 = S.elapsedS%60;
+    const elapsed = mm + ':' + String(ss2).padStart(2,'0');
+    const exBadge = ex.pair || String(exIdx+1);
+    const setsDoneLabel = doneInEx + ' / ' + sets.length;
+    const isSuper = !!ex.pair;
+
+    const restPill = S.resting
+      ? R('div',{className:'tap',onClick:this.skipRest,'data-em':'bg',style:{display:'flex',alignItems:'center',gap:6,background:AC,color:HEAT.fg,borderRadius:8,padding:'5px 11px',fontFamily:'Anton',fontSize:15,fontVariantNumeric:'tabular-nums',animation:motionOn?'emberPulse 3s ease-in-out infinite':'none'}}, timerText)
+      : R('div',{style:{border:'1px solid var(--ln,#332e27)',color:'var(--c-mu2,#a89f91)',borderRadius:8,padding:'5px 11px',fontFamily:'Anton',fontSize:15}}, ex.pair==='A1' ? 'No rest' : (isSuper ? '2:00' : '1:30'));
+
+    const partnerRow = (ex.pair === 'A2' && this.WORKOUT[exIdx-1]) ? (() => {
+      const pr = this.WORKOUT[exIdx-1], ps = this.setsFor(S.logs, exIdx-1), pd2 = ps.filter(x=>x.status==='done').length;
+      return R('div',{className:'tap',onClick:()=>this.setState({exIdx:exIdx-1}),style:{padding:'18px 22px 12px',display:'flex',alignItems:'center',gap:14,opacity:.55}},[
+        R('div',{key:'b',style:{width:34,height:34,borderRadius:12,flex:'none',background:'var(--chip,#242019)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Anton',fontSize:14,color:'var(--c-mu,#a89f91)'}},'A1'),
+        R('div',{key:'n',style:{flex:1,fontSize:16,fontWeight:600,color:'var(--c-mu2,#a89f91)'}},pr.name),
+        R('div',{key:'c',style:{display:'flex',alignItems:'center',gap:8}},[
+          R('div',{key:1,style:{fontFamily:'Anton',fontSize:16,color:'var(--c-mu,#a89f91)'}}, pd2+' / '+ps.length),
+          R('div',{key:2,style:{width:22,height:22,borderRadius:8,background:'#B8C77A',color:'#141210',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800}},'\u2713'),
+        ]),
+      ]);
+    })() : null;
+
+    const pairNote = isSuper
+      ? R('div',{'data-em':'fg',style:{padding:'0 22px 18px',fontSize:14,color:AC,fontWeight:600}},
+          ex.pair==='A1' ? ('\u2193 Then '+ex.partner+' \u2014 no rest between') : 'Go now \u2014 rest after this one')
+      : null;
+
+    const EFFORT_H = [8,11,14,17,20];
+    const effortBars = R('div',{style:{display:'flex',alignItems:'flex-end',gap:6,height:20}},
+      EFFORT_H.map((h,i)=>R('div',{key:i,className:'tap',onClick:()=>this.setEffort(i+1),
+        style:{width:6,height:h,borderRadius:3,background:(S.effort!=null && i+1===S.effort)?AC:'var(--ln,#302b24)',transition:'background .18s ease'}})));
+    const effortWord = R('div',{style:{fontSize:14,fontWeight:S.effort?600:400,color:S.effort?'var(--c-mid,#a89f91)':'var(--c-lo,#6b6357)'}},
+      S.effort ? this.EFFORT_WORDS[S.effort-1] : 'Not set');
+
+    const sessionSetRows = R('div',{style:{display:'flex',flexDirection:'column'}},
+      sets.map((s,i)=>{
+        const active = s.status==='active', done = s.status==='done';
+        if (active) return R('div',{key:i,'data-em':'dim',style:{display:'flex',alignItems:'center',gap:14,padding:'12px 22px 12px 19px',background:HEAT.dim,borderLeft:'3px solid '+AC,animation:motionOn?'rowSettle .28s cubic-bezier(.2,.9,.25,1.05) both':'none'}},[
+          R('div',{key:'n','data-em':'fg',style:{width:26,flex:'none',fontFamily:'Anton',fontSize:20,color:AC,textAlign:'center'}}, i+1),
+          R('div',{key:'l',style:{flex:1,fontSize:16,fontWeight:700,color:'var(--c-hi,#f2ede4)'}},'Set '+(i+1)),
+          R('div',{key:'t',style:{font:'700 11px ui-monospace,Menlo,monospace',letterSpacing:'1.2px',color:'var(--c-emb,#ffb294)'}},'NOW'),
+        ]);
+        return R('div',{key:i,style:{display:'flex',alignItems:'center',gap:14,padding:'12px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+          done
+            ? R('div',{key:'n',style:{width:26,height:26,borderRadius:9,flex:'none',background:'#B8C77A',color:'#141210',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,animation:motionOn?'checkPop .3s cubic-bezier(.2,.9,.25,1.15) both':'none'}},'\u2713')
+            : R('div',{key:'n',style:{width:26,flex:'none',fontFamily:'Anton',fontSize:20,color:'var(--c-lo,#5c554a)',textAlign:'center'}}, i+1),
+          R('div',{key:'l',style:{flex:1,fontSize:16,color:done?'var(--c-mu2,#a89f91)':'var(--c-mu,#a89f91)'}},'Set '+(i+1)),
+          done && s.e ? R('div',{key:'e',style:{display:'flex',alignItems:'flex-end',gap:2.5,height:13}},
+            [5,7,9,11,13].map((h,k)=>R('div',{key:k,style:{width:3,height:h,borderRadius:2,background:k<s.e?'#D08A45':'var(--ln,#302b24)'}}))) : null,
+          done
+            ? R('div',{key:'v',style:{fontFamily:'Anton',fontSize:19,color:'var(--c-mid,#a89f91)'}},[
+                s.w, R('span',{key:'u',style:{fontSize:12,color:'var(--c-lo,#6b6357)',marginLeft:3}},'kg'), ' \u00d7 '+s.r])
+            : R('div',{key:'v',style:{color:'var(--c-mu2,#5f584e)',fontSize:18}},'\u22ee'),
+        ]);
+      }).concat([
+        R('div',{key:'add',style:{display:'flex',alignItems:'center',gap:14,padding:'13px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+          R('div',{key:'p',style:{width:26,flex:'none',textAlign:'center',color:'var(--c-mu,#a89f91)',fontSize:19}},'+'),
+          R('div',{key:'l',style:{flex:1,fontSize:16,color:'var(--c-mu,#a89f91)'}},'Add set'),
+        ]),
+      ]));
+
+    const lastTimeRows = R('div',{style:{display:'flex',flexDirection:'column',opacity:.72}},
+      (ex.hist||[]).map((h,i)=>R('div',{key:i,style:{display:'flex',alignItems:'center',gap:14,padding:'10px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+        R('div',{key:'n',style:{width:26,flex:'none',fontFamily:'Anton',fontSize:17,color:'var(--c-lo,#5c554a)',textAlign:'center'}}, i+1),
+        R('div',{key:'v',style:{flex:1,fontFamily:'Anton',fontSize:17,color:'var(--c-mid,#a89f91)'}},[
+          h[0], R('span',{key:'u',style:{fontSize:11,color:'var(--c-lo,#6b6357)',marginLeft:3}},'kg'), ' \u00d7 '+h[1]]),
+      ])));
+
+    // ---- lock screen status ----
+    const lockStatus = R('div',{style:{fontFamily:'Anton',fontSize:16,letterSpacing:'.5px',color:tcol}}, over?('Overtime '+timerText):('Rest \u00b7 '+timerText));
+    const lockLine = ex.name+' \u00b7 set '+curSetNo+' of '+sets.length;
+    const lockNext = 'Up next: '+S.weight+' kg \u00d7 '+S.reps;
+
+    // ---- stats period toggle + values ----
+    const periods = {Week:{vol:'48,210',sessions:'4',prs:'3',hours:'3.6'},Month:{vol:'196,540',sessions:'17',prs:'8',hours:'15.2'},Year:{vol:'2.31M',sessions:'198',prs:'34',hours:'176'}};
+    const pd = periods[S.period] || periods.Week;
+    const statToggle = R('div',{style:{display:'flex',gap:18}},
+      ['Week','Month','Year'].map(pp=>{
+        const on = S.period===pp;
+        return R('div',{key:pp,className:'tap',onClick:()=>this.setState({period:pp}),
+          style:{fontSize:13,fontWeight:on?700:500,color:on?'var(--c-hi,#f2ede4)':'var(--c-mu,#a89f91)',
+            paddingBottom:6,borderBottom:on?('2px solid '+AC):'2px solid transparent'}},pp);
+      }));
+
+    // ---- stats charts ----
+    const svData=[32,27,41,36,44,39,47,53];
+    const statVolBars = R('div',{style:{display:'flex',alignItems:'flex-end',gap:8,height:118}},
+      svData.map((v,i)=>{const last=i===svData.length-1;return R('div',{key:i,style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:6,height:'100%',justifyContent:'flex-end'}},[
+        R('div',{key:'b',style:{width:'100%',height:(v/55*100)+'%',borderRadius:'6px 6px 3px 3px',background:last?AC:'var(--track,#2c2720)',boxShadow:last&&motionOn?`0 0 16px ${HEAT.glow}`:'none'}}),
+        R('div',{key:'l',style:{fontSize:9,color:last?AC:'var(--c-mu,#a89f91)',fontWeight:last?700:500}},'W'+(i+1)),
+      ]);}));
+    const spark=[42,58,52,78,70,94,108,132];
+    const statSpark=(()=>{const w=280,h=88,max=140,min=30;const pts=spark.map((v,i)=>[i/(spark.length-1)*w, h-(v-min)/(max-min)*h]);
+      const d=pts.map((pt,i)=>(i?'L':'M')+pt[0].toFixed(1)+' '+pt[1].toFixed(1)).join(' ');
+      return R('svg',{viewBox:`0 0 ${w} ${h}`,style:{width:'100%',height:88}},[
+        R('path',{key:'ln',d,fill:'none',stroke:AC,strokeWidth:2.5,strokeLinecap:'round',strokeLinejoin:'round',style:motionOn?{filter:`drop-shadow(0 0 6px ${HEAT.glow})`}:{}}),
+        R('circle',{key:'dot',cx:pts[pts.length-1][0],cy:pts[pts.length-1][1],r:4,fill:AC}),
+      ]);})();
+    const prs=[['Squat','132.5','+2.5'],['Bench','92.5','+2.5'],['Deadlift','170','new']];
+    const statPRs = prs.map((pp,i)=>R('div',{key:i,style:{display:'flex',alignItems:'center',gap:13,padding:'12px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+      R('div',{key:'i',style:{color:'#FFC93C',fontSize:14,width:16}},'\u2605'),
+      R('div',{key:'t',style:{flex:1,fontWeight:600,fontSize:15}},pp[0]),
+      R('div',{key:'d',style:{fontSize:11.5,fontWeight:700,color:'#B8C77A',marginRight:4}}, pp[2]),
+      R('div',{key:'v',style:{fontFamily:'Anton',fontSize:17}},[pp[1], R('span',{key:'u',style:{fontSize:11,color:'var(--c-lo,#6b6357)',marginLeft:3}},'kg')]),
+    ]));
+
+    // ---- history ----
+    const hist=[['TODAY','Lower 1','58 min','18,240',true,''],['WED','Upper 2','52 min','14,680',false,''],['MON','Lower 2','61 min','19,110',true,''],['SAT','Upper 1','49 min','12,920',false,''],
+      ['THU','Lower 1','56 min','17,880',false,'LAST WEEK'],['TUE','Upper 2','54 min','14,120',false,''],['SUN','Lower 2','59 min','18,460',true,''],['FRI','Upper 1','47 min','12,340',false,'']];
+    const historyRow = (h,i)=>R('div',{key:i,className:'tap',style:{display:'flex',alignItems:'center',gap:13,padding:'13px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+      R('div',{key:'d',style:{width:44,flex:'none',font:'700 11px ui-monospace,Menlo,monospace',letterSpacing:'1.2px',color:'var(--c-mu,#a89f91)'}},h[0]),
+      R('div',{key:'m',style:{flex:1}},[
+        R('div',{key:'n',style:{fontWeight:600,fontSize:16,display:'flex',alignItems:'center',gap:7}},[
+          h[1], h[4]?R('span',{key:'p',style:{color:'#FFC93C',fontSize:12}},'\u2605'):null]),
+        R('div',{key:'s',style:{color:'var(--c-mu,#a89f91)',fontSize:12,marginTop:2}}, h[2]),
+      ]),
+      R('div',{key:'v',style:{fontFamily:'Anton',fontSize:17,color:'var(--c-mid,#a89f91)'}},[h[3], R('span',{key:'u',style:{fontSize:11,color:'var(--c-lo,#6b6357)',marginLeft:3}},'kg')]),
+    ]);
+    const historyList = [];
+    hist.forEach((h,i)=>{
+      if (h[5]) historyList.push(R('div',{key:'g'+i,style:{padding:'24px 22px 10px',borderTop:'1px solid var(--ln,#272319)',font:'700 11px ui-monospace,Menlo,monospace',letterSpacing:'1.2px',color:'var(--c-mu,#a89f91)'}}, h[5]));
+      historyList.push(historyRow(h,i));
+    });
+
+    // ---- Plan ----
+    const planData=[
+      ['LOGGED \u00b7 WED','Upper 1','Chest \u00b7 Back \u00b7 Delts','7','55 min','done'],
+      ['TODAY','Lower 1','Quads \u00b7 Glutes \u00b7 Hams','6','58 min','today'],
+      ['IN 2 DAYS','Upper 2','Back \u00b7 Arms \u00b7 Delts','7','52 min','todo'],
+      ['IN 4 DAYS','Lower 2','Posterior \u00b7 Calves','6','60 min','todo'],
+    ];
+
+    // ---- Library ----
+    const libGroups=['All','Legs','Push','Pull','Core'];
+    const lib = libGroups.includes(S.lib)?S.lib:'All';
+    const libChips = R('div',{style:{display:'flex',gap:18,overflowX:'auto',padding:'0 22px'}},
+      libGroups.map(g=>{const on=g===lib;return R('div',{key:g,className:'tap',onClick:()=>this.setState({lib:g}),
+        style:{flex:'none',fontSize:13,fontWeight:on?700:500,color:on?'var(--c-hi,#f2ede4)':'var(--c-mu,#a89f91)',
+          paddingBottom:7,borderBottom:on?('2px solid '+AC):'2px solid transparent'}},g);}));
+    const EXLIB=[
+      ['Squat (Barbell)','Quads \u00b7 Glutes','Barbell','Legs','132.5'],
+      ['Leg Press','Quads','Machine','Legs','280'],
+      ['Romanian Deadlift','Hamstrings','Barbell','Legs','120'],
+      ['Leg Curl','Hamstrings','Machine','Legs','52.5'],
+      ['Calf Raise','Calves','Machine','Legs','120'],
+      ['Bench Press','Chest','Barbell','Push','92.5'],
+      ['Incline DB Press','Chest \u00b7 Delts','Dumbbell','Push','34'],
+      ['Overhead Press','Shoulders','Barbell','Push','60'],
+      ['Lat Pulldown','Back \u00b7 Lats','Cable','Pull','75'],
+      ['Barbell Row','Back','Barbell','Pull','90'],
+      ['Face Pull','Rear Delts','Cable','Pull','30'],
+      ['Cable Crunch','Abs','Cable','Core','55'],
+    ];
+    const libFiltered = EXLIB.filter(e => lib==='All' || e[3]===lib);
+    const libCount = libFiltered.length + ' exercises';
+
+    // ---- home / plan / library (hairline rows) ----
+    const WEEK = [['M','done'],['T',''],['W','done'],['T',''],['F','today'],['S','todo'],['S','']];
+    const weekDone = WEEK.filter(d=>d[1]==='done').length, weekTarget = 4;
+    const weekPct = Math.round(weekDone/weekTarget*100) + '%';
+    const weekCount = R('span', null, [weekDone, R('span',{key:'t',style:{fontSize:12,color:'var(--c-lo,#6b6357)'}},' / '+weekTarget)]);
+    const dayCell = (st) => st==='done'
+      ? {width:28,height:28,borderRadius:12,background:'#B8C77A',color:'#141210',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800}
+      : st==='today' ? {width:28,height:28,borderRadius:12,background:HEAT.dim,border:'1.5px solid '+AC}
+      : st==='todo' ? {width:28,height:28,borderRadius:12,border:'1px dashed var(--ln,#332e27)'}
+      : {width:28,height:28,borderRadius:12,border:'1px solid var(--ln,#241f19)'};
+    const weekStrip = R('div',{style:{display:'flex',justifyContent:'space-between',padding:'0 22px 22px'}},
+      WEEK.map((d,i)=>R('div',{key:i,style:{display:'flex',flexDirection:'column',alignItems:'center',gap:9}},[
+        R('div',{key:'l',style:{fontSize:11,color:d[1]==='today'?AC:'var(--c-lo,#6b6357)',fontWeight:d[1]==='today'?700:600}}, d[0]),
+        R('div',{key:'c',style:dayCell(d[1])}, d[1]==='done'?'\u2713':''),
+      ])));
+
+    const kg = (v) => R('div',{key:'r',style:{fontFamily:'Anton',fontSize:17,color:'var(--c-mid,#a89f91)'}},[
+      v, R('span',{key:'u',style:{fontSize:11,color:'var(--c-lo,#6b6357)',marginLeft:3}},'kg')]);
+    const hairRow = (key, onClick, left, sub, right, rightEl) => R('div',{key, className:'tap', onClick,
+        style:{display:'flex',alignItems:'center',gap:14,padding:'12px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+      R('div',{key:'m',style:{flex:1}},[
+        R('div',{key:'n',style:{fontWeight:600,fontSize:16}}, left),
+        sub?R('div',{key:'s',style:{color:'var(--c-mu,#a89f91)',fontSize:12,marginTop:2}}, sub):null,
+      ]),
+      rightEl ? right : R('div',{key:'r',style:{fontSize:13,color:'var(--c-mu,#a89f91)'}}, right),
+      rightEl ? null : R('div',{key:'c',style:{color:'var(--c-mu2,#5f584e)',fontSize:18}},'\u203a'),
+    ]);
+    const nextUpRows = R('div',null,[
+      hairRow('a', this.goPlan, 'Upper 2', 'Back \u00b7 arms \u00b7 delts', 'Sun'),
+      hairRow('b', this.goPlan, 'Lower 2', 'Posterior \u00b7 calves', 'Tue'),
+    ]);
+    const recentRows = R('div',null,[
+      hairRow('a', this.goHistory, 'Upper 1', 'Wed \u00b7 52 min', kg('14,680'), true),
+      hairRow('b', this.goHistory, 'Lower 2', 'Mon \u00b7 61 min', kg('19,110'), true),
+    ]);
+
+    const planRows = R('div',null, planData.map((p,i)=>{
+      const done=p[5]==='done', today=p[5]==='today';
+      return R('div',{key:i,className:'tap',onClick:this.startSession,
+          style:{display:'flex',alignItems:'center',gap:14,padding:'13px 22px',borderTop:'1px solid var(--ln,#272319)',
+            background: today?HEAT.dim:'transparent', borderLeft: today?('3px solid '+AC):'3px solid transparent', opacity:done?.6:1}},[
+        R('div',{key:'m',style:{flex:1}},[
+          R('div',{key:'e',style:{font:'700 9.5px ui-monospace,Menlo,monospace',letterSpacing:'1.3px',color:today?AC:'var(--c-mu,#a89f91)'}}, p[0]),
+          R('div',{key:'n',style:{fontWeight:today?700:600,fontSize:16,marginTop:3}}, p[1]),
+          R('div',{key:'s',style:{color:'var(--c-mu,#a89f91)',fontSize:12,marginTop:2}}, p[2]),
+        ]),
+        R('div',{key:'v',style:{textAlign:'right'}},[
+          R('div',{key:'x',style:{fontFamily:'Anton',fontSize:16,color:'var(--c-mid,#a89f91)'}}, p[4]),
+          R('div',{key:'y',style:{fontSize:11,color:'var(--c-lo,#6b6357)',marginTop:1}}, p[3]+' exercises'),
+        ]),
+        done?R('div',{key:'c',style:{width:22,height:22,borderRadius:8,background:'#B8C77A',color:'#141210',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800}},'\u2713')
+            :R('div',{key:'c',style:{color:today?AC:'var(--c-mu2,#5f584e)',fontSize:18}},'\u203a'),
+      ]);
+    }));
+
+    const libraryRows = R('div',null, libFiltered.map((e)=>R('div',{key:e[0],className:'tap',
+        style:{display:'flex',alignItems:'center',gap:14,padding:'13px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+      R('div',{key:'m',style:{flex:1}},[
+        R('div',{key:'n',style:{fontWeight:600,fontSize:16}}, e[0]),
+        R('div',{key:'s',style:{fontSize:12,color:'var(--c-mu,#a89f91)',marginTop:2}}, e[1]+' \u00b7 '+e[2]),
+      ]),
+      R('div',{key:'v',style:{textAlign:'right'}},[
+        R('div',{key:'x',style:{fontFamily:'Anton',fontSize:16}},[e[4], R('span',{key:'u',style:{fontSize:11,color:'var(--c-lo,#6b6357)',marginLeft:3}},'kg')]),
+        R('div',{key:'y',style:{fontSize:9.5,color:'var(--c-lo,#6b6357)',letterSpacing:'.5px',fontWeight:700,marginTop:1}},'e1RM'),
+      ]),
+    ])));
+
+    // ---- settings ----
+    const SW = (on, onClick) => R('div',{className:'tap',onClick,style:{width:44,height:26,borderRadius:13,flex:'none',
+        background:on?AC:'var(--ln,#2b2721)',position:'relative',transition:'background .18s ease'}},
+      R('div',{style:{position:'absolute',top:3,left:on?21:3,width:20,height:20,borderRadius:'50%',
+        background:on?HEAT.fg:'#6b6357',transition:'left .2s cubic-bezier(.2,.8,.2,1)'}}));
+    const SEG = (opts, val, key) => R('div',{style:{display:'flex',gap:15}}, opts.map(o=>R('div',{key:o,className:'tap',
+      onClick:()=>this.setOpt(key,o),
+      style:{fontSize:14,fontWeight:o===val?700:500,color:o===val?'var(--c-hi,#f2ede4)':'var(--c-mu,#a89f91)',
+        paddingBottom:4,borderBottom:o===val?('2px solid '+AC):'2px solid transparent'}}, o)));
+    const SROW = (key, label, sub, control) => R('div',{key,style:{display:'flex',alignItems:'center',gap:16,
+        padding:'14px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+      R('div',{key:'m',style:{flex:1}},[
+        R('div',{key:'l',style:{fontSize:16,fontWeight:600}}, label),
+        sub?R('div',{key:'s',style:{fontSize:12,color:'var(--c-mu,#a89f91)',marginTop:2,lineHeight:1.4}}, sub):null,
+      ]),
+      control,
+    ]);
+    const SCHEV = R('div',{style:{color:'var(--c-mu2,#5f584e)',fontSize:18}},'\u203a');
+    const SVAL = (t) => R('div',{style:{display:'flex',alignItems:'center',gap:10}},[
+      R('div',{key:'v',style:{fontFamily:'Anton',fontSize:17,color:'var(--c-mid,#a89f91)'}}, t),
+      R('div',{key:'c',style:{color:'var(--c-mu2,#5f584e)',fontSize:18}},'\u203a'),
+    ]);
+    const restLabel = Math.floor(S.restDefault/60)+':'+String(S.restDefault%60).padStart(2,'0');
+    const stepper = (val) => R('div',{style:{display:'flex',alignItems:'center',gap:12}},[
+      R('div',{key:'-',className:'tap',onClick:()=>this.bumpRest(-15),style:{width:32,height:32,borderRadius:12,flex:'none',background:'var(--chip,#242019)',color:'var(--c-hi,#f2ede4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17}},'\u2013'),
+      R('div',{key:'v',style:{fontFamily:'Anton',fontSize:19,minWidth:48,textAlign:'center',fontVariantNumeric:'tabular-nums'}}, val),
+      R('div',{key:'+',className:'tap',onClick:()=>this.bumpRest(15),style:{width:32,height:32,borderRadius:12,flex:'none',background:'var(--chip,#242019)',color:'var(--c-hi,#f2ede4)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17}},'+'),
+    ]);
+    const plateSet = R('div',{style:{display:'flex',gap:5,flexWrap:'wrap',marginTop:4}},
+      ['25','20','15','10','5','2.5','1.25'].map(w=>R('div',{key:w,style:{fontFamily:'Anton',fontSize:12,
+        color:'var(--c-mid,#a89f91)',background:'var(--chip,#242019)',borderRadius:8,padding:'3px 7px'}}, w)));
+
+    const setTraining = [
+      SROW('u','Units', 'Applies to every logged lift and your whole history.', SEG(['kg','lb'], S.unit, 'unit')),
+      SROW('s','Weight step', 'What the \u2212 and + buttons change by.', SEG(['1.25','2.5','5'], String(S.step), 'step')),
+      R('div',{key:'p',className:'tap',style:{display:'flex',alignItems:'center',gap:16,padding:'14px 22px',borderTop:'1px solid var(--ln,#272319)'}},[
+        R('div',{key:'m',style:{flex:1}},[
+          R('div',{key:'l',style:{fontSize:16,fontWeight:600}},'Plates in your gym'),
+          plateSet,
+        ]),
+        SCHEV,
+      ]),
+    ];
+    const setRest = [
+      SROW('d','Default rest', null, stepper(restLabel)),
+      SROW('a','Start on logged set', 'Timer runs the moment you complete a set.', SW(S.autoStart, ()=>this.setOpt('autoStart', !S.autoStart))),
+      SROW('n','Alert when rest ends', 'Vibrate and sound, even with the screen off.', SW(S.alert, ()=>this.setOpt('alert', !S.alert))),
+    ];
+    const setApp = [
+      SROW('t','Theme', null, SEG(['Dark','Light','Auto'], S.theme, 'theme')),
+      SROW('h','Haptics', 'Small taps on log, PR and rest end.', SW(S.haptics, ()=>this.setOpt('haptics', !S.haptics))),
+    ];
+    const setData = [
+      SROW('hc','Health Connect', 'Sends workouts to Google Fit and friends.', R('div',{style:{fontSize:13,fontWeight:700,color:'#B8C77A'}},'Connected')),
+      SROW('e','Export data', 'CSV of every set you\u2019ve logged.', SCHEV),
+      SROW('b','Backup', 'Last backup 2 hours ago.', SCHEV),
+    ];
+    const setAbout = [
+      SROW('v','Version', null, R('div',{style:{fontFamily:'Anton',fontSize:15,color:'var(--c-mu,#a89f91)'}},'1.4.2')),
+      SROW('pv','Privacy & terms', null, SCHEV),
+    ];
+
+    // ---- bottom nav: 6 tabs, matching GlassBottomNav.kt order exactly ----
+    const navItems = [['Home','home','home'],['History','hist','history'],['Plan','cal','plan'],['Library','bar','library'],['Recovery','pulse','recovery'],['Stats','chart','stats']];
+    const iconP={home:'M4 11 L12 4 L20 11 M6 10 V20 H18 V10',clock:'M12 7 V12 L15 14 M12 3 a9 9 0 1 0 .1 0',hist:'M12 8 V12 L15 14 M3.5 12 a8.5 8.5 0 1 0 2.6 -6.1 M3 4 v3.5 h3.5',cal:'M4 6 h16 v14 h-16 Z M4 10 h16 M8 3 v4 M16 3 v4',bar:'M4 9 v6 M20 9 v6 M7 7 v10 M17 7 v10 M7 12 h10',pulse:'M3 12 h4 L10 5 L14 19 L17 12 h4',chart:'M5 20 V11 M12 20 V5 M19 20 V14'};
+    const icon = (k,c) => R('svg',{viewBox:'0 0 24 24',style:{width:20,height:20,fill:'none',stroke:c,strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'}},R('path',{d:iconP[k]}));
+    const nav = R('div',{style:{position:'absolute',left:14,right:14,bottom:14,height:64,borderRadius:32,zIndex:6,
+        background: navSurf.bg, backdropFilter: navSurf.blur, WebkitBackdropFilter: navSurf.blur,
+        border: navSurf.bd, display:'flex',alignItems:'center',gap:2,padding:'0 8px',boxSizing:'border-box', boxShadow:(LM?'0 12px 28px -14px rgba(31,24,16,.16)':'0 16px 34px -14px rgba(0,0,0,.7)')}},
+      navItems.map(([label,k,dst])=>{
+        const on = dst===scr;
+        // GlassBottomNav.kt: item radius 20, fill = primary @18%, icon 20dp, label labelMedium
+        return R('div',{key:k,className:'tap',onClick:()=>this.setState({screen:dst}),style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2,flex:1,minWidth:0,
+          background:on?(AC+'2E'):'transparent',borderRadius:20,padding:'8px 5px'}},[
+          icon(k, on?AC:'var(--c-mu,#a89f91)'),
+          R('div',{key:'l',style:{fontSize:10.5,letterSpacing:'-.1px',color:on?AC:'var(--c-mu,#a89f91)',fontWeight:on?700:500}},label),
+        ]);
+      }));
+
+    // ---- resting strip above nav (persistent timer, in-app) ----
+    let restStrip = null;
+    if (S.resting){
+      restStrip = R('div',{className:'tap',onClick:()=>this.setState({screen:'session'}),style:{position:'absolute',left:14,right:14,bottom:86,height:48,borderRadius:16,zIndex:6,
+          background:HEAT.dim,border:'1px solid '+AC,display:'flex',alignItems:'center',gap:11,padding:'0 14px',boxShadow:`0 10px 26px -12px ${HEAT.glow}`,animation:'fadeUp .4s ease both'}},[
+        R('div',{key:'p',style:{width:9,height:9,borderRadius:'50%',background:tcol,boxShadow:`0 0 8px ${tcol}`,flex:'none'}}),
+        R('div',{key:'t',style:{flex:1,fontSize:12,fontWeight:700,color:'var(--c-hi,#f2ede4)'}},[
+          R('span',{key:1,style:{fontFamily:'Anton',color:tcol,fontSize:15,marginRight:8,fontVariantNumeric:'tabular-nums'}}, timerText),
+          (over?'Overtime · ':'Resting · ')+ex.name,
+        ]),
+        R('div',{key:'r',style:{fontSize:11.5,fontWeight:700,color:AC}},'Resume ›'),
+      ]);
+    }
+
+    // ---- theme style ----
+    let css = `.scr [data-em="bg"]{background:${AC}!important;color:${HEAT.fg}!important;box-shadow:0 0 30px ${HEAT.glow}!important}`
+      + `.scr [data-em="dim"]{background:${HEAT.dim}!important}`
+      + `.scr [data-em="ring"]{stroke:${AC}!important}`
+      + `.scr [data-em="fg"]{color:${AC}!important}`
+      + `.scr [data-em="rail"]{border-left-color:${AC}!important}`;
+    if (energy === 'Calm') css += `.scr .screen *{animation:none!important}`;
+    if (energy === 'Roaring') css += `.scr [data-em="bg"]{animation:ringGlow 1.7s ease-in-out infinite!important}`;
+    if (LM) css += `.scr{--c-hi:#1b150e;--c-mid:#6c6152;--c-mu:#6c6152;--c-mu2:#6c6152;--c-lo:#a19684;--c-emb:#571b00;--bg:#f4efe6;--bg2:#ede5d6;--surf2:#fdfaf3;--e1:#ffdcc9;--e2:#fff4ee;--e1s:rgba(255,120,40,.10);--chip:#ece3d6;--ln:rgba(31,24,16,.10);--cardA:#ffffff;--inset:rgba(31,24,16,.05);--brd:rgba(31,24,16,.10);--track:#dcd2bf}`;
+    const themeStyle = R('style', null, css);
+
+    return {
+      libChips, libCount, setTraining, setRest, setApp, setData, setAbout,
+      goSettings:this.goSettings, isSettings:scr==='settings', weekStrip, weekCount, weekPct, planRows, libraryRows,
+      nextUpRows, recentRows, todayName:'Lower 1', todayMeta:'6 exercises \u00b7 about 58 min',
+      goPlan:this.goPlan, goLibrary:this.goLibrary,
+      themeStyle, logoMark, logoBig, logoMarkSm, laTimer, diTimer,
+      recoveryFront, recoveryBack, recoveryList,
+      statToggle, statVolBars, statSpark, statPRs,
+      periodUpper: (S.period||'Week').toUpperCase(), periodVol:pd.vol, periodSessions:pd.sessions, periodPRs:pd.prs, periodHours:pd.hours,
+      historyList, sessionSetRows, lastTimeRows, nav, restStrip,
+      restPill, partnerRow, pairNote, effortBars, effortWord, elapsed, exBadge, setsDoneLabel,
+      lastLabel: 'LAST · ' + (ex.histDate || ''), lastAgo: ex.histAgo || '',
+      exName:ex.name, exMus:ex.mus, exReps:ex.reps, exLast:ex.last, exSets:sets.length, curSetNo,
+      exCountLabel:'Exercise '+(exIdx+1)+' of '+this.WORKOUT.length+' · 12:04',
+      progressPct, weightDisp:String(S.weight), repsDisp:String(S.reps),
+      lockStatus, lockLine, lockNext, doneSummary, doneMinutes, doneMinLabel,
+      readinessBar, readinessPct, readinessNote,
+      isHome:scr==='home', isSession:scr==='session', isRecovery:scr==='recovery', isStats:scr==='stats',
+      isHistory:scr==='history', isLock:scr==='lock', isDone:scr==='done',
+      isPlan:scr==='plan', isLibrary:scr==='library',
+      showNav: ['home','recovery','stats','history','plan','library'].includes(scr),
+      startSession:this.startSession, back:this.back, lock:this.lock, unlock:this.unlock,
+      goHistory:this.goHistory,
+      logSet:this.logSet, incW:this.incW, decW:this.decW, incR:this.incR, decR:this.decR,
+      addRest:this.addRest, skipRest:this.skipRest,
+    };
+  }
+
+  startSession = () => { const ex=this.WORKOUT[0]; this.setState({screen:'session',exIdx:0,logs:{},weight:ex.w,reps:ex.r,effort:null,elapsedS:0,resting:false,restT:90,paused:false}); };
+  back = () => this.setState({screen:'home'});
+  goPlan = () => this.setState({screen:'plan'});
+  goSettings = () => this.setState({screen:'settings'});
+  setOpt = (k, v) => this.setState({[k]: v});
+  bumpRest = (d) => this.setState(s=>({restDefault: Math.min(300, Math.max(30, s.restDefault + d))}));
+  goLibrary = () => this.setState({screen:'library'});
+  goHistory = () => this.setState({screen:'history'});
+  lock = () => this.setState({screen:'lock'});
+  unlock = () => this.setState({screen:'session'});
+  incW = () => this.setState(s=>({weight:Math.round((s.weight+2.5)*10)/10}));
+  decW = () => this.setState(s=>({weight:Math.max(0,Math.round((s.weight-2.5)*10)/10)}));
+  incR = () => this.setState(s=>({reps:s.reps+1}));
+  decR = () => this.setState(s=>({reps:Math.max(0,s.reps-1)}));
+  addRest = () => this.setState(s=>({restT:s.restT+30,resting:true,paused:false}));
+  skipRest = () => this.setState({resting:false});
+}
+</script>
+</body>
+</html>
