@@ -59,6 +59,7 @@ fun HomeScreen(
                 readinessTag = state.readinessLabel?.lowercase() ?: "ready",
                 readinessFreshness = state.readinessFreshness ?: 1f,
                 sessionName = liveSession?.name ?: state.planTitle,
+                ctaLabel = if (liveSession != null) "Resume" else "Start",
                 meta = liveSession?.let { live ->
                     "${live.completedSets} of ${live.totalSets} sets logged" +
                         (live.currentExercise?.let { " · up now: $it" } ?: "")

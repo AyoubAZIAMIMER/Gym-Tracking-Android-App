@@ -86,7 +86,7 @@ import com.gymtracker.widget.ForgeWidgetProvider
 @Composable
 fun DataScreen(
     onBack: () -> Unit = {},
-    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Ember, Energy.Alive, SurfaceStyle.Soft),
+    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Chalk, Energy.Alive, SurfaceStyle.Soft),
     onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
     vm: DataViewModel = viewModel(),
 ) {
@@ -260,7 +260,7 @@ fun DataScreen(
             // the three expression axes (ForgeExpression) sit under APP, below Theme
             val (heat, energy, surface) = expression
             RowRule()
-            SettingRow(title = "Heat", helper = "The action colour.") {
+            SettingRow(title = "Action colour", helper = "Chrome only — the heat scale on Body is data.") {
                 SegmentedOptions(
                     options = Heat.entries.map { it.name },
                     selected = heat.name,

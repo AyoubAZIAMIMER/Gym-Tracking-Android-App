@@ -38,11 +38,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.ui.components.ForgedBlock
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.StampText
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
@@ -58,6 +60,7 @@ fun WorkoutDetailScreen(
     vm: WorkoutDetailViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
+    val entered = rememberEntered()
 
     GlowBackground(glowAlpha = 0.10f) {
         Column(
@@ -69,19 +72,24 @@ fun WorkoutDetailScreen(
             ForgedScreenTitle(state.title, trailing = state.dateLine, onBack = onBack)
 
             // Anton figures lead, the way History and Stats do — no glass tile row
-            SectionRule()
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        start = Dim.screenPadH, end = Dim.screenPadH, top = 18.dp, bottom = 20.dp,
-                    ),
-                horizontalArrangement = Arrangement.spacedBy(26.dp),
-            ) {
-                Stat(state.durationText ?: "—", "duration")
-                Stat("${state.totalSets}", "sets")
-                Stat(state.totalVolume, "kg volume")
-                if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
+            ForgedBlock(0, entered) {
+                SectionRule()
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = Dim.screenPadH,
+                            end = Dim.screenPadH,
+                            top = 18.dp,
+                            bottom = 20.dp,
+                        ),
+                    horizontalArrangement = Arrangement.spacedBy(26.dp),
+                ) {
+                    Stat(state.durationText ?: "—", "duration")
+                    Stat("${state.totalSets}", "sets")
+                    Stat(state.totalVolume, "kg volume")
+                    if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
+                }
             }
 
             if (state.comment.isNotBlank()) {
@@ -99,12 +107,14 @@ fun WorkoutDetailScreen(
             }
 
             SectionRule()
-            state.exercises.forEach { ex ->
-                ExerciseBlock(ex, onOpenExercise)
+            state.exercises.forEachIndexed { i, ex ->
+                ForgedBlock(i + 1, entered) { ExerciseBlock(ex, onOpenExercise) }
             }
 
-            SectionRule()
-            RepeatRow(onClick = { onRepeat(vm.workoutId) })
+            ForgedBlock(state.exercises.size + 1, entered) {
+                SectionRule()
+                RepeatRow(onClick = { onRepeat(vm.workoutId) })
+            }
 
             Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))
         }

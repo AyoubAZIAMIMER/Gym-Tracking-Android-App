@@ -79,6 +79,8 @@ data class HeroUi(
     val sessionName: String,            // "Squat (Barbell)" or the session title
     val meta: String,                   // "Quads · Glutes · last set 100 × 9"
     val repRange: String? = null,       // "6–10 reps"
+    /** "Start", or "Resume" while a session is live — the CTA must not lie about what it does. */
+    val ctaLabel: String = "Start",
 )
 
 data class MuscleCardUi(val muscle: String, val freshness: Float, val caption: String)
@@ -206,7 +208,7 @@ fun HomeHubScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "Start",
+                            text = ui.hero.ctaLabel,
                             style = type.titleLarge,
                             color = forge.palette.onAction,
                         )

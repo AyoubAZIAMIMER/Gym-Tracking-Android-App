@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Forged launcher background v9 (restored "Molten Forge"): charcoal-iron floor with a
-     faint ember wash rising from the bottom edge -->
+<!-- Forged launcher background v10 "Chalk & Iron": cold rolled iron, top-lit.
+     The old version washed the bottom edge in ember; the chrome carries no hue now, so the
+     only warm thing on the icon is the single spark in the foreground layer. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -15,9 +16,9 @@
                 android:startY="0"
                 android:endX="54"
                 android:endY="108"
-                android:startColor="#FF0C0B09"
-                android:centerColor="#FF120F0A"
-                android:endColor="#FF2E1608" />
+                android:startColor="#FF232221"
+                android:centerColor="#FF191817"
+                android:endColor="#FF0E0E0D" />
         </aapt:attr>
     </path>
 </vector>

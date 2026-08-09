@@ -13,6 +13,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.gymtracker.R
 import com.gymtracker.utils.TimeFormat
@@ -33,8 +34,22 @@ class RestTimerService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var ticker: Job? = null
-    private var remaining = 0
+
+    /**
+     * Absolute finish time on the monotonic clock, NOT a countdown of ticks.
+     *
+     * The old loop was `while (remaining > 0) { delay(1000); remaining-- }`, which counts how
+     * many times the coroutine woke up. Background the app and the OS stops waking it on the
+     * second, so the timer drifted: it resumed from wherever it had got to instead of from
+     * where the clock actually was. elapsedRealtime() keeps running while the device sleeps, so
+     * deriving `remaining` from a deadline is self-correcting — a missed tick costs nothing.
+     */
+    private var deadlineElapsedMs = 0L
     private var total = 0
+
+    private val remaining: Int
+        get() = (((deadlineElapsedMs - SystemClock.elapsedRealtime()) + 999) / 1000)
+            .coerceAtLeast(0).toInt()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -42,7 +57,7 @@ class RestTimerService : Service() {
         when (intent?.action) {
             ACTION_START -> startTimer(intent.getIntExtra(EXTRA_SECONDS, DEFAULT_SECONDS))
             ACTION_ADD_15 -> if (ticker != null) {
-                remaining += 15
+                deadlineElapsedMs += 15_000
                 total = maxOf(total, remaining)
                 publish()
                 updateNotification()
@@ -53,19 +68,24 @@ class RestTimerService : Service() {
     }
 
     private fun startTimer(seconds: Int) {
-        remaining = seconds.coerceAtLeast(1)
-        total = remaining
+        total = seconds.coerceAtLeast(1)
+        deadlineElapsedMs = SystemClock.elapsedRealtime() + total * 1_000L
         createChannels()
         startForegroundWithType()
         publish()
         ticker?.cancel()
         ticker = scope.launch {
-            while (remaining > 0) {
-                delay(1_000)
-                remaining--
+            // tick on the second the deadline actually falls on, so the displayed number never
+            // sits a beat behind; a late wake-up just skips a value instead of stretching time
+            while (true) {
+                val leftMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
+                if (leftMs <= 0) break
+                delay((leftMs % 1_000L).takeIf { it > 0 } ?: 1_000L)
+                if (deadlineElapsedMs - SystemClock.elapsedRealtime() <= 0) break
                 publish()
-                if (remaining > 0) updateNotification()
+                updateNotification()
             }
+            publish()
             notifyDone()
             stopTimer()
         }

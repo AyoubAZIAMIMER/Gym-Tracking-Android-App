@@ -123,11 +123,25 @@ class WorkoutRepository(
             .apply()
     }
 
-    fun expression(): Expression = Expression(
-        heat = prefs.getString(KEY_HEAT, "Ember") ?: "Ember",
-        energy = prefs.getString(KEY_ENERGY, "Alive") ?: "Alive",
-        surface = prefs.getString(KEY_SURFACE, "Soft") ?: "Soft",
-    )
+    fun expression(): Expression {
+        // v10 identity change (2026-08-09): the action colour moved from ember to chalk so that
+        // warm hue means data and nothing else. A stored "Ember" is almost always the OLD DEFAULT
+        // rather than a choice, so migrate it once; anyone who genuinely wants the hot button can
+        // pick it again in Settings and that choice sticks (the flag is only ever set once).
+        if (!prefs.getBoolean(KEY_HEAT_MIGRATED_V10, false)) {
+            prefs.edit()
+                .putBoolean(KEY_HEAT_MIGRATED_V10, true)
+                .apply {
+                    if (prefs.getString(KEY_HEAT, null) == "Ember") putString(KEY_HEAT, "Chalk")
+                }
+                .apply()
+        }
+        return Expression(
+            heat = prefs.getString(KEY_HEAT, "Chalk") ?: "Chalk",
+            energy = prefs.getString(KEY_ENERGY, "Alive") ?: "Alive",
+            surface = prefs.getString(KEY_SURFACE, "Soft") ?: "Soft",
+        )
+    }
 
     fun saveExpression(heat: String, energy: String, surface: String) {
         prefs.edit()
@@ -965,6 +979,7 @@ class WorkoutRepository(
         private const val KEY_PROFILE_HEIGHT = "profile_height_cm"
         private const val KEY_WEEKLY_GOAL = "weekly_goal"
         private const val KEY_HEAT = "expression_heat"
+        private const val KEY_HEAT_MIGRATED_V10 = "expression_heat_migrated_v10"
         private const val KEY_ENERGY = "expression_energy"
         private const val KEY_SURFACE = "expression_surface"
         private const val KEY_UNITS = "units"

@@ -7,6 +7,7 @@ package com.gymtracker.ui.screens.session
 import android.Manifest
 import android.os.Build
 import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DragIndicator
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
@@ -130,6 +132,8 @@ private val CheckColWidth = 34.dp
 @Composable
 fun WorkoutSessionScreen(
     onFinished: () -> Unit,
+    /** Leave the session on screen but go back to the app. The workout keeps running. */
+    onMinimise: () -> Unit = {},
     vm: WorkoutSessionViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
@@ -146,6 +150,7 @@ fun WorkoutSessionScreen(
     }
 
     LaunchedEffect(Unit) { vm.markSessionActive() }
+
     LaunchedEffect(state.finished) {
         if (state.finished) {
             onFinished()
@@ -194,6 +199,13 @@ fun WorkoutSessionScreen(
         ?: slateExercise?.sets?.firstOrNull { !it.completed }
         ?: slateExercise?.sets?.lastOrNull()
     val slateShowing = !strikeShowing && slateExercise != null
+
+    // Without this, system back popped the whole NavHost and dumped you on Home with a session
+    // still live and no explanation. Now it mirrors what is on screen: the Slate steps back to
+    // Strike, and from the top level it minimises — same as the header control.
+    BackHandler {
+        if (slateShowing) strikeMode = true else onMinimise()
+    }
     // the Slate's note + overflow affordances (the legacy table keeps its own inside ExerciseCard)
     var slateNoteDialog by rememberSaveable { mutableStateOf(false) }
     var slateMenu by rememberSaveable { mutableStateOf(false) }
@@ -349,6 +361,8 @@ fun WorkoutSessionScreen(
                         effort = slateDraftSet?.rpe?.let { it - 5 },
                     ),
                     heatAt = { heat.at(it) },
+                    // the Slate is reached FROM Strike, so its back arrow returns there;
+                    // leaving the session entirely is the top bar's job
                     onBack = { strikeMode = true },
                     onCompleteSet = {
                         slateDraftSet?.let { vm.toggleCompleted(slateExercise.id, it.id) }
@@ -474,6 +488,7 @@ fun WorkoutSessionScreen(
                         vm.showFinishSheet(true)
                     }
                 },
+                onMinimise = onMinimise,
                 recoilTick = recoilTick,
                 hazeState = hazeState,
                 modifier = Modifier
@@ -629,6 +644,7 @@ private fun SessionTopBar(
     showStopwatch: Boolean,
     onToggleStopwatch: () -> Unit,
     onFinishClick: () -> Unit,
+    onMinimise: () -> Unit,
     hazeState: HazeState,
     modifier: Modifier = Modifier,
     recoilTick: Int = 0,
@@ -660,6 +676,17 @@ private fun SessionTopBar(
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Escape route. The session is a full-screen flow, so it must offer a way out
+                // that is not "Finish" (Apple HIG §escape-routes; found in QA 2026-08-09 —
+                // Strike Mode is the default surface and had no exit control at all).
+                IconButton(onClick = onMinimise, modifier = Modifier.size(38.dp)) {
+                    Icon(
+                        Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = "Leave session — it keeps running",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
                 // the prototype leads the session header with the clock in Anton — the
                 // number you glance at mid-set — and demotes the workout name beneath it
                 Column(Modifier.weight(1f)) {

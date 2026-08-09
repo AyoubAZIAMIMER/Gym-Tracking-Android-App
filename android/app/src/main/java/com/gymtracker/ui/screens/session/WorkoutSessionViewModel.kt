@@ -394,7 +394,12 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                 // program sessions rotate the active program to its next day
                 if (state.programDayId != null) repo.advanceProgramPointer()
             }
-            _ui.update { it.copy(showFinishSheet = false, finished = true) }
+            // sessionActive must drop here, not just `finished`: consumeFinished() rebuilds a
+            // fresh session and carries sessionActive across, so leaving it true made Home offer
+            // "Resume · 0 of N sets logged" for a workout that had just been saved.
+            _ui.update {
+                it.copy(showFinishSheet = false, finished = true, sessionActive = false)
+            }
         }
     }
 

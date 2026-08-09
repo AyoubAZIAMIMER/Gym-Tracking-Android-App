@@ -1,6 +1,7 @@
-// Purpose: The Forged barbell mark — a loaded bar with symmetric plates. Replaces the old
-//          crossed-diamond spark. Five rounded rects on a 32 x 32 grid, drawn in code so it
-//          can take any tint (accent on Ink, onAccent on the ember CTA, Ink on Paper).
+// Purpose: The Forged mark — an F built from struck bars, its mid-arm sheared off at 45° like
+//          stock cut on the anvil. Replaces the barbell/dumbbell mark (owner's call 2026-08-09:
+//          a dumbbell says "gym app", and every generator draws one). Single path on a 32 x 32
+//          grid, drawn in code so it takes any tint — chalk on Ink, Ink on the chalk CTA.
 // Inputs: size, tint
 // Outputs: ForgedMark(), ForgedWordmark()
 package com.gymtracker.ui.components
@@ -12,42 +13,45 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Barbell mark. Geometry on a 32 x 32 grid (x, y, w, h, r):
- *   bar          9.0, 14.25, 14.0, 3.50, r 1.5
- *   inner plates 6.5 / 22.0, 9.5, 3.5 x 13.0, r 1.6
- *   outer plates 3.0 / 26.0, 12.0, 3.0 x 8.0, r 1.4
- * Also shipped as res/drawable/ic_forged_mark.xml for launcher / notification use.
+ * The F, cut. Vertices on a 32 x 32 grid — a full-width top arm, a short mid arm whose end is
+ * sheared at 45°, and a stem. Straight lines only: it holds its shape down to 16 px, where a
+ * rounded mark turns to mush in the status bar.
+ *
+ * Also shipped as res/drawable/ic_forged_mark.xml for launcher / notification use; keep the two
+ * in step if the geometry ever changes.
  */
+private val MarkVertices = listOf(
+    7f to 5.5f, 26.5f to 5.5f, 26.5f to 11.2f, 13.4f to 11.2f,
+    13.4f to 15f, 23f to 15f, 18.4f to 20.4f, 13.4f to 20.4f,
+    13.4f to 26.8f, 7f to 26.8f,
+)
+
 @Composable
 fun ForgedMark(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
     tint: Color = MaterialTheme.colorScheme.primary,
 ) {
+    // the path is scale-invariant; only the unit changes, so build it once per size
+    val path = remember { Path() }
     Canvas(modifier.size(size)) {
         val u = this.size.minDimension / 32f
-        fun bar(x: Float, y: Float, w: Float, h: Float, r: Float) = drawRoundRect(
-            color = tint,
-            topLeft = Offset(x * u, y * u),
-            size = Size(w * u, h * u),
-            cornerRadius = CornerRadius(r * u, r * u),
-        )
-        bar(9f, 14.25f, 14f, 3.5f, 1.5f)   // bar
-        bar(6.5f, 9.5f, 3.5f, 13f, 1.6f)   // inner plate L
-        bar(22f, 9.5f, 3.5f, 13f, 1.6f)    // inner plate R
-        bar(3f, 12f, 3f, 8f, 1.4f)         // outer plate L
-        bar(26f, 12f, 3f, 8f, 1.4f)        // outer plate R
+        path.rewind()
+        MarkVertices.forEachIndexed { i, (x, y) ->
+            if (i == 0) path.moveTo(x * u, y * u) else path.lineTo(x * u, y * u)
+        }
+        path.close()
+        drawPath(path, tint)
     }
 }
 

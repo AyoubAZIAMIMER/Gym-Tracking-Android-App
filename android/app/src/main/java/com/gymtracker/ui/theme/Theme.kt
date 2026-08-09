@@ -140,9 +140,9 @@ private val LightColors = lightColorScheme(
 @Composable
 fun GymTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // The three expressive axes (design_handoff_forged_android/ForgeExpression.kt). Defaults are
-    // the shipped identity: Heat.Ember IS AccentPrimary. Settings will drive these.
-    heat: Heat = Heat.Ember,
+    // The three expressive axes (design_handoff_forged_android/ForgeExpression.kt).
+    // v10 default is Heat.Chalk — the chrome carries no hue so heat can mean data.
+    heat: Heat = Heat.Chalk,
     energy: Energy = Energy.Alive,
     surface: SurfaceStyle = SurfaceStyle.Soft,
     content: @Composable () -> Unit,
@@ -163,12 +163,14 @@ fun GymTrackerTheme(
     )
     // Heat re-tints THE action colour, so it has to reach colorScheme.primary — otherwise only
     // the handoff's own components (which read palette.action) would change and the rest of the
-    // app would stay ember. Ember's palette equals the shipped AccentPrimary, so the default is
-    // byte-identical to before.
+    // app would keep the old accent.
     val colors = base.copy(
         primary = forge.palette.action,
         onPrimary = forge.palette.onAction,
         primaryContainer = forge.palette.actionContainer,
+        // was left on the ember tint, so hero eyebrows and the avatar stayed salmon after the
+        // action colour moved to chalk
+        onPrimaryContainer = forge.palette.onActionContainer,
     )
     // Energy drives every Motion.* duration (Calm == snap, and reduce-motion forces it)
     SideEffect { Motion.applyScale(forge.motionScale) }

@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.ui.components.ForgedAlert
+import com.gymtracker.ui.components.ForgedBlock
 import com.gymtracker.ui.components.ForgedListRow
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
@@ -62,6 +63,7 @@ import com.gymtracker.ui.components.ForgedWeekStrip
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.emberBloom
 import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.theme.Anton
@@ -78,6 +80,7 @@ fun PlanScreen(
     vm: PlanViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
+    val entered = rememberEntered()
     var showCreateDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.refresh() }
 
@@ -91,6 +94,7 @@ fun PlanScreen(
             ForgedScreenTitle("Plan", trailing = state.activeProgramName)
 
             // THIS WEEK — same strip as Home, so the two tabs agree at a glance
+            ForgedBlock(0, entered) {
             SectionRule()
             ForgedSectionHeader(
                 label = "THIS WEEK",
@@ -163,8 +167,10 @@ fun PlanScreen(
                 }
             }
             if (state.programs.isEmpty()) EmptyLine("No programs yet — add one from a template")
+            }
 
             // templates stay a horizontal shelf: they are a picker, not part of the plan
+            ForgedBlock(1, entered) {
             SectionRule()
             ForgedSectionHeader("TEMPLATES")
             Row(
@@ -203,6 +209,8 @@ fun PlanScreen(
                         }
                     }
                 }
+            }
+
             }
 
             Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))

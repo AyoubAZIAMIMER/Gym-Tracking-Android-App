@@ -49,11 +49,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.ui.components.AlertBody
 import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.ForgedAlert
+import com.gymtracker.ui.components.ForgedBlock
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.forgedPress
@@ -66,6 +68,7 @@ fun ProgramEditorScreen(
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
+    val entered = rememberEntered()
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
 
     GlowBackground(glowAlpha = 0.10f) {
@@ -77,6 +80,7 @@ fun ProgramEditorScreen(
         ) {
             ForgedScreenTitle(state.detail?.program?.name ?: "Program", onBack = onBack)
 
+            ForgedBlock(0, entered) {
             SectionRule()
             // Active is a state, not a button — it reads as a row you can flip
             ActionRow(
@@ -86,8 +90,10 @@ fun ProgramEditorScreen(
                 trailing = if (state.isActive) "✓" else null,
                 onClick = vm::toggleActive,
             )
+            }
 
-            state.detail?.days?.forEach { day ->
+            state.detail?.days?.forEachIndexed { dayIndex, day ->
+                ForgedBlock(dayIndex + 1, entered) {
                 SectionRule()
                 ForgedSectionHeader(
                     label = day.day.name.uppercase(),
@@ -163,6 +169,7 @@ fun ProgramEditorScreen(
                     leadingIcon = true,
                     onClick = { vm.openPicker(day.day.id) },
                 )
+                }
             }
 
             SectionRule()

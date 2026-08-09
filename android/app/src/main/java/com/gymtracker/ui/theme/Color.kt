@@ -11,14 +11,24 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
-// --- Dark palette (the designed, default theme: a night forge) ----------------
-val Ink = Color(0xFF0E0D0B)            // charcoal iron — screen background
-val SurfaceDark = Color(0xFF1A1815)    // smoked steel — cards
-val SurfaceRaised = Color(0xFF242019)  // nested cards, input fields (warm coal)
-val OutlineDark = Color(0xFF35302A)
-val OutlineFaint = Color(0xFF272319)
+// --- Dark palette (the designed, default theme: iron under work light) --------
+val Ink = Color(0xFF111110)            // iron — screen background
+val SurfaceDark = Color(0xFF1A1918)    // smoked steel — cards
+val SurfaceRaised = Color(0xFF232221)  // nested cards, input fields
+val OutlineDark = Color(0xFF2C2A27)
+val OutlineFaint = Color(0xFF201F1D)
 
-// Primary: ember orange — the single hot color; everything else stays metal
+// --- The action colour (v10 "Chalk & Iron") -----------------------------------
+// Chalk, not ember. The chrome is colourless so that warm hue means exactly one thing in this
+// app: heat, i.e. data. Ember survives as an opt-in Heat setting, never as the default.
+val Chalk = Color(0xFFEDE6D8)
+val ChalkContainer = Color(0xFF262523)   // tinted containers / icon tiles / active nav pill
+val ChalkBright = Color(0xFFFFFBF2)      // on-container text
+val OnChalk = Color(0xFF151311)          // label on a chalk fill
+val InkAction = Color(0xFF1B150E)        // the light-theme action fill
+
+// Ember — NO LONGER the app's action colour. It is the hot stop of the data heat scale below,
+// and the Heat.Ember opt-in. Do not reach for it as chrome.
 val AccentPrimary = Color(0xFFFF5A1F)
 val AccentPrimaryDim = Color(0xFF3A1608)     // tinted containers / icon tiles
 val AccentPrimaryBright = Color(0xFFFFB294)  // on-container text
@@ -31,9 +41,9 @@ val CyanDim = Color(0xFF232B30)
 // Forge red — errors, failure sets (hotter, redder than the ember primary)
 val ActivityPink = Color(0xFFFF4B36)
 
-val TextPrimary = Color(0xFFF2EDE4)    // warm off-white, like light on hot metal
-val TextSecondary = Color(0xFFA89F91)
-val TextHint = Color(0xFF6B6357)
+val TextPrimary = Chalk                // chalk — 15:1 on Ink
+val TextSecondary = Color(0xFF8A8378)  // 5.4:1 on Ink
+val TextHint = Color(0xFF57524A)       // decorative only — never body copy
 
 // Success is its own hue again — not merged into the one signal color (v5/mockup: "This
 // Week" checkmarks are olive, distinct from the ember Start button)

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.domain.AnalyticsEngine
+import com.gymtracker.ui.components.ForgedBlock
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
@@ -47,6 +48,7 @@ import com.gymtracker.ui.components.LineChart
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
 import com.gymtracker.ui.components.StampText
+import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
@@ -67,6 +69,7 @@ fun ExerciseStatsScreen(
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
     val analytics = state.analytics
+    val entered = rememberEntered()
 
     GlowBackground(glowAlpha = 0.10f) {
         Column(
@@ -78,6 +81,7 @@ fun ExerciseStatsScreen(
             ForgedScreenTitle(state.name, onBack = onBack)
 
             // THE hero for this screen (ForgedSurfaces §forgeHero): everything below stays flat
+            ForgedBlock(0, entered) {
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -114,6 +118,7 @@ fun ExerciseStatsScreen(
                     }
                 }
             }
+            }
             Spacer(Modifier.height(18.dp))
 
             if (analytics == null ||
@@ -127,6 +132,7 @@ fun ExerciseStatsScreen(
                     modifier = Modifier.padding(horizontal = Dim.screenPadH, vertical = 18.dp),
                 )
             } else {
+                ForgedBlock(1, entered) {
                 SectionRule()
                 if (hasBadges(analytics)) {
                     BadgeRow(analytics)
@@ -159,21 +165,22 @@ fun ExerciseStatsScreen(
                     HeadlineStat("${analytics.totalSets}", null, "total sets")
                     HeadlineStat(Formats.volumeKg(analytics.totalVolumeKg), "kg", "total volume")
                 }
+                }
 
-                if (analytics.e1rmSeries.size >= 2) {
+                if (analytics.e1rmSeries.size >= 2) ForgedBlock(2, entered) {
                     SectionRule()
                     ChartBlock("ESTIMATED 1RM", "best set per session · gold dot = all-time best") {
                         LineChart(analytics.e1rmSeries, valueSuffix = " kg")
                     }
                 }
-                if (analytics.volumeSeries.size >= 2) {
+                if (analytics.volumeSeries.size >= 2) ForgedBlock(3, entered) {
                     SectionRule()
                     ChartBlock("SESSION VOLUME", "working sets · weight × reps") {
                         LineChart(analytics.volumeSeries, valueSuffix = " kg")
                     }
                 }
 
-                if (analytics.recentSessions.isNotEmpty()) {
+                if (analytics.recentSessions.isNotEmpty()) ForgedBlock(4, entered) {
                     SectionRule()
                     ForgedSectionHeader("RECENT SESSIONS", bottomPadding = 4.dp)
                     analytics.recentSessions.forEach { s ->

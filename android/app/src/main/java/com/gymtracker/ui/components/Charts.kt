@@ -317,7 +317,9 @@ fun CalendarHeatmap(
     modifier: Modifier = Modifier,
     weeks: Int = 20,
 ) {
-    val active = MaterialTheme.colorScheme.primary
+    // the calendar encodes training intensity, so it reads from the heat scale rather than the
+    // action colour — under Chalk & Iron the chrome is colourless and heat is the data channel
+    val active = GymTheme.colors.heat.hot
     val empty = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
     val todayOutline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
 

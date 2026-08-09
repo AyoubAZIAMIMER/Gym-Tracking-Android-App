@@ -113,8 +113,10 @@ fun RestTimerBubble(
                 label = "restSweep",
             )
 
-            // Colour runs the primary signal (plenty of time) → orange → red (almost done).
-            val signal = MaterialTheme.colorScheme.primary
+            // A temperature, not a brand colour: quenched steel (plenty of time) → ember → red
+            // (almost done). Previously anchored on colorScheme.primary, which under Chalk & Iron
+            // would have drained the ring to bone white.
+            val signal = GymTheme.colors.heat.ready
             val heat = GymTheme.colors.heat
             val ringColor = if (animFraction > 0.5f) {
                 lerp(heat.hot, signal, (animFraction - 0.5f) / 0.5f)

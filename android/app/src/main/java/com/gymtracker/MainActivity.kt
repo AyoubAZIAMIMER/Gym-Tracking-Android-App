@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
                 val saved = repo.expression()
                 mutableStateOf(
                     Triple(
-                        runCatching { Heat.valueOf(saved.heat) }.getOrDefault(Heat.Ember),
+                        runCatching { Heat.valueOf(saved.heat) }.getOrDefault(Heat.Chalk),
                         runCatching { Energy.valueOf(saved.energy) }.getOrDefault(Energy.Alive),
                         runCatching { SurfaceStyle.valueOf(saved.surface) }.getOrDefault(SurfaceStyle.Soft),
                     )
@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
 private fun AppNavHost(
     fireUpRequest: Boolean = false,
     onFireUpHandled: () -> Unit = {},
-    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Ember, Energy.Alive, SurfaceStyle.Soft),
+    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Chalk, Energy.Alive, SurfaceStyle.Soft),
     onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
 ) {
     val nav = rememberNavController()
@@ -293,7 +293,12 @@ private fun AppNavHost(
                 ProgramEditorScreen(onBack = { nav.popBackStack() })
             }
             composable("session") {
-                WorkoutSessionScreen(onFinished = { nav.popBackStack() }, vm = sessionVm)
+                WorkoutSessionScreen(
+                    onFinished = { nav.popBackStack() },
+                    // minimise != finish: the workout stays live and Home offers Resume
+                    onMinimise = { nav.popBackStack() },
+                    vm = sessionVm,
+                )
             }
             composable("data") {
                 DataScreen(

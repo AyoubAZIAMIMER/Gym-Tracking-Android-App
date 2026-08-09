@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.ui.components.ForgedBar
+import com.gymtracker.ui.components.ForgedBlock
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
@@ -54,6 +55,7 @@ import com.gymtracker.ui.components.body.MuscleBodyMap
 import com.gymtracker.ui.components.body.slugFreshness
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.theme.Anton
 import com.gymtracker.ui.theme.Dim
@@ -69,6 +71,7 @@ fun RecoveryScreen(
     vm: RecoveryViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
+    val entered = rememberEntered()
     LaunchedEffect(Unit) { vm.refresh() }
     val heat = GymTheme.colors.heat
 
@@ -85,6 +88,7 @@ fun RecoveryScreen(
             )
 
             // READINESS — one number, weighted, in the heat colour it actually reports
+            ForgedBlock(0, entered) {
             SectionRule()
             ForgedSectionHeader(
                 label = "READINESS",
@@ -162,7 +166,10 @@ fun RecoveryScreen(
                 }
             }
 
+            }
+
             // FRONT / BACK figures, captioned in stamped mono
+            ForgedBlock(1, entered) {
             SectionRule()
             // Owner's call: use the anatomy shipped with the Claude Design handoff
             // (ui/components/body/), not the repo's v5 physique. It draws one side, so front
@@ -220,8 +227,10 @@ fun RecoveryScreen(
                 )
                 Text("GLOWING", style = StampLabel, color = heat.spent)
             }
+            }
 
             // BY MUSCLE
+            ForgedBlock(2, entered) {
             SectionRule()
             ForgedSectionHeader(
                 label = "BY MUSCLE",
@@ -236,6 +245,7 @@ fun RecoveryScreen(
             state.items.forEach { item ->
                 RowRule()
                 MuscleRow(item)
+            }
             }
 
             // the call: ember-dim plate with a 3dp ember rail, exactly as the prototype frames it

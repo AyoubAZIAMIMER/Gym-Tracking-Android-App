@@ -255,7 +255,8 @@ fun Modifier.emberBloomPulsing(
     color: Color,
     cornerRadius: Dp,
     spread: Dp = 26.dp,
-    intensity: Float = 0.45f,
+    // palette-driven: a chalk CTA blows out at ember's strength (see ForgePalette.glowIntensity)
+    intensity: Float = LocalForge.current.palette.glowIntensity,
 ): Modifier {
     // prototype `ringGlow 1.7s ease-in-out infinite`, applied to the accent CTA only when
     // Energy is Roaring. Calm/Alive get the static bloom.

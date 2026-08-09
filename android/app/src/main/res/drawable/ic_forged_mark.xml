@@ -1,29 +1,13 @@
-<!-- Forged barbell mark. Tint at use site with android:tint / setTint —
-     accent on Ink, onAccent on an ember fill, Ink on Paper. -->
+<!-- The Forged mark: an F built from struck bars, mid-arm sheared at 45°.
+     Keep in step with ui/components/ForgedMark.kt — same 32x32 vertices.
+     Tint at the use site with android:tint / setTint — chalk on Ink, Ink on the chalk CTA. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="32"
     android:viewportHeight="32"
-    android:tint="#FF5A1F">
-    <!-- bar -->
+    android:tint="#EDE6D8">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M10.5,14.25 h11 a1.5,1.5 0 0 1 1.5,1.5 v0.5 a1.5,1.5 0 0 1 -1.5,1.5 h-11 a1.5,1.5 0 0 1 -1.5,-1.5 v-0.5 a1.5,1.5 0 0 1 1.5,-1.5 z" />
-    <!-- inner plate, left -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M8.1,9.5 h0.3 a1.6,1.6 0 0 1 1.6,1.6 v9.8 a1.6,1.6 0 0 1 -1.6,1.6 h-0.3 a1.6,1.6 0 0 1 -1.6,-1.6 v-9.8 a1.6,1.6 0 0 1 1.6,-1.6 z" />
-    <!-- inner plate, right -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M23.6,9.5 h0.3 a1.6,1.6 0 0 1 1.6,1.6 v9.8 a1.6,1.6 0 0 1 -1.6,1.6 h-0.3 a1.6,1.6 0 0 1 -1.6,-1.6 v-9.8 a1.6,1.6 0 0 1 1.6,-1.6 z" />
-    <!-- outer plate, left -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M4.4,12 h0.2 a1.4,1.4 0 0 1 1.4,1.4 v5.2 a1.4,1.4 0 0 1 -1.4,1.4 h-0.2 a1.4,1.4 0 0 1 -1.4,-1.4 v-5.2 a1.4,1.4 0 0 1 1.4,-1.4 z" />
-    <!-- outer plate, right -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M27.4,12 h0.2 a1.4,1.4 0 0 1 1.4,1.4 v5.2 a1.4,1.4 0 0 1 -1.4,1.4 h-0.2 a1.4,1.4 0 0 1 -1.4,-1.4 v-5.2 a1.4,1.4 0 0 1 1.4,-1.4 z" />
+        android:pathData="M7,5.5 L26.5,5.5 L26.5,11.2 L13.4,11.2 L13.4,15 L23,15 L18.4,20.4 L13.4,20.4 L13.4,26.8 L7,26.8 Z" />
 </vector>

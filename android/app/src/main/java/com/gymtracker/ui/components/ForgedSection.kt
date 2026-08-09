@@ -13,6 +13,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +34,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +50,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymtracker.ui.theme.Dim
+import com.gymtracker.ui.theme.LocalForge
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.StampLabel
+import com.gymtracker.ui.theme.forgedEntrance
 import com.gymtracker.ui.theme.forgedPress
 import androidx.compose.foundation.shape.RoundedCornerShape
 import java.time.DayOfWeek
@@ -137,6 +145,32 @@ fun SheetTitle(
             )
         }
     }
+}
+
+/**
+ * Screen-entry flag for [ForgedBlock]. Motion §10: sections arrive once per screen entry and
+ * never replay on a tab return or a back-navigation, which is what rememberSaveable buys.
+ */
+@Composable
+fun rememberEntered(): Boolean {
+    var entered by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+    return entered
+}
+
+/**
+ * One staggered section. Flattening the screens onto hairline rules removed the glass cards that
+ * used to carry [forgedEntrance], so the redesign shipped with no arrival motion at all — this
+ * puts it back on the flat layout. Stagger and reduce-motion are handled inside forgedEntrance.
+ */
+@Composable
+fun ForgedBlock(
+    index: Int,
+    entered: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier.fillMaxWidth().forgedEntrance(index, entered), content = content)
 }
 
 /** Section rule — the prototype separates blocks with a hairline, never a card edge. */
@@ -402,10 +436,23 @@ fun ForgedCta(
 ) {
     val source = remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
+    val forge = LocalForge.current
     Box(
         modifier
             .fillMaxWidth()
             .height(Dim.ctaHeight)
+            // the halo the Slate's CTA has always had, now shared. Under Chalk & Iron this is a
+            // colourless bloom — the button gains weight without the app gaining a hue.
+            .then(
+                if (enabled) {
+                    Modifier.emberBloom(
+                        color = forge.palette.action,
+                        cornerRadius = Dim.ctaRadius,
+                        spread = 20.dp,
+                        intensity = forge.palette.glowIntensity,
+                    )
+                } else Modifier
+            )
             .clip(RoundedCornerShape(Dim.ctaRadius))
             .background(if (enabled) scheme.primary else scheme.surfaceVariant)
             .then(if (enabled) Modifier.forgedPress(source) else Modifier)

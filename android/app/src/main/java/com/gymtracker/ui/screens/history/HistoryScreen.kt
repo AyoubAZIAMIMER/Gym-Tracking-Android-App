@@ -218,7 +218,8 @@ private fun RowScope.DayCell(
     // heavier day → stronger volt fill, so the month reads as a heat map
     val ratio = if (state.maxDayVolume > 0) (volume / state.maxDayVolume).toFloat() else 0f
     val fill = if (trained) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f + 0.42f * ratio)
+        // heavier day = hotter, from the heat scale (not the chrome colour)
+        GymTheme.colors.heat.hot.copy(alpha = 0.16f + 0.42f * ratio)
     } else Color.Transparent
     val selected = state.selectedDay == day
     val isToday = state.todayDay == day
