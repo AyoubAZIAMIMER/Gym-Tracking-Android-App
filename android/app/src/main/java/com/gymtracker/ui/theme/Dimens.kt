@@ -18,7 +18,9 @@ object Dim {
     // bottom nav (floating, AppShapes.extraLarge)
     val navHeight = 64.dp
     val navInset = 14.dp
-    val navItemRadius = 16.dp      // AppShapes.medium
+    val navBarRadius = 32.dp       // deliberately OFF AppShapes (extraLarge is 28)
+    val navItemRadius = 20.dp
+    val navIcon = 20.dp
     val listBottomSpacer = 112.dp  // last row must clear the floating nav
 
     // session
@@ -28,8 +30,18 @@ object Dim {
     val sessionBottomBar = 228.dp
     val scrollFade = 22.dp         // bottom mask so clipped rows read as scrollable
 
+    // home hub (Dynamic Hub)
+    val heroRadius = 24.dp
+    val railCardWidth = 150.dp
+    val railGap = 12.dp
+    val railPeek = 22.dp           // = screenPadH, so the next card peeks by the gutter
+
     // home / plan
-    val weekCell = 34.dp
+    val weekCell = 28.dp           // prototype squircle, not the earlier 34dp circle
+    val weekCellRadius = 10.dp
+    val ctaRadius = 16.dp
+    val ctaSecondary = 56.dp       // the ⇄ swap button beside Start
+    val avatar = 30.dp
     val restStripHeight = 48.dp
     val restStripBottom = 86.dp    // sits above the nav
 

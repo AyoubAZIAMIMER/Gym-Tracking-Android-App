@@ -24,6 +24,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.Flow
 
 class WorkoutRepository(
@@ -80,6 +81,61 @@ class WorkoutRepository(
     }
 
     fun isProfileSet(): Boolean = !prefs.getString(KEY_PROFILE_NAME, null).isNullOrBlank()
+
+    // --- expression axes (Heat / Energy / Surface) --------------------------------
+    // The handoff asks for DataStore; this repo already funnels every preference through
+    // one SharedPreferences instance, so these live beside the rest rather than adding a
+    // second persistence mechanism for three enums.
+
+    data class Expression(val heat: String, val energy: String, val surface: String)
+
+    // --- training + rest-timer settings (handoff README §10) ----------------------
+
+    data class Settings(
+        val units: String,          // "kg" | "lb"
+        val weightStepKg: Double,   // 1.25 / 2.5 / 5
+        val restSeconds: Int,
+        val startRestOnLog: Boolean,
+        val alertOnRestEnd: Boolean,
+        val theme: String,          // "Dark" | "Light" | "Auto"
+        val haptics: Boolean,
+    )
+
+    fun settings(): Settings = Settings(
+        units = prefs.getString(KEY_UNITS, "kg") ?: "kg",
+        weightStepKg = prefs.getFloat(KEY_WEIGHT_STEP, 2.5f).toDouble(),
+        restSeconds = restSeconds(),
+        startRestOnLog = prefs.getBoolean(KEY_REST_AUTOSTART, true),
+        alertOnRestEnd = prefs.getBoolean(KEY_REST_ALERT, true),
+        theme = prefs.getString(KEY_THEME, "Dark") ?: "Dark",
+        haptics = prefs.getBoolean(KEY_HAPTICS, true),
+    )
+
+    fun saveSettings(s: Settings) {
+        prefs.edit()
+            .putString(KEY_UNITS, s.units)
+            .putFloat(KEY_WEIGHT_STEP, s.weightStepKg.toFloat())
+            .putInt(KEY_REST_SECONDS, s.restSeconds.coerceIn(15, 600))
+            .putBoolean(KEY_REST_AUTOSTART, s.startRestOnLog)
+            .putBoolean(KEY_REST_ALERT, s.alertOnRestEnd)
+            .putString(KEY_THEME, s.theme)
+            .putBoolean(KEY_HAPTICS, s.haptics)
+            .apply()
+    }
+
+    fun expression(): Expression = Expression(
+        heat = prefs.getString(KEY_HEAT, "Ember") ?: "Ember",
+        energy = prefs.getString(KEY_ENERGY, "Alive") ?: "Alive",
+        surface = prefs.getString(KEY_SURFACE, "Soft") ?: "Soft",
+    )
+
+    fun saveExpression(heat: String, energy: String, surface: String) {
+        prefs.edit()
+            .putString(KEY_HEAT, heat)
+            .putString(KEY_ENERGY, energy)
+            .putString(KEY_SURFACE, surface)
+            .apply()
+    }
 
     // --- import -----------------------------------------------------------------
 
@@ -200,7 +256,7 @@ class WorkoutRepository(
 
     // --- persist a finished session ----------------------------------------------
 
-    data class SaveSet(val weightKg: Double?, val reps: Int?, val tagLetter: String?)
+    data class SaveSet(val weightKg: Double?, val reps: Int?, val tagLetter: String?, val rpe: Float? = null)
     data class SaveExercise(
         val dbExerciseId: String?,
         val name: String,
@@ -240,6 +296,7 @@ class WorkoutRepository(
                     reps = s.reps,
                     tag = s.tagLetter,
                     orderInWorkout = order++,
+                    rpe = s.rpe,
                 )
             }
         }
@@ -316,6 +373,43 @@ class WorkoutRepository(
                 .mapNotNull(ProgressionImporter::canonicalMuscle)
                 .distinct(),
         )
+    }
+
+    data class RecentWorkout(
+        val name: String,
+        val startedAtMillis: Long,
+        val durationMin: Int?,
+        val volumeKg: Double,
+    )
+
+    /** The most recently logged workout, regardless of date (Home's RECENT row) —
+     *  same shape as [todayForged] minus the today-only gate. */
+    suspend fun recentWorkout(): RecentWorkout? = recentWorkouts(1).firstOrNull()
+
+    /** The last [count] logged workouts, newest first (Home's RECENT list). */
+    suspend fun recentWorkouts(count: Int = 2): List<RecentWorkout> =
+        db.workoutDao().latestN(count).mapNotNull { workout ->
+            val sets = db.setDao().forWorkout(workout.id)
+            if (sets.isEmpty()) return@mapNotNull null
+            val working = sets.filter { it.tag != "W" }
+            RecentWorkout(
+                name = workout.name.ifBlank { "Workout" },
+                startedAtMillis = workout.startedAt,
+                durationMin = workout.endedAt?.let { ((it - workout.startedAt) / 60_000L).toInt() },
+                volumeKg = working.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) },
+            )
+        }
+
+    /** Median-ish estimate ("about 58 min") from this day's own past runs; null until
+     *  it has been trained at least once, so Home can just drop the clause. */
+    suspend fun estimatedMinutesFor(dayName: String): Int? {
+        if (dayName.isBlank()) return null
+        val past = db.workoutDao().latestNamed(dayName, 5)
+        val durations = past.mapNotNull { w ->
+            w.endedAt?.let { ((it - w.startedAt) / 60_000L).toInt() }
+        }.filter { it in 5..240 }          // drop abandoned stubs and forgotten-to-finish runs
+        if (durations.isEmpty()) return null
+        return durations.average().roundToInt()
     }
 
     // --- muscle freshness (recovery) --------------------------------------------------
@@ -779,6 +873,27 @@ class WorkoutRepository(
         return NextProgramDay(program.name, days[idx])
     }
 
+    data class UpcomingDay(val day: ProgramDayEntity, val detail: ProgramDayDetail?)
+
+    /** Every day of the active program, in order — the Plan tab's SESSIONS list. */
+    suspend fun programDays(): List<UpcomingDay> {
+        val programId = activeProgramId() ?: return emptyList()
+        return db.programDao().days(programId).map { day -> UpcomingDay(day, dayDetail(day.id)) }
+    }
+
+    /** The program days after the current pointer (Home's NEXT UP) — same rotation math as
+     *  [nextProgramDay], just offset further, so the pointer itself is never mutated here. */
+    suspend fun upcomingProgramDays(count: Int = 2): List<UpcomingDay> {
+        val programId = activeProgramId() ?: return emptyList()
+        val days = db.programDao().days(programId)
+        if (days.size <= 1) return emptyList()
+        val idx = prefs.getInt(KEY_PROGRAM_DAY_IDX, 0) % days.size
+        return (1..count.coerceAtMost(days.size - 1)).map { offset ->
+            val day = days[(idx + offset) % days.size]
+            UpcomingDay(day, dayDetail(day.id))
+        }
+    }
+
     /** Called after a session started from the active program is saved. */
     suspend fun advanceProgramPointer() {
         val programId = activeProgramId() ?: return
@@ -849,6 +964,15 @@ class WorkoutRepository(
         private const val KEY_PROFILE_WEIGHT = "profile_weight_kg"
         private const val KEY_PROFILE_HEIGHT = "profile_height_cm"
         private const val KEY_WEEKLY_GOAL = "weekly_goal"
+        private const val KEY_HEAT = "expression_heat"
+        private const val KEY_ENERGY = "expression_energy"
+        private const val KEY_SURFACE = "expression_surface"
+        private const val KEY_UNITS = "units"
+        private const val KEY_WEIGHT_STEP = "weight_step_kg"
+        private const val KEY_REST_AUTOSTART = "rest_autostart"
+        private const val KEY_REST_ALERT = "rest_alert"
+        private const val KEY_THEME = "theme"
+        private const val KEY_HAPTICS = "haptics"
         private const val CATALOG_VERSION = 1
 
         @Volatile private var instance: WorkoutRepository? = null

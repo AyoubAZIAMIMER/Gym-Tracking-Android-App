@@ -71,6 +71,157 @@ _Extracted 2026-07-10 from the 3 reference images (renamed: design/references/ui
   - **Voice de-forged in UI copy** (persistence keys `repforge.db`/prefs/export format untouched): "Lights on." / "Start session" / "Resume session" / "IN SESSION" / "LOG SET" / "SESSION COMPLETE" / "Nothing logged"+"Discard" / Recovery "READY↔SPENT" / widget-notification "since last session"/"Time to train"/"Start now" / "FOCUS MODE" chip / Progression "deload to". App name stays Forged.
   - **Launcher mark v3 "Volt Dumbbell"**: v2 geometry recolored — chalk-steel plates, volt bar (white-hot center), gold PR spark, black floor bg with volt wash.
   - Playtested dark (Home/Recovery/Stats/Strike) + light (Home) on emulator; repo screenshots refreshed. History calendar heatmap inherits volt automatically.
+- **Identity v9 — "Ember, Restored" (2026-08-07, owner: "Actually want ember back")**. Full spec
+  `design/IDENTITY_V9.md`; reverts the color axis of **Identity v8 "Blue Hour"** (electric indigo
+  `#5B5BF7` primary — shipped on branch `redesign/blue-hour` after v7, not previously logged in
+  this file) back to v5's ember `#FF5A1F`. Trigger: the owner pointed at the live Claude Design
+  project behind `design/redesign-2026-07/`, read directly via the `DesignSync` tool — its own sync
+  log showed it was built against `design/IDENTITY_V5.md`, not v8, so its mockup and the shipped
+  app had quietly diverged on color. Restored from git history (`git show d9c1dea:.../Color.kt`,
+  the exact tree the design project synced against), not reconstructed from prose: ember primary +
+  dim/bright/on variants, warm charcoal-iron surfaces, `Success` decoupled back into its own
+  tempered-olive literal (v7/v8 had merged it into the one signal color), `HeatScale` restored to
+  v5's four-stop curve (field names `ready/worn/hot/spent` kept from v8's API — only values/curve
+  moved, so Recovery/Strike Mode/rest-timer call sites needed no changes), warm glass hairlines.
+  Motion and the subtle rank ladder were never in question and are untouched. Two real bugs fixed
+  while restoring, not just re-colored: Home's readiness tag was rendered in a flat primary color
+  regardless of which ready/worn/hot/spent bucket it named (only looked right under v8 by
+  coincidence); the "This Week" done-day checkmarks were reading primary instead of the separate
+  `success` role the mockup actually shows (olive, distinct from the ember Start button). Launcher
+  icon (`ic_launcher_foreground.xml`, `ic_launcher_bg_gradient.xml`) and the home-screen widget
+  (`widget_bg.xml`, `widget_forge.xml`) hand-repainted to match (XML art can't reference Kotlin
+  theme constants).
+  - **Home rebuilt 1:1 from the prototype markup (same session).** The first pass matched only
+    color, because it worked from the bundle's *screenshots*; the owner pushed back ("I dont see
+    the design and exact details"), and reading the actual prototype HTML
+    (`design/redesign-2026-07/prototype/Forged Redesign.dc.html`, Home block ~lines 80-140) exposed
+    a dozen structural gaps the screenshots hid. **Read that HTML, not the PNGs, before building any
+    remaining screen.** Consequences: (1) **Anton un-retired** — the prototype sets `font-family:
+    Anton` on the brand mark, Start CTA and hero numerals; `anton.ttf` was still in `res/font/`
+    unused since v7. Restored as `Type.kt`'s `Anton` family, stamped-accent discipline intact (never
+    body copy). (2) New `StampLabel` TextStyle — mono 10sp/1.7sp for section labels. (3) **Home has
+    NO hero glass card**: flat full-bleed sections split by hairlines. `GlassSurface` still rules
+    every other screen — Home is the prototype's deliberate exception. (4) Week cells are 28dp
+    squircles (`Dim.weekCellRadius` 10dp), not 34dp circles — `Dimens.kt`'s original 34dp did not
+    match the prototype. (5) New `Modifier.emberBloom` in `Glass.kt` reproduces the CTA's
+    `box-shadow: 0 0 26px rgba(255,90,31,.45)` by stacking 18 expanding rounded rects — Compose
+    ignores `shadow()`'s ambient/spot tint below API 28 (minSdk is 26), and few/fat layers band
+    visibly. (6) NEXT UP rows gained chevrons; RECENT shows two rows (new `recentWorkouts(count)`
+    + `WorkoutDao.latestN`). (7) "· about N min" comes from `estimatedMinutesFor(dayName)` —
+    averages this day's own past runs (5 most recent, 5..240 min guard), null until it has history.
+  - **All tab screens rebuilt from the prototype (same session).** Two prototype files ship in the
+    bundle and they disagree: `Forged Redesign.dc.html` is a design-*exploration* doc (turns/options,
+    stale metrics); `Forged Prototype.dc.html` is the canonical runnable app with `data-screen-label`
+    per screen and is what the 12 screenshots came from. **Build from the latter.** Extracted its
+    shared vocabulary into `ui/components/ForgedSection.kt` (`ForgedScreenTitle` 28sp/-0.5,
+    `SectionRule`/`RowRule`, `StampText`/`StampLabel` mono 11sp/1.2, `ForgedSectionHeader`,
+    `ForgedListRow`, `ForgedWeekStrip`, `EffortBars`) and rebuilt Plan, Body, History, Stats,
+    Library and Data-as-Settings on it — all flat + hairline-ruled, no hero cards. `GlassSurface`
+    now survives only where something is a genuinely distinct plate (session top bar, Stats rank
+    cue, exercise-detail hero). New: `ForgedIcons.kt` ports the prototype's own stroke icon set
+    (24-unit box, 1.9 stroke, round caps) plus its filled 5-rect barbell brand mark, replacing
+    Material's nav icons. `GlowBackground` gained `glowAlpha` and now hangs the ember wash ABOVE the
+    content (`at 50% -8%`) with a 3dp dot grain tiled via `ImageShader` (one draw call, not 40k
+    dots). New data: `WorkoutDao.latestN`/`latestNamed`, `repo.programDays()`,
+    `repo.recentWorkouts(n)`, `repo.estimatedMinutesFor(day)`; `RecoveryViewModel` computes a
+    muscle-mass-weighted readiness % + a "what to train" call; `PlanViewModel` gained the week
+    strip + session list; `DataViewModel` gained profile name/streak. `EffortBars` (5 rising bars,
+    Easy→All out) replaced the RPE tap-cycle chip — it maps 1..5 onto the stored RPE 6..10.
+    Not built: the prototype's *dashed* rest-day week cell — the app has no rest-day model
+    (programs are a rotation pointer, not a weekday calendar), so it was left out rather than faked.
+- **Design handoff v2 — `design_handoff_forged_android/` (2026-08-08, owner re-exported from Claude
+  Design and said "use it")**. Supersedes `design/redesign-2026-07/`: same 12 screenshots and
+  prototypes, but now ships **real Kotlin** (`kotlin/`) plus `BUILD_ORDER.md`. Read BUILD_ORDER
+  first — it sequences the integration and its "Things that will bite you" list is accurate.
+  Landed steps 1-4 + 6:
+  - `ui/theme/ForgeExpression.kt` — **three expressive axes** as one CompositionLocal: **Heat**
+    (Quenched/Ember/Molten — re-tints the action colour; Ember IS AccentPrimary), **Energy**
+    (Calm/Alive/Roaring — a motion multiplier; Calm is forced when `ANIMATOR_DURATION_SCALE == 0`,
+    wired in `GymTrackerTheme`), **Surface** (Flat/Soft/Glass — blur radius + card alpha). Read via
+    `LocalForge` / `ForgeExpression.current`.
+  - `ui/components/ForgedMark.kt` — the canonical barbell mark + `ForgedWordmark`. Replaced the
+    hand-ported `ForgedIcons.Barbell` (same geometry, one source now). Also
+    `res/drawable/ic_forged_mark.xml` — its `android:tint="?attr/colorPrimary"` **fails to link in
+    a Compose-only app** (no AppCompat theme attrs); changed to the literal ember, tint at use site.
+  - `ui/components/ForgedSurfaces.kt` — `forgeGround()` / `forgeHero()` / `ForgeHairline()` /
+    `ForgeSectionHeader()`. The law: **one `forgeHero()` per screen, everything else flat** (Home's
+    hero, History's calendar, Plan's Up Next, Recovery's body map, Stats' chart — that is the
+    complete list). Its `clickableRow` shipped as a stub; wired to the repo's real `forgedPress`.
+  - **Home is now the "Dynamic Hub"** (`ui/screens/home/HomeHubScreen.kt`, stateless, takes a
+    `HomeUi`): 2dp week rail → brand row → hero (RECOMMENDED FOR TODAY + readiness tag + Anton 30
+    session name + glowing Start) → "Ready to train" rail → "Jump back in" rail → PR watch. This
+    **replaces yesterday's flat-sections Home** and resolves INTEGRATION.md §6.7. `HomeScreen.kt`
+    is now just the stateful wrapper that builds `HomeUi`.
+  - Real bug found by the rail: "Ready to train" listed only muscles with freshness rows, i.e. the
+    ones just trained, at 0%, under a heading claiming they were ready. `muscleFreshness()` only
+    looks back 14 days, so an *absent* group is recovered, not unknown. Added
+    `ProgressionImporter.CANONICAL_MUSCLES` and the VM now spans all 10, defaulting missing ones to
+    100%. Same bug, same fix, in `RecoveryViewModel` — training only legs read as "0% ready to
+    train" for the whole body.
+  - Finished the rest of BUILD_ORDER the following pass: **step 5** (the regenerated anatomical
+    map, `ui/components/body/`; it is slug-keyed and draws ONE side, so Recovery places Front and
+    Back side by side — added `slugFreshness()` to expand the repo's 10 canonical groups onto its
+    ~35 slugs; the old `MuscleBodyMap` stays because `MuscleTargetFigure` in Library still uses
+    it), **step 7** (`SessionSlateScreen` is now the non-Strike session surface; it is a fixed
+    3-part column that owns the screen, so `SessionTopBar`, the FOCUS MODE chip and the add-
+    exercise FAB stand down while it shows, and chevrons in its header replace the exercise
+    navigation the scrolling table used to give), and **step 8** (one `forgeHero()` each on Plan's
+    Up Next, History's calendar, Recovery's body map, Stats' weekly chart).
+  - **The three axes are live and persisted** — `repo.expression()`/`saveExpression()` in the same
+    SharedPreferences as every other pref (not a second DataStore), hoisted to `MainActivity` so a
+    change re-themes instantly, with a segmented control per axis under Settings → APP. Critically,
+    `GymTrackerTheme` now derives `colorScheme.primary/onPrimary/primaryContainer` from
+    `forge.palette`, so **Heat re-tints the whole app**, not just the handoff's own components.
+    Ember's palette equals the shipped `AccentPrimary`, so the default is byte-identical.
+  - **Fidelity pass against the v2 handoff's own reference PNGs (2026-08-08).** The earlier
+    step-8 screens had been built from the *older* `design/redesign-2026-07/` prototype markup, so
+    they drifted. Corrections, all sourced from `design_handoff_forged_android/README.md` §Screens
+    + `screenshots/`:
+    - **Anton is now the type scale**, not a per-screen opt-in: `Type.kt` puts it on
+      displayLarge 44 / displaySmall 32 / headlineLarge 28 / headlineMedium 24 / titleLarge 20 and
+      the screens use those roles. **Never set `fontWeight` on an Anton style** — one weight, it
+      synthesises a fake bold.
+    - **Body map reverted to the repo's v5 anatomy.** The handoff contradicts itself: BUILD_ORDER
+      step 5 says copy its generated `body/MuscleBodyPaths.kt`, but README §Fidelity says that where
+      IDENTITY_V5 and the prototype disagree on *body anatomy* "the repo spec wins", and §6 says
+      build from `MuscleBodyMap.kt` "not the prototype's abstract bodyPaths.js". §Fidelity is the
+      tie-breaker. `ui/components/body/` deleted.
+    - **The Energy axis was dead code** — `motionScale` was computed and never read. `Motion.scale`
+      now multiplies every settle/cool/plane duration (Calm → 0 = snap), and `ambientLoops` gates
+      the rest-timer breath and confetti.
+    - Screen fixes: **Plan** loses its hero — session rows carry state instead (mono eyebrow
+      LOGGED·WED / TODAY / IN 2 DAYS, today = primaryContainer + 3dp accent rail, logged dimmed with
+      an olive check, duration Anton 17sp over exercise count), sorted chronologically not by
+      rotation order. **Recovery**: 42sp numeral, 10-segment readiness bar ramping COOLED→GLOWING,
+      legend wording to `COOLED · READY` ←→ `GLOWING` (README calls the prototype's FRESH/FATIGUED
+      stale), BY MUSCLE rows dot + name + bar + %. **Stats**: Week/Month/Year toggle with real
+      period aggregation in the VM, 8 bars with **only the current week accent-filled** (volume is
+      not a temperature, so no heat ramp), flat sections not a card. **Settings**: the whole spec —
+      TRAINING (Units, Weight step), REST TIMER (Default rest stepper, 2 switches), APP (Theme,
+      Haptics, the 3 axes), DATA, ABOUT — with a new `ui/components/SettingRow.kt` whose segmented
+      controls are **inline text with an accent underline, not filled pills**, and 44×26dp switches.
+      **History** groups by week under mono headers with a 44dp mono day column. **Library** filter
+      chips to underline.
+  - **The prototype's motion layer (2026-08-08).** Earlier passes read the prototype markup for
+    *structure* only and never opened its CSS/JS animation layer, so several behaviours were
+    missing. `Forged Prototype.dc.html` lines 20-34 hold the keyframes; the JS gates them on
+    `const motionOn = energy !== 'Calm'`. What it actually specifies, and where it now lives:
+    | Prototype | Status |
+    |---|---|
+    | `.tap:active{transform:scale(.96)}` 120ms | `forgedPress` 0.97 — README §Fidelity says prefer the codebase, so 0.97 stands |
+    | `screenIn .34s` (opacity + 10px rise + .994 scale) | NavHost transitions, `Motion.settle` |
+    | `muscFade .55s`, staggered `0.05 + i*0.045`s per muscle group | body map reveal, staggered 45ms |
+    | `heatBreath` 0.62→1 opacity on hot muscles, staggered | body map, gated on `ambientLoops` |
+    | `rowSettle .28s` scale 1.028→1 on the newly-active set | Slate `SetRow`, via `springMass` |
+    | `checkPop .3s` scale .55→1.12→1 on a logged set | Slate e1RM badge, via `springMass` |
+    | `ringGlow 1.7s infinite` — **Roaring only** | `Modifier.emberBloomPulsing` on the CTAs |
+    | `Calm` → `.screen *{animation:none}` | `Motion.scale = 0` + `ambientLoops = false` |
+    Its overshoot curves (`cubic-bezier(.2,.9,.25,1.05/1.15)`) are deliberately NOT ported —
+    README says "add no new curves" and MOTION.md §5 forbids damping < 0.85, so `springMass`
+    (damping 0.9) is the sanctioned equivalent.
+    **Still not implemented**: `timerAlarm .9s` (rest overtime pulse) needs the rest timer to count
+    negative, which `RestTimerService` does not yet do; and `floatY`/`shimmer` have no call site
+    beyond the existing `SteelSheen`.
 - **UX v6 adversarial hardening (2026-07-19, owner: "challenge everything before confirming")** — self-review found 4 real defects, all fixed + playtested: (1) widget vs notification PendingIntents shared an identity (matching ignores extras) → widget uses requestCode 2; (2) `standard` launchMode let a warm widget tap stack a second MainActivity with a second empty session VM → `singleTask` + `onNewIntent` (fire-up state lives on the activity, `removeExtra` guards rotation; consume-LAST in the LaunchedEffect — consuming first cancels the effect's own suspend work, which briefly regressed the deep link); (3) zero-set sessions were un-exitable (Finish only recoils) — now recoil + "Cold metal" dialog → `vm.discardSession()` (nothing saved), essential once entry is one gesture; (4) un-completing the last set stranded users out of Strike Mode (activeSetId stays null) → `activeStrike` falls back to the first incomplete set. Verified: cold + warm (onNewIntent) deep links land in Strike Mode; discard returns to Home with no phantom session.
 - **UX v6 moves 2+3 SHIPPED (2026-07-19, owner: "continue implementing everything")**:
   - **Now Card** (Home leads with state): `LiveSessionCard` (AT THE ANVIL · ticking elapsed · sets struck · current exercise · one-tap resume; fed by `LiveSessionInfo` snapshot derived in MainActivity from the activity-scoped session VM) → `ForgedTodayCard` (SESSION FORGED: physique with today's muscles glowing, volume/sets/minutes via new `repo.todayForged()`, plan demoted below) → `PlanCard` (default; its IN PROGRESS variant removed — the live card owns that state now). Rest-day verdict intentionally merged into PlanCard's heat dots.
@@ -211,6 +362,7 @@ _Pulled forward 2026-07-12 at owner request; charts are custom Compose Canvas (M
 ## Session log
 | Date | Model used | Work done |
 |------|-----------|-----------|
+| 2026-08-07 | Sonnet 5 | **Identity v9 "Ember, Restored"** — reverted v8 Blue Hour's indigo primary back to v5's ember, after the owner checked the live Claude Design project behind `design/redesign-2026-07/` (via the `DesignSync` tool) and found its sync log named `IDENTITY_V5.md` as its source, not v8. Restored `Color.kt` from `git show d9c1dea` (the exact tree the design project synced against): ember primary, warm surfaces, separate olive `Success`, v5's `HeatScale` curve (v8's `ready/worn/hot/spent` field names kept so call sites didn't change). Fixed two real bugs surfaced by the revert: Home's readiness tag was always primary-colored regardless of its actual bucket; "This Week" done-checkmarks should read the `success` role, not primary (matches the mockup's olive checkmarks). Repainted launcher icon + widget XML (can't reference Kotlin constants). Wrote `design/IDENTITY_V9.md`. Not yet compiled/playtested — next step. |
 | 2026-07-15 | — | **README.md**: project overview, shields.io + skillicons tech badges (Kotlin/Compose/Room/FastAPI/LangGraph/etc.), GitHub star/fork badges, star-history.com star counting diagram, features table, structure, build steps, mermaid architecture diagram |
 | — | — | Project initialized |
 | 2026-07-11 | Fable 5 (+ Sonnet subagent for Gradle/res boilerplate) | Repo scaffold + AGENTS.md/MEMORY.md/backend SKILL.md; UI extraction from 3 refs logged; theme (Color/Type/Shape/Theme); utils (OneRM, PlateCalculator, TimeFormat); WorkoutSessionScreen + ViewModel + DragNumberField/RestTimerBubble/PlateCalculatorPanel/ExercisePickerSheet/FinishSummarySheet; RestTimerService (FGS); HomeScreen placeholder + MainActivity nav; toolchain installed (JDK 17, Gradle 8.9 wrapper, SDK 35); `assembleDebug` GREEN → app-debug.apk |

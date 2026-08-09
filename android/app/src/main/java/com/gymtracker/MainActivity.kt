@@ -26,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -54,13 +56,18 @@ import com.gymtracker.ui.screens.session.WorkoutSessionScreen
 import com.gymtracker.ui.screens.session.WorkoutSessionViewModel
 import com.gymtracker.ui.screens.stats.ExerciseStatsScreen
 import com.gymtracker.ui.screens.stats.StatsScreen
+import com.gymtracker.ui.theme.Energy
 import com.gymtracker.ui.theme.GymTrackerTheme
+import com.gymtracker.ui.theme.Heat
+import com.gymtracker.ui.theme.SurfaceStyle
 import com.gymtracker.ui.theme.Motion
 import kotlinx.coroutines.launch
 
 // Forged Motion §11 — space is a workbench: tabs slide on one plane, details lift
 // off the bench, the session rises from the bottom like stepping toward the forge.
-private val TabOrder = listOf("home", "history", "plan", "library", "recovery", "stats")
+// 4 tabs (owner, 2026-08-08). History and Library dropped to pushed destinations; they keep
+// their nav-bar-free treatment via isSubpage below and gain back arrows.
+private val TabOrder = listOf("home", "plan", "recovery", "stats")
 private fun tabIndex(route: String?): Int = TabOrder.indexOf(route)
 private fun isTab(route: String?): Boolean = tabIndex(route) >= 0
 
@@ -92,10 +99,32 @@ class MainActivity : ComponentActivity() {
         // The extra is removed after reading so a rotation's re-read can't re-fire.
         consumeFireUpExtra(intent)
         setContent {
-            GymTrackerTheme {
+            // The three expression axes live here so changing one in Settings re-themes the
+            // whole app immediately (they feed LocalForge via GymTrackerTheme).
+            val repo = remember { WorkoutRepository.get(this) }
+            var expression by remember {
+                val saved = repo.expression()
+                mutableStateOf(
+                    Triple(
+                        runCatching { Heat.valueOf(saved.heat) }.getOrDefault(Heat.Ember),
+                        runCatching { Energy.valueOf(saved.energy) }.getOrDefault(Energy.Alive),
+                        runCatching { SurfaceStyle.valueOf(saved.surface) }.getOrDefault(SurfaceStyle.Soft),
+                    )
+                )
+            }
+            GymTrackerTheme(
+                heat = expression.first,
+                energy = expression.second,
+                surface = expression.third,
+            ) {
                 AppNavHost(
                     fireUpRequest = fireUpRequest.value,
                     onFireUpHandled = { fireUpRequest.value = false },
+                    expression = expression,
+                    onExpressionChange = { heat, energy, surface ->
+                        expression = Triple(heat, energy, surface)
+                        repo.saveExpression(heat.name, energy.name, surface.name)
+                    },
                 )
             }
         }
@@ -125,6 +154,8 @@ class MainActivity : ComponentActivity() {
 private fun AppNavHost(
     fireUpRequest: Boolean = false,
     onFireUpHandled: () -> Unit = {},
+    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Ember, Energy.Alive, SurfaceStyle.Soft),
+    onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
 ) {
     val nav = rememberNavController()
     val backStackEntry by nav.currentBackStackEntryAsState()
@@ -215,10 +246,16 @@ private fun AppNavHost(
                         )
                     } else null,
                     onOpenData = { nav.navigate("data") },
+                    onOpenPlan = { nav.navigate("plan") },
+                    onOpenHistory = { nav.navigate("history") },
+                    onOpenRecovery = { nav.navigate("recovery") },
                 )
             }
             composable("history") {
-                HistoryScreen(onOpenWorkout = { id -> nav.navigate("workout/$id") })
+                HistoryScreen(
+                    onOpenWorkout = { id -> nav.navigate("workout/$id") },
+                    onBack = { nav.popBackStack() },
+                )
             }
             composable("workout/{workoutId}") {
                 WorkoutDetailScreen(
@@ -234,12 +271,18 @@ private fun AppNavHost(
                 PlanScreen(
                     onStartDay = { dayId -> startSession(dayId) },
                     onOpenProgram = { id -> nav.navigate("program/$id") },
+                    onOpenLibrary = { nav.navigate("library") },
                 )
             }
             composable("library") {
-                ExerciseLibraryScreen(onOpenExercise = { id -> nav.navigate("exercise/$id") })
+                ExerciseLibraryScreen(
+                    onOpenExercise = { id -> nav.navigate("exercise/$id") },
+                    onBack = { nav.popBackStack() },
+                )
             }
-            composable("recovery") { RecoveryScreen() }
+            composable("recovery") {
+                RecoveryScreen(onStartDay = { dayId -> startSession(dayId) })
+            }
             composable("stats") {
                 StatsScreen(onOpenExercise = { id -> nav.navigate("exercise/$id") })
             }
@@ -252,11 +295,18 @@ private fun AppNavHost(
             composable("session") {
                 WorkoutSessionScreen(onFinished = { nav.popBackStack() }, vm = sessionVm)
             }
-            composable("data") { DataScreen(onBack = { nav.popBackStack() }) }
+            composable("data") {
+                DataScreen(
+                    onBack = { nav.popBackStack() },
+                    expression = expression,
+                    onExpressionChange = onExpressionChange,
+                )
+            }
         }
         // session is full-focus; data/exercise/program pages are subpages: no bottom nav
         // (a subpage in the tab back stack would get saved/restored by tab switches)
         val isSubpage = route == "session" || route == "data" ||
+            route == "history" || route == "library" ||
             route?.startsWith("exercise/") == true || route?.startsWith("program/") == true ||
             route?.startsWith("workout/") == true
         if (!isSubpage) {
@@ -264,10 +314,19 @@ private fun AppNavHost(
                 current = route,
                 onSelect = { target ->
                     if (target != route) {
-                        nav.navigate(target) {
-                            popUpTo("home") { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        if (target == "home") {
+                            // "home" is the graph's start destination, so it is also the
+                            // popUpTo anchor below. navigate("home") with that anchor saves the
+                            // tab being left and then restoreState puts it straight back —
+                            // which made the Home tab a silent no-op from every other tab
+                            // (found in tap-through QA 2026-08-09). Pop to it instead.
+                            nav.popBackStack("home", inclusive = false)
+                        } else {
+                            nav.navigate(target) {
+                                popUpTo("home") { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
                 },

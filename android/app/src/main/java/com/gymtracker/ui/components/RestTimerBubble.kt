@@ -1,5 +1,5 @@
 // Purpose: Draggable liquid-glass rest timer bubble; tap to expand +15s/Skip controls.
-//          The ring shrinks smoothly and shifts colour indigo → orange → red as time runs
+//          The ring shrinks smoothly and shifts colour ember → orange → red as time runs
 //          out, pulses through the final 5 s, and ticks a haptic each of those seconds with
 //          a firmer buzz on completion.
 // Inputs: remaining/total seconds from RestTimerService.state; HazeState for backdrop blur
@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
+import com.gymtracker.ui.theme.ForgeExpression
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
 import com.gymtracker.utils.TimeFormat
@@ -112,19 +113,21 @@ fun RestTimerBubble(
                 label = "restSweep",
             )
 
-            // Colour runs indigo (plenty of time) → orange → red (almost done).
-            val indigo = MaterialTheme.colorScheme.primary
+            // Colour runs the primary signal (plenty of time) → orange → red (almost done).
+            val signal = MaterialTheme.colorScheme.primary
             val heat = GymTheme.colors.heat
             val ringColor = if (animFraction > 0.5f) {
-                lerp(heat.hot, indigo, (animFraction - 0.5f) / 0.5f)
+                lerp(heat.hot, signal, (animFraction - 0.5f) / 0.5f)
             } else {
                 lerp(heat.spent, heat.hot, (animFraction / 0.5f).coerceIn(0f, 1f))
             }
             val track = MaterialTheme.colorScheme.outlineVariant
 
             // §7.3 ambient breath; through the final 5 s it quickens and deepens into a pulse.
+            // Energy.Calm kills every ambient loop — reduce-motion means reduce motion.
+            val ambient = ForgeExpression.current.ambientLoops
             val breath = rememberInfiniteTransition(label = "restBreath")
-            val t by breath.animateFloat(
+            val tRaw by breath.animateFloat(
                 initialValue = 0f, targetValue = 1f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(if (finalCountdown) 520 else 2_000, easing = Motion.Temper),
@@ -132,6 +135,7 @@ fun RestTimerBubble(
                 ),
                 label = "restPulse",
             )
+            val t = if (ambient) tRaw else 0f
             val amp = if (finalCountdown) 0.08f else 0.02f
             val scale = 1f + amp * (t * 2f - 1f)
 

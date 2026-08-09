@@ -156,6 +156,13 @@ object ProgressionImporter {
         )
     }
 
+    /** The 10 canonical groups, in body order. A group absent from freshness data simply
+     *  hasn't been trained inside the lookback window — which means it is fully recovered. */
+    val CANONICAL_MUSCLES = listOf(
+        "Chest", "Back", "Shoulders", "Biceps", "Triceps",
+        "Abs", "Glutes", "Quads", "Hamstrings", "Calves",
+    )
+
     /** Buckets any muscle label (ours or Progression's enums) into the 10 canonical groups. */
     fun canonicalMuscle(raw: String): String? {
         val u = raw.uppercase()

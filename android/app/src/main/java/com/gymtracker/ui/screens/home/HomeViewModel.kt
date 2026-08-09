@@ -12,12 +12,23 @@ import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.utils.Formats
 import com.gymtracker.utils.PlateCalculator
 import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 // freshness = primary muscle's recovery % (heat-tints the row dot, Identity v5)
 data class PlanRow(val name: String, val muscle: String, val detail: String, val freshness: Int? = null)
+
+// Home's "NEXT UP" row: an upcoming program day, not yet started
+data class UpcomingRow(val name: String, val muscles: String, val dayLabel: String)
+
+// Home's "RECENT" row: the most recently logged workout
+data class RecentRow(val name: String, val dayLabel: String, val durationMin: Int?, val volumeKg: Double)
 
 data class HomeUiState(
     val hasData: Boolean = false,
@@ -36,7 +47,17 @@ data class HomeUiState(
     val userName: String = "",
     val needsProfile: Boolean = false,  // true until the first-run profile is saved
     val todayForged: WorkoutRepository.TodayForged? = null, // non-null → Now Card leads with it
+    val readinessLabel: String? = null, // "{muscle} {ready|worn|hot|spent}" — today's least-fresh target
+    val readinessFreshness: Float? = null, // 0f (spent) .. 1f (ready) — colors the label via heat.at()
+    val estimatedMinutes: Int? = null,  // "· about 58 min" — null until this day has history
+    val upcoming: List<UpcomingRow> = emptyList(),  // NEXT UP
+    val recent: List<RecentRow> = emptyList(),      // RECENT (prototype shows two)
+    // Dynamic Hub's "Ready to train" rail — most-recovered muscle groups first
+    val readyToTrain: List<WorkoutRepository.MuscleFreshness> = emptyList(),
 )
+
+/** muscleFreshness() only looks this far back; beyond it a group counts as fully cooled. */
+private const val FRESHNESS_LOOKBACK_DAYS = 14
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -75,20 +96,79 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             weeklyGoal = profile.weeklyGoal,
             needsProfile = !repo.isProfileSet(),
         )
+        // Today block's readiness tag: the least-fresh of today's target muscles names the
+        // limiting factor ("QUADS WORN"), bucketed onto the same ready/worn/hot/spent
+        // vocabulary HeatScale.at() already uses (Color.kt), so no new copy is invented.
+        fun readinessTag(canonicalMuscles: List<String>): Pair<String, Float>? {
+            val (muscle, pct) = canonicalMuscles.mapNotNull { m -> freshness[m]?.let { m to it } }
+                .minByOrNull { it.second } ?: return null
+            val word = when {
+                pct >= 90 -> "ready"
+                pct >= 68 -> "worn"
+                pct >= 45 -> "hot"
+                else -> "spent"
+            }
+            return "${muscle.uppercase()} ${word.uppercase()}" to (pct / 100f)
+        }
+        // NEXT UP / RECENT are independent of which plan branch resolves below
+        val upcomingRows = if (stats.hasData) {
+            repo.upcomingProgramDays().mapIndexed { i, u ->
+                UpcomingRow(
+                    name = u.day.name,
+                    muscles = u.detail?.exercises
+                        ?.mapNotNull { it.exercise?.muscles }
+                        ?.flatMap { it.split("·").map(String::trim) }
+                        ?.mapNotNull(ProgressionImporter::canonicalMuscle)
+                        ?.distinct()
+                        ?.joinToString(", ")
+                        .orEmpty(),
+                    dayLabel = if (i == 0) "Next" else "Then",
+                )
+            }
+        } else emptyList()
+        // "Ready to train" must answer "what can I hit today?", so it spans ALL canonical
+        // groups — one absent from muscleFreshness() hasn't been trained inside the lookback
+        // window, which means recovered, not unknown. Without this the rail showed only the
+        // muscles you just destroyed, at 0%, under a heading that said they were ready.
+        val ready = if (stats.hasData) {
+            val trained = repo.muscleFreshness().associateBy { it.muscle }
+            ProgressionImporter.CANONICAL_MUSCLES
+                .map { group ->
+                    trained[group] ?: WorkoutRepository.MuscleFreshness(
+                        muscle = group,
+                        lastTrainedDaysAgo = FRESHNESS_LOOKBACK_DAYS,
+                        freshnessPercent = 100,
+                    )
+                }
+                .sortedByDescending { it.freshnessPercent }
+                .take(6)
+        } else emptyList()
+        val recentRows = if (stats.hasData) {
+            repo.recentWorkouts().map { r ->
+                RecentRow(
+                    name = r.name,
+                    dayLabel = LocalDate.ofInstant(Instant.ofEpochMilli(r.startedAtMillis), ZoneId.systemDefault())
+                        .format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)),
+                    durationMin = r.durationMin,
+                    volumeKg = r.volumeKg,
+                )
+            }
+        } else emptyList()
 
         // 1st priority: next day of the active program
         val next = repo.nextProgramDay()
         val programDetail = next?.let { repo.dayDetail(it.day.id) }
         if (next != null && programDetail != null && programDetail.exercises.isNotEmpty()) {
+            val muscles = programDetail.exercises
+                .mapNotNull { it.exercise?.muscles }
+                .flatMap { it.split("·").map(String::trim) }
+                .mapNotNull(ProgressionImporter::canonicalMuscle)
+                .distinct()
+            val readiness = readinessTag(muscles)
             _ui.value = statsPart(stats).copy(
                 planLabel = "PROGRAM · ${next.programName.uppercase()}",
                 planTitle = programDetail.day.name,
-                planMuscles = programDetail.exercises
-                    .mapNotNull { it.exercise?.muscles }
-                    .flatMap { it.split("·").map(String::trim) }
-                    .mapNotNull(ProgressionImporter::canonicalMuscle)
-                    .distinct()
-                    .joinToString(", "),
+                planMuscles = muscles.joinToString(", "),
                 planRows = programDetail.exercises.map { pe ->
                     PlanRow(
                         name = pe.exercise?.name ?: "Unknown exercise",
@@ -99,6 +179,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 programDayId = programDetail.day.id,
                 todayForged = forged,
+                readinessLabel = readiness?.first,
+                readinessFreshness = readiness?.second,
+                estimatedMinutes = repo.estimatedMinutesFor(programDetail.day.name),
+                upcoming = upcomingRows,
+                recent = recentRows,
+                readyToTrain = ready,
             ).withProfile()
             return
         }
@@ -107,15 +193,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (stats.hasData) {
             val template = repo.latestWorkoutTemplate()
             if (template != null) {
+                val muscles = template.exercises
+                    .flatMap { it.muscleGroup.split("·").map(String::trim) }
+                    .mapNotNull(ProgressionImporter::canonicalMuscle)
+                    .distinct()
+                val readiness = readinessTag(muscles)
                 _ui.value = statsPart(stats).copy(
                     planLabel = "REPEAT LAST",
                     planTitle = template.name.ifBlank { "Workout" },
-                    planMuscles = template.exercises
-                        .flatMap { it.muscleGroup.split("·").map(String::trim) }
-                        .mapNotNull(ProgressionImporter::canonicalMuscle)
-                        .distinct()
-                        .joinToString(", ")
-                        .ifEmpty { "Based on your last session" },
+                    planMuscles = muscles.joinToString(", ").ifEmpty { "Based on your last session" },
                     planRows = template.exercises.map { ex ->
                         val top = ex.sets.maxByOrNull { it.weightKg ?: 0.0 }
                         val weight = top?.weightKg
@@ -132,6 +218,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                         )
                     },
                     todayForged = forged,
+                    readinessLabel = readiness?.first,
+                    readinessFreshness = readiness?.second,
+                    estimatedMinutes = repo.estimatedMinutesFor(template.name),
+                    upcoming = upcomingRows,
+                    recent = recentRows,
+                    readyToTrain = ready,
                 ).withProfile()
                 return
             }

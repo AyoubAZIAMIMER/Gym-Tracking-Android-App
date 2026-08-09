@@ -182,6 +182,13 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(tag = if (current == null) SetTag.WARMUP else current.next())
         }
 
+    /** Direct pick from the 5-bar EFFORT selector (null clears). */
+    fun setRpe(exerciseId: Long, setId: Long, rpe: Int?) =
+        updateSet(exerciseId, setId) { it.copy(rpe = rpe) }
+
+    fun cycleRpe(exerciseId: Long, setId: Long) =
+        updateSet(exerciseId, setId) { it.copy(rpe = nextRpe(it.rpe)) }
+
     fun toggleCompleted(exerciseId: Long, setId: Long) {
         var completedNow = false
         _ui.update { st ->
@@ -376,6 +383,7 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                                 weightKg = s.effectiveWeightKg,
                                 reps = s.effectiveReps,
                                 tagLetter = s.tag?.letter,
+                                rpe = s.rpe?.toFloat(),
                             )
                         },
                     )

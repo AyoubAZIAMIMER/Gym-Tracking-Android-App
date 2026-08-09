@@ -1,5 +1,5 @@
 // Purpose: Reward motion — a lightweight confetti/particle burst and a trophy PR banner,
-//          both on-brand (indigo / gold / ice / chalk) and physics-driven from a single
+//          both on-brand (ember / gold / ice / chalk) and physics-driven from a single
 //          Animatable so there are no per-frame allocations or animation leaks.
 // Inputs: a `run` trigger (Boolean); optional origin + palette
 // Outputs: none (pure overlay visualization); onFinished when a one-shot burst completes
@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
+import com.gymtracker.ui.theme.ForgeExpression
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
 import kotlin.math.PI
@@ -67,11 +68,13 @@ fun ConfettiBurst(
     durationMillis: Int = 2_100,
     onFinished: () -> Unit = {},
 ) {
-    val indigo = MaterialTheme.colorScheme.primary
+    // Calm opts out of celebration motion altogether (ForgeExpression.ambientLoops)
+    if (!ForgeExpression.current.ambientLoops) return
+    val ember = MaterialTheme.colorScheme.primary
     val gold = GymTheme.colors.prGold
     val ice = MaterialTheme.colorScheme.secondary
     val chalk = MaterialTheme.colorScheme.onSurface
-    val palette = remember(indigo, gold, ice, chalk) { listOf(indigo, gold, ice, chalk, indigo, gold) }
+    val palette = remember(ember, gold, ice, chalk) { listOf(ember, gold, ice, chalk, ember, gold) }
 
     // seeded once per mount so the pattern is stable across recompositions
     val pieces = remember {

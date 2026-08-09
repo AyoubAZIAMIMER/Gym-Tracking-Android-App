@@ -17,6 +17,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -25,6 +26,27 @@ import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.min
 
 object Motion {
+
+    /**
+     * The Energy axis (ForgeExpression) as a duration multiplier: Calm 0f · Alive 1f · Roaring 1.25f.
+     * Set by GymTrackerTheme.
+     *
+     * It is *snapshot* state, not a plain var: settle/cool/plane are not composables, so a plain
+     * field would be read untracked and a composable that never touches LocalForge would keep its
+     * old spec forever. GymTrackerTheme also writes it from a SideEffect, i.e. after composition —
+     * with snapshot state that write invalidates the readers and they rebuild their specs on the
+     * next frame instead of staying one axis-change behind.
+     */
+    private val scaleState = mutableFloatStateOf(1f)
+
+    val scale: Float get() = scaleState.floatValue
+
+    internal fun applyScale(value: Float) {
+        scaleState.floatValue = value.coerceIn(0f, 2f)
+    }
+
+    /** Durations pass through the Energy axis. Calm collapses them to 0 — a snap, not a crawl. */
+    private fun scaled(durationMillis: Int): Int = (durationMillis * scale).toInt().coerceAtLeast(0)
 
     // --- timing scale (§3): durations have mass; exits run at ~0.7× ------------
     const val INSTANT = 0
@@ -53,13 +75,13 @@ object Motion {
     val StrikeIn: Easing = LinearEasing
 
     fun <T> settle(durationMillis: Int = STANDARD, delayMillis: Int = 0): FiniteAnimationSpec<T> =
-        tween(durationMillis, delayMillis, Settle)
+        tween(scaled(durationMillis), scaled(delayMillis), Settle)
 
     fun <T> cool(durationMillis: Int = FAST): FiniteAnimationSpec<T> =
-        tween(durationMillis, easing = Cool)
+        tween(scaled(durationMillis), easing = Cool)
 
     fun <T> plane(durationMillis: Int = 180): FiniteAnimationSpec<T> =
-        tween(durationMillis, easing = Plane)
+        tween(scaled(durationMillis), easing = Plane)
 
     // --- springs (§5): gesture releases & interruptible settles only -----------
     // Law 2: steel doesn't wobble — damping below 0.85 is forbidden in this codebase.

@@ -41,6 +41,7 @@ data class SetEntity(
     val reps: Int? = null,
     val tag: String? = null,         // SetTag letter (W/D/N/T/F)
     val orderInWorkout: Int = 0,
+    val rpe: Float? = null,          // optional effort rating, 6-10
 )
 
 // --- programs (v2): program → ordered days → ordered exercises with targets -----

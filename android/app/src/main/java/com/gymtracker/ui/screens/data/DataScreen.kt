@@ -51,6 +51,30 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.gymtracker.ui.components.ForgedListRow
+import com.gymtracker.ui.components.ForgedSectionHeader
+import com.gymtracker.ui.components.RowRule
+import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.theme.Anton
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.gymtracker.ui.components.ForgedSwitch
+import com.gymtracker.ui.components.SegmentedOptions
+import com.gymtracker.ui.components.SettingRow
+import com.gymtracker.ui.components.SettingStepper
+import com.gymtracker.utils.PlateCalculator
+import com.gymtracker.utils.TimeFormat
+import com.gymtracker.ui.theme.Dim
+import com.gymtracker.ui.theme.Energy
+import com.gymtracker.ui.theme.Heat
+import com.gymtracker.ui.theme.SurfaceStyle
+import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.ProfileSheet
@@ -62,9 +86,12 @@ import com.gymtracker.widget.ForgeWidgetProvider
 @Composable
 fun DataScreen(
     onBack: () -> Unit = {},
+    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Ember, Energy.Alive, SurfaceStyle.Soft),
+    onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
     vm: DataViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
+    val settings = state.settings
     var showProfile by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -80,16 +107,18 @@ fun DataScreen(
         ActivityResultContracts.CreateDocument("text/comma-separated-values")
     ) { uri -> uri?.let(vm::exportCsv) }
 
-    GlowBackground {
+    GlowBackground(glowAlpha = 0.09f) {
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .statusBarsPadding(),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // back arrow sits inline with the title, as the prototype's Settings header does
+            Row(
+                Modifier.padding(start = 8.dp, end = Dim.screenPadH, top = 4.dp, bottom = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = onBack) {
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
@@ -97,88 +126,234 @@ fun DataScreen(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text("Data", style = MaterialTheme.typography.headlineLarge)
+                Text(
+                    text = "Settings",
+                    fontSize = 28.sp,
+                    letterSpacing = (-0.5).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
-            Text(
-                text = "Import your Progression backup; export everything as JSON or per-set CSV.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
-            GlassSurface {
-                Row(
+            // identity row: 52dp ember-dim disc with an Anton initial
+            SectionRule()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { showProfile = true }
+                    .padding(horizontal = Dim.screenPadH, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(15.dp),
+            ) {
+                Box(
                     Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    CountStat("${state.workouts}", "workouts")
-                    CountStat("${state.sets}", "sets")
-                    CountStat("${state.exercises}", "exercises")
+                    Text(
+                        text = state.profileName.firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 21.sp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
                 }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = state.profileName.ifBlank { "Add your name" },
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = buildString {
+                            if (state.streakWeeks > 0) append("${state.streakWeeks}-week streak · ")
+                            append("${state.workouts} workouts · ${state.sets} sets")
+                        },
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = GymTheme.colors.hint,
+                )
             }
 
-            ActionCard(
-                icon = Icons.Rounded.Person,
-                title = "Profile",
-                subtitle = "Name, body weight, height, weekly goal",
-                enabled = !state.busy,
-            ) { showProfile = true }
+            // TRAINING / REST TIMER / APP, per handoff README §10
+            SectionRule()
+            ForgedSectionHeader("TRAINING")
+            SettingRow(
+                title = "Units",
+                helper = "Applies to every logged lift and your whole history.",
+            ) {
+                SegmentedOptions(
+                    options = listOf("kg", "lb"),
+                    selected = settings.units,
+                    onSelect = { vm.saveSettings(settings.copy(units = it)) },
+                )
+            }
+            RowRule()
+            SettingRow(
+                title = "Weight step",
+                helper = "What the – and + buttons change by.",
+            ) {
+                SegmentedOptions(
+                    options = listOf("1.25", "2.5", "5"),
+                    selected = PlateCalculator.fmt(settings.weightStepKg),
+                    onSelect = {
+                        vm.saveSettings(settings.copy(weightStepKg = it.toDouble()))
+                    },
+                )
+            }
 
-            ActionCard(
-                icon = Icons.Rounded.FileDownload,
+            SectionRule()
+            ForgedSectionHeader("REST TIMER")
+            SettingRow(title = "Default rest") {
+                SettingStepper(
+                    value = TimeFormat.clock(settings.restSeconds * 1000L),
+                    onDelta = { step ->
+                        vm.saveSettings(settings.copy(restSeconds = settings.restSeconds + step * 15))
+                    },
+                )
+            }
+            RowRule()
+            SettingRow(
+                title = "Start on logged set",
+                helper = "Timer runs the moment you complete a set.",
+            ) {
+                ForgedSwitch(
+                    checked = settings.startRestOnLog,
+                    onChange = { vm.saveSettings(settings.copy(startRestOnLog = it)) },
+                )
+            }
+            RowRule()
+            SettingRow(
+                title = "Alert when rest ends",
+                helper = "Vibrate and sound, even with the screen off.",
+            ) {
+                ForgedSwitch(
+                    checked = settings.alertOnRestEnd,
+                    onChange = { vm.saveSettings(settings.copy(alertOnRestEnd = it)) },
+                )
+            }
+
+            SectionRule()
+            ForgedSectionHeader("APP")
+            SettingRow(title = "Theme") {
+                SegmentedOptions(
+                    options = listOf("Dark", "Light", "Auto"),
+                    selected = settings.theme,
+                    onSelect = { vm.saveSettings(settings.copy(theme = it)) },
+                )
+            }
+            RowRule()
+            SettingRow(title = "Haptics", helper = "Ticks on steppers, a buzz on rest end.") {
+                ForgedSwitch(
+                    checked = settings.haptics,
+                    onChange = { vm.saveSettings(settings.copy(haptics = it)) },
+                )
+            }
+            // the three expression axes (ForgeExpression) sit under APP, below Theme
+            val (heat, energy, surface) = expression
+            RowRule()
+            SettingRow(title = "Heat", helper = "The action colour.") {
+                SegmentedOptions(
+                    options = Heat.entries.map { it.name },
+                    selected = heat.name,
+                    onSelect = { onExpressionChange(Heat.valueOf(it), energy, surface) },
+                )
+            }
+            RowRule()
+            SettingRow(title = "Energy", helper = "How much the interface moves.") {
+                SegmentedOptions(
+                    options = Energy.entries.map { it.name },
+                    selected = energy.name,
+                    onSelect = { onExpressionChange(heat, Energy.valueOf(it), surface) },
+                )
+            }
+            RowRule()
+            SettingRow(title = "Surface", helper = "How solid cards feel.") {
+                SegmentedOptions(
+                    options = SurfaceStyle.entries.map { it.name },
+                    selected = surface.name,
+                    onSelect = { onExpressionChange(heat, energy, SurfaceStyle.valueOf(it)) },
+                )
+            }
+
+            SectionRule()
+            ForgedSectionHeader("DATA")
+            RowRule()
+            ForgedListRow(
                 title = "Import Progression backup",
-                subtitle = ".pgnbkp / JSON — history + your programs, safe to re-run",
-                enabled = !state.busy,
-            ) { importLauncher.launch(arrayOf("*/*")) }
-
-            ActionCard(
-                icon = Icons.Rounded.Edit,
+                subtitle = ".pgnbkp / JSON — history + programs, safe to re-run",
+                onClick = { if (!state.busy) importLauncher.launch(arrayOf("*/*")) },
+                chevron = true,
+            )
+            RowRule()
+            ForgedListRow(
                 title = "Name imported exercises (CSV)",
-                subtitle = "Progression CSV export — recovers real names by matching timestamps",
-                enabled = !state.busy,
-            ) { csvNamesLauncher.launch(arrayOf("*/*")) }
-
-            ActionCard(
-                icon = Icons.Rounded.FileUpload,
+                subtitle = "Recovers real names by matching timestamps",
+                onClick = { if (!state.busy) csvNamesLauncher.launch(arrayOf("*/*")) },
+                chevron = true,
+            )
+            RowRule()
+            ForgedListRow(
                 title = "Export JSON",
-                subtitle = "Full backup of the RepForge database",
-                enabled = !state.busy,
-            ) { jsonLauncher.launch("repforge-backup.json") }
-
-            ActionCard(
-                icon = Icons.Rounded.TableChart,
+                subtitle = "Full backup of the Forged database",
+                onClick = { if (!state.busy) jsonLauncher.launch("repforge-backup.json") },
+                chevron = true,
+            )
+            RowRule()
+            ForgedListRow(
                 title = "Export CSV (per set)",
                 subtitle = "completed_at, workout, exercise, weight, reps, tag, e1RM",
-                enabled = !state.busy,
-            ) { csvLauncher.launch("repforge-sets.csv") }
+                onClick = { if (!state.busy) csvLauncher.launch("repforge-sets.csv") },
+                chevron = true,
+            )
 
             val context = LocalContext.current
             val widgetManager = remember { context.getSystemService(AppWidgetManager::class.java) }
             if (widgetManager?.isRequestPinAppWidgetSupported == true) {
-                ActionCard(
-                    icon = Icons.Rounded.Widgets,
+                SectionRule()
+                ForgedSectionHeader("EXTRAS")
+                RowRule()
+                ForgedListRow(
                     title = "Add launcher widget",
                     subtitle = "Streak + days since your last session, on the home screen",
-                    enabled = true,
-                ) {
-                    widgetManager.requestPinAppWidget(
-                        ComponentName(context, ForgeWidgetProvider::class.java), null, null,
-                    )
-                }
+                    onClick = {
+                        widgetManager.requestPinAppWidget(
+                            ComponentName(context, ForgeWidgetProvider::class.java), null, null,
+                        )
+                    },
+                    chevron = true,
+                )
             }
 
             if (state.busy) {
                 SteelSheen(Modifier.fillMaxWidth())
             }
+            SectionRule()
+            ForgedSectionHeader("ABOUT")
+            RowRule()
+            SettingRow(title = "Version") {
+                Text(
+                    text = "1.4.2",
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 15.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             state.message?.let { message ->
-                GlassSurface {
-                    Text(
-                        text = message,
-                        modifier = Modifier.padding(14.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                Text(
+                    text = message,
+                    modifier = Modifier.padding(horizontal = Dim.screenPadH, vertical = 14.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             Text(

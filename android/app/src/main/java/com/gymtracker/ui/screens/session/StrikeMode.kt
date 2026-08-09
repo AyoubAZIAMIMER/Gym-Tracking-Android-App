@@ -11,10 +11,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +29,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.TableRows
 import androidx.compose.material.icons.rounded.TrendingDown
@@ -54,6 +60,7 @@ import com.gymtracker.domain.Progression
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.ui.components.EffortBars
 import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.utils.OneRM
 import com.gymtracker.utils.PlateCalculator
@@ -74,6 +81,7 @@ fun StrikeModePanel(
     topPadding: Dp,
     onScrubWeight: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onScrubReps: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
+    onSetRpe: (exerciseId: Long, setId: Long, rpe: Int?) -> Unit,
     onStrike: (exerciseId: Long, setId: Long) -> Unit,
     onOpenTable: () -> Unit,
     modifier: Modifier = Modifier,
@@ -114,6 +122,7 @@ fun StrikeModePanel(
             topPadding = topPadding,
             onScrubWeight = { steps -> onScrubWeight(strike.exercise.id, strike.set.id, steps) },
             onScrubReps = { steps -> onScrubReps(strike.exercise.id, strike.set.id, steps) },
+            onSetRpe = { rpe -> onSetRpe(strike.exercise.id, strike.set.id, rpe) },
             onStrike = { onStrike(strike.exercise.id, strike.set.id) },
             onOpenTable = onOpenTable,
         )
@@ -127,6 +136,7 @@ private fun StrikeSet(
     topPadding: Dp,
     onScrubWeight: (Int) -> Unit,
     onScrubReps: (Int) -> Unit,
+    onSetRpe: (Int?) -> Unit,
     onStrike: () -> Unit,
     onOpenTable: () -> Unit,
 ) {
@@ -247,7 +257,18 @@ private fun StrikeSet(
             color = GymTheme.colors.hint,
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
+
+        // effort — optional, tap-cycles 6..10; secondary to weight/reps by design
+        // (Strike Mode's law is one number at a time — this stays a small chip, not a scrub numeral)
+        // the prototype's five rising bars — one tap to the effort you actually felt
+        EffortBars(
+            rpe = set.rpe,
+            onSelect = onSetRpe,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(Modifier.height(14.dp))
 
         // context: what you did last time, what it was worth, what to load
         val context = buildList {
@@ -321,3 +342,6 @@ private fun StrikeSet(
         }
     }
 }
+
+// Optional effort rating, RPE 6-10. A row of small tap targets, not a scrub numeral —
+// stays secondary to weight/reps per Strike Mode's "one number at a time" law.

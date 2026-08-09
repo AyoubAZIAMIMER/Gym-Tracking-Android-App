@@ -2,17 +2,35 @@
 .DS_Store
 
 # Android / IntelliJ / Gradle
+# NB: this tree lives on an iCloud-synced Desktop, which writes "<name> 2.ext"
+# conflict copies. Inside build/ they break resource linking with
+# "Failed file name validation" — run ./gradlew clean if that shows up.
 *.iml
 .idea/
 .gradle/
 build/
 **/build/
-android/local.properties
+.kotlin/
+**/.kotlin/
+local.properties
 captures/
 .cxx/
 *.apk
 *.aab
+*.hprof
 output-metadata.json
+
+# Signing material — never commit these
+*.jks
+*.keystore
+keystore.properties
+
+# Source archives: the extracted folder is what we track, not the zip
+# (e.g. design_handoff_forged_android/ vs "Android gym app redesign.zip")
+*.zip
+
+# Tooling
+.claude/
 
 # Python
 __pycache__/
