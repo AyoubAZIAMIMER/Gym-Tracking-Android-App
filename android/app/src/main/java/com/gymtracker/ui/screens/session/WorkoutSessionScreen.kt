@@ -188,6 +188,10 @@ fun WorkoutSessionScreen(
         // last strike lands → surface the table so Finish is in reach
         if (activeStrike == null) strikeMode = false
     }
+    // ...and offer the finish sheet, once. Reaching the end of the plan is the moment the app
+    // exists for; it should not be something you have to go hunting for. Dismissing it leaves
+    // you on the table (with Finish in the top bar) so you can still add or edit sets.
+    var finishOffered by rememberSaveable { mutableStateOf(false) }
     val strikeShowing = strikeMode && activeStrike != null
     // The Slate shows one exercise; default to whichever holds the active set.
     var slateExerciseId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -198,7 +202,20 @@ fun WorkoutSessionScreen(
     val slateDraftSet = slateExercise?.sets?.firstOrNull { it.id == state.activeSetId }
         ?: slateExercise?.sets?.firstOrNull { !it.completed }
         ?: slateExercise?.sets?.lastOrNull()
-    val slateShowing = !strikeShowing && slateExercise != null
+    // Every set logged: the plan is over. slateExercise falls back to the first exercise, so
+    // without this the Slate stayed up with a "Complete set" CTA pointed at an already-logged
+    // set — and SessionTopBar is hidden while the Slate shows, so there was no Finish and no way
+    // out. Reported 2026-08-17 as "it never ends and it stucks there".
+    val allSetsLogged = state.exercises.isNotEmpty() &&
+        state.exercises.all { ex -> ex.sets.all { it.completed } }
+    val slateShowing = !strikeShowing && slateExercise != null && !allSetsLogged
+
+    LaunchedEffect(allSetsLogged) {
+        if (allSetsLogged && !finishOffered && state.completedSets > 0) {
+            finishOffered = true
+            vm.showFinishSheet(true)
+        }
+    }
 
     // Without this, system back popped the whole NavHost and dumped you on Home with a session
     // still live and no explanation. Now it mirrors what is on screen: the Slate steps back to

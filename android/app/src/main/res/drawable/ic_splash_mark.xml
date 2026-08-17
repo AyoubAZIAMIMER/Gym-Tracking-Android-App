@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash-screen icon: the F, cut, in chalk with its single ember spark.
+     Sized to the platform spec — a 288 x 288 canvas whose inner ~192 is the safe area — so the
+     system's circular mask never crops it. Geometry matches ui/components/ForgedMark.kt on its
+     own 32-unit grid, scaled 7x and centred (tx = 144 - 7*16.75, ty = 144 - 7*16.15). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <group
+        android:pivotX="0"
+        android:pivotY="0"
+        android:scaleX="7"
+        android:scaleY="7"
+        android:translateX="26.75"
+        android:translateY="30.95">
+        <path
+            android:fillColor="#EDE6D8"
+            android:pathData="M7,5.5 L26.5,5.5 L26.5,11.2 L13.4,11.2 L13.4,15 L23,15 L18.4,20.4 L13.4,20.4 L13.4,26.8 L7,26.8 Z" />
+        <path
+            android:strokeColor="#FF5A1F"
+            android:strokeWidth="2.5"
+            android:strokeLineCap="round"
+            android:pathData="M20.6,24 L26.6,24" />
+    </group>
+</vector>

@@ -55,6 +55,8 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze:1.6.10")
 
     implementation("androidx.core:core-ktx:1.15.0")
+    // backports the Android 12 splash screen to API 23+, so the launch beat is identical everywhere
+    implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.navigation:navigation-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

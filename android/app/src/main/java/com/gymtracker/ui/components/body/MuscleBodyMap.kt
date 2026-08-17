@@ -32,6 +32,7 @@ import com.gymtracker.ui.theme.ForgeExpression
 import com.gymtracker.ui.theme.Motion
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -39,6 +40,60 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.PathParser
 
 enum class BodySide { Front, Back }
+
+/**
+ * The real drawing bounds of each side, measured from the parsed paths rather than the declared
+ * viewport. The generated viewports (640 x 1260) are approximations — the feet clear the bottom
+ * edge — so the old code added a blind `* 1.10f` of headroom and clipped. That left every figure
+ * floating with ~10% dead space beneath it, which is what "not perfectly fitted" was.
+ *
+ * Both sides are measured together and share one box, so front and back render at exactly the
+ * same scale and their feet line up. Each side is centred horizontally inside that shared box.
+ */
+internal object BodyArt {
+    private data class Bounds(val left: Float, val top: Float, val right: Float, val bottom: Float) {
+        val width get() = right - left
+        val height get() = bottom - top
+    }
+
+    private fun boundsOf(shapes: List<MuscleShape>): Bounds {
+        var l = Float.MAX_VALUE; var t = Float.MAX_VALUE
+        var r = -Float.MAX_VALUE; var b = -Float.MAX_VALUE
+        shapes.forEach { shape ->
+            shape.paths.forEach { d ->
+                val rect = PathParser().parsePathString(d).toPath().getBounds()
+                if (rect.width > 0f && rect.height > 0f) {
+                    if (rect.left < l) l = rect.left
+                    if (rect.top < t) t = rect.top
+                    if (rect.right > r) r = rect.right
+                    if (rect.bottom > b) b = rect.bottom
+                }
+            }
+        }
+        return Bounds(l, t, r, b)
+    }
+
+    private val front by lazy { boundsOf(MuscleBodyPaths.Front) }
+    private val back by lazy { boundsOf(MuscleBodyPaths.Back) }
+
+    /** Half the outline stroke (drawPath uses Stroke(1.2f)); it paints outside the path bounds. */
+    private const val STROKE_PAD = 0.6f
+
+    /** Shared box both sides are drawn into. */
+    val boxWidth: Float by lazy { maxOf(front.width, back.width) + STROKE_PAD * 2f }
+    val boxHeight: Float by lazy { maxOf(front.height, back.height) + STROKE_PAD * 2f }
+    val aspect: Float by lazy { boxWidth / boxHeight }
+
+
+    /** Translation, in path units, that centres a side inside the shared box. */
+    fun offsetX(side: BodySide): Float =
+        (if (side == BodySide.Front) front.left else back.left) -
+            (boxWidth - (if (side == BodySide.Front) front.width else back.width)) / 2f
+
+    fun offsetY(side: BodySide): Float =
+        (if (side == BodySide.Front) front.top else back.top) -
+            (boxHeight - (if (side == BodySide.Front) front.height else back.height)) / 2f
+}
 
 /**
  * @param freshness slug -> 0f (just trained, glowing) .. 1f (cooled, ready). Missing slugs draw neutral.
@@ -76,7 +131,6 @@ fun MuscleBodyMap(
         label = "heatBreathT",
     )
     val shapes = if (side == BodySide.Front) MuscleBodyPaths.Front else MuscleBodyPaths.Back
-    val viewport = if (side == BodySide.Front) MuscleBodyPaths.FrontViewport else MuscleBodyPaths.BackViewport
 
     // Parse once per side; PathParser is not cheap and these are ~35 groups.
     val parsed = remember(side) {
@@ -86,14 +140,14 @@ fun MuscleBodyMap(
     Canvas(
         modifier
             .fillMaxWidth()
-            // The paths run slightly past the declared viewport (feet clear its bottom edge), so
-            // the box gets a little headroom and clips — otherwise the figure overlaps whatever
-            // sits beneath it.
-            .aspectRatio(viewport.width / (viewport.height * 1.10f))
+            // measured bounds, so the figure fills its box exactly — no dead space, no clipping
+            .aspectRatio(BodyArt.aspect)
+            // guard only: Canvas does not clip by default, and anything that escaped would paint
+            // over the FRONT/BACK caption beneath it
             .clipToBounds()
     ) {
-        val scale = size.width / viewport.width
-        translate(-viewport.left * scale, -viewport.top * scale) {
+        val scale = size.width / BodyArt.boxWidth
+        translate(-BodyArt.offsetX(side) * scale, -BodyArt.offsetY(side) * scale) {
             scale(scale) {
                 parsed.forEachIndexed { index, (slug, paths) ->
                     val isMuscle = slug !in MuscleBodyPaths.Silhouette
@@ -132,10 +186,18 @@ private inline fun DrawScope.translate(dx: Float, dy: Float, block: DrawScope.()
     drawContext.transform.translate(-dx, -dy)
 }
 
+/**
+ * Uniform scale about the ORIGIN.
+ *
+ * DrawTransform.scale defaults its pivot to the centre of the canvas, which makes
+ * `translate(-left*s, -top*s) { scale(s) { … } }` mean something other than "map path units to
+ * pixels" — the reason the measured-bounds fit first came out mis-positioned and clipped.
+ * Pinning the pivot to zero makes the pair exactly (p - topLeft) * s.
+ */
 private inline fun DrawScope.scale(s: Float, block: DrawScope.() -> Unit) {
-    drawContext.transform.scale(s, s)
+    drawContext.transform.scale(s, s, Offset.Zero)
     block()
-    drawContext.transform.scale(1f / s, 1f / s)
+    drawContext.transform.scale(1f / s, 1f / s, Offset.Zero)
 }
 
 /**
@@ -225,8 +287,6 @@ fun MuscleTargetFigure(
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         listOf(BodySide.Front, BodySide.Back).forEach { side ->
             val shapes = if (side == BodySide.Front) MuscleBodyPaths.Front else MuscleBodyPaths.Back
-            val viewport =
-                if (side == BodySide.Front) MuscleBodyPaths.FrontViewport else MuscleBodyPaths.BackViewport
             val parsed = remember(side) {
                 shapes.map { shape ->
                     shape.slug to shape.paths.map { PathParser().parsePathString(it).toPath() }
@@ -235,11 +295,11 @@ fun MuscleTargetFigure(
             Canvas(
                 Modifier
                     .weight(1f)
-                    .aspectRatio(viewport.width / (viewport.height * 1.10f))
+                    .aspectRatio(BodyArt.aspect)
                     .clipToBounds()
             ) {
-                val scale = size.width / viewport.width
-                translate(-viewport.left * scale, -viewport.top * scale) {
+                val scale = size.width / BodyArt.boxWidth
+                translate(-BodyArt.offsetX(side) * scale, -BodyArt.offsetY(side) * scale) {
                     scale(scale) {
                         parsed.forEach { (slug, paths) ->
                             val isPrimary = slug in primarySlugs

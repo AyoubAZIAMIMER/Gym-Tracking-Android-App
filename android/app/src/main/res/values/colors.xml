@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ink">#0E0D0B</color>
+    <!-- v10 iron; keep in step with Ink in ui/theme/Color.kt -->
+    <color name="ink">#111110</color>
     <color name="ic_launcher_background">#151413</color>
 </resources>

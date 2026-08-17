@@ -11,6 +11,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -78,6 +79,8 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // must run before super.onCreate so the system hands the splash over to us cleanly
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // one-time seed of the built-in exercise catalog (no-op afterwards),

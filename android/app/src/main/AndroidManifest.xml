@@ -12,7 +12,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.GymTracker">
+        android:theme="@style/Theme.Forged.Splash">
 
         <!-- singleTask: widget/notification deep links must land in the existing
              instance (a second instance would carry a second, empty session VM) -->
