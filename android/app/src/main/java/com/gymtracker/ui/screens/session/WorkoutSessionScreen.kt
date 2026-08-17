@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -121,6 +122,9 @@ import dev.chrisbanes.haze.hazeSource
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** Which stepper the manual-entry dialog is editing, if any. */
+private enum class ManualEdit { None, Weight, Reps }
 
 // Shared column widths so the header row and set rows stay aligned
 private val IndexColWidth = 22.dp
@@ -225,6 +229,8 @@ fun WorkoutSessionScreen(
     }
     // the Slate's note + overflow affordances (the legacy table keeps its own inside ExerciseCard)
     var slateNoteDialog by rememberSaveable { mutableStateOf(false) }
+    // tap a stepper's number to type the value outright
+    var manualEdit by rememberSaveable { mutableStateOf(ManualEdit.None) }
     var slateMenu by rememberSaveable { mutableStateOf(false) }
 
     // drag-to-reorder state; heights tracked per exercise so swaps stay under the finger
@@ -384,11 +390,11 @@ fun WorkoutSessionScreen(
                     onCompleteSet = {
                         slateDraftSet?.let { vm.toggleCompleted(slateExercise.id, it.id) }
                     },
-                    onWeightDelta = { delta ->
-                        slateDraftSet?.let {
-                            vm.dragWeight(slateExercise.id, it.id, (delta / 2.5).roundToInt())
-                        }
+                    onWeightDelta = { steps ->
+                        slateDraftSet?.let { vm.dragWeight(slateExercise.id, it.id, steps) }
                     },
+                    onEditWeight = { manualEdit = ManualEdit.Weight },
+                    onEditReps = { manualEdit = ManualEdit.Reps },
                     onRepsDelta = { delta ->
                         slateDraftSet?.let { vm.dragReps(slateExercise.id, it.id, delta) }
                     },
@@ -576,6 +582,44 @@ fun WorkoutSessionScreen(
                 }
             }
         }
+    }
+
+    if (manualEdit != ManualEdit.None && slateExercise != null && slateDraftSet != null) {
+        val weight = manualEdit == ManualEdit.Weight
+        val initial = if (weight) {
+            slateDraftSet.effectiveWeightKg?.takeIf { it > 0.0 }?.let(PlateCalculator::fmt).orEmpty()
+        } else {
+            slateDraftSet.effectiveReps?.takeIf { it > 0 }?.toString().orEmpty()
+        }
+        var text by remember(manualEdit, slateDraftSet.id) { mutableStateOf(initial) }
+        ForgedAlert(
+            title = if (weight) "Weight" else "Reps",
+            onDismissRequest = { manualEdit = ManualEdit.None },
+            confirmLabel = "Set",
+            confirmEnabled = text.isNotBlank(),
+            onConfirm = {
+                if (weight) vm.setWeightText(slateExercise.id, slateDraftSet.id, text)
+                else vm.setRepsText(slateExercise.id, slateDraftSet.id, text)
+                manualEdit = ManualEdit.None
+            },
+            dismissLabel = "Cancel",
+            body = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { t ->
+                        text = if (weight) t.filter { c -> c.isDigit() || c == '.' }.take(6)
+                        else t.filter(Char::isDigit).take(3)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    suffix = { Text(if (weight) "kg" else "reps") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (weight) KeyboardType.Decimal else KeyboardType.Number,
+                    ),
+                    shape = MaterialTheme.shapes.medium,
+                )
+            },
+        )
     }
 
     if (slateNoteDialog && slateExercise != null) {

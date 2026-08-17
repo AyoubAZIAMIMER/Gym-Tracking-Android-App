@@ -104,7 +104,10 @@ fun SessionSlateScreen(
     heatAt: (Float) -> Color,
     onBack: () -> Unit,
     onCompleteSet: () -> Unit,
-    onWeightDelta: (Double) -> Unit,
+    onWeightDelta: (Int) -> Unit,
+    /** Tap the weight to type it — no forced increments. */
+    onEditWeight: () -> Unit,
+    onEditReps: () -> Unit,
     onRepsDelta: (Int) -> Unit,
     onEffort: (Int) -> Unit,
     onEditNote: () -> Unit = {},
@@ -245,9 +248,19 @@ fun SessionSlateScreen(
             // Steppers — visual 38 dp, touch target padded to 48 dp. Weight step is the user's
             // pref (default 2.5 kg); reps ±1 clamped 1..50. Long-press repeats.
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                Stepper("WEIGHT KG", trimZeros(ui.draftWeight), Modifier.weight(1f)) { onWeightDelta(it * 2.5) }
+                Stepper(
+                    label = "WEIGHT KG",
+                    value = trimZeros(ui.draftWeight),
+                    modifier = Modifier.weight(1f),
+                    onTapValue = onEditWeight,
+                ) { onWeightDelta(it) }
                 Box(Modifier.width(1.dp).height(72.dp).background(scheme.outlineVariant))
-                Stepper("REPS", ui.draftReps.toString(), Modifier.weight(1f)) { onRepsDelta(it) }
+                Stepper(
+                    label = "REPS",
+                    value = ui.draftReps.toString(),
+                    modifier = Modifier.weight(1f),
+                    onTapValue = onEditReps,
+                ) { onRepsDelta(it) }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -375,13 +388,29 @@ private fun SetRow(set: SetRowUi, heatAt: (Float) -> Color) {
 }
 
 @Composable
-private fun Stepper(label: String, value: String, modifier: Modifier = Modifier, onDelta: (Int) -> Unit) {
+private fun Stepper(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    /** Tap the number to type a value outright — the steppers are a convenience, not a limit. */
+    onTapValue: (() -> Unit)? = null,
+    onDelta: (Int) -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             StepperButton("−") { onDelta(-1) }
-            Text(value, style = MaterialTheme.typography.displayLarge.copy(fontSize = 42.sp), color = scheme.onSurface)
+            val valueSource = remember { MutableInteractionSource() }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.displayLarge.copy(fontSize = 42.sp),
+                color = scheme.onSurface,
+                modifier = if (onTapValue == null) Modifier else Modifier
+                    .forgedPress(valueSource, pressedScale = 0.96f)
+                    .clickable(interactionSource = valueSource, indication = null, onClick = onTapValue)
+                    .padding(vertical = 6.dp),
+            )
             StepperButton("+") { onDelta(1) }
         }
     }

@@ -38,6 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.service.AppForeground
 import com.gymtracker.service.TrainingReminderWorker
 import com.gymtracker.widget.ForgeWidgetProvider
 import com.gymtracker.ui.components.GlassBottomNav
@@ -123,6 +124,17 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    // Drives which rest bubble is on screen: the Compose one in the session, or the overlay.
+    override fun onStart() {
+        super.onStart()
+        AppForeground.set(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppForeground.set(false)
     }
 
     // singleTask: a deep link while the app is alive lands here, not in onCreate

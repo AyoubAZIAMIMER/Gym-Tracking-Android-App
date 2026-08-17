@@ -163,11 +163,16 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     fun setRepsText(exerciseId: Long, setId: Long, text: String) =
         updateSet(exerciseId, setId) { it.copy(repsText = text.filter(Char::isDigit).take(3)) }
 
+    /**
+     * Step size comes from Settings → Weight step (1.25 / 2.5 / 5). It used to be hardcoded to
+     * 2.5 here AND at the Slate call site, so the setting silently did nothing. The steppers are
+     * a convenience, not a constraint: [setWeightText] takes any value the user types.
+     */
     fun dragWeight(exerciseId: Long, setId: Long, steps: Int) =
         updateSet(exerciseId, setId) {
-            // ±2.5 kg per step: smallest standard plate pair (owner-approved deviation from ±1)
+            val step = repo.settings().weightStepKg.takeIf { s -> s > 0.0 } ?: 2.5
             val base = it.weightText.toDoubleOrNull() ?: it.suggestedWeightKg ?: it.prevWeightKg ?: 0.0
-            it.copy(weightText = PlateCalculator.fmt((base + steps * 2.5).coerceAtLeast(0.0)))
+            it.copy(weightText = PlateCalculator.fmt((base + steps * step).coerceAtLeast(0.0)))
         }
 
     fun dragReps(exerciseId: Long, setId: Long, steps: Int) =

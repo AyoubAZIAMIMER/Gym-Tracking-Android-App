@@ -54,6 +54,14 @@ class RestTimerService : Service() {
         get() = (((deadlineElapsedMs - SystemClock.elapsedRealtime()) + 999) / 1000)
             .coerceAtLeast(0).toInt()
 
+    override fun onCreate() {
+        super.onCreate()
+        // react the instant the app leaves or returns, not on the next one-second tick
+        scope.launch {
+            AppForeground.visible.collect { if (ticker != null) syncBubble(remaining) }
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -68,6 +76,18 @@ class RestTimerService : Service() {
             ACTION_STOP -> stopTimer()
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * Exactly one bubble at a time. The session screen draws its own Compose bubble, so the
+     * overlay is for when our UI is gone — showing both put two timers on screen at once.
+     */
+    private fun syncBubble(remainingSec: Int) {
+        if (remainingSec > 0 && !AppForeground.visible.value) {
+            bubble.show(remainingSec, total)
+        } else {
+            bubble.hide()
+        }
     }
 
     private fun startTimer(seconds: Int) {
@@ -106,9 +126,7 @@ class RestTimerService : Service() {
     private fun publish() {
         val left = remaining
         _state.value = RestState(left, total)
-        // the in-app Compose bubble only exists while the session screen is composed; this one
-        // keeps the same information on screen after you switch apps or go Home
-        if (left > 0) bubble.show(left, total) else bubble.hide()
+        syncBubble(left)
     }
 
     private fun startForegroundWithType() {
