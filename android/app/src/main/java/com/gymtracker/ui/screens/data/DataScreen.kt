@@ -5,6 +5,8 @@ package com.gymtracker.ui.screens.data
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -57,6 +59,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.gymtracker.service.RestBubbleOverlay
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.runtime.DisposableEffect
+import androidx.core.net.toUri
 import com.gymtracker.ui.components.ForgedListRow
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.RowRule
@@ -317,9 +325,52 @@ fun DataScreen(
 
             val context = LocalContext.current
             val widgetManager = remember { context.getSystemService(AppWidgetManager::class.java) }
+            // granted in system settings, so re-read it every time we come back to this screen
+            val lifecycleOwner = LocalLifecycleOwner.current
+            var canOverlay by remember { mutableStateOf(RestBubbleOverlay.canDraw(context)) }
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        canOverlay = RestBubbleOverlay.canDraw(context)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
             if (widgetManager?.isRequestPinAppWidgetSupported == true) {
                 SectionRule()
                 ForgedSectionHeader("EXTRAS")
+                RowRule()
+                // The overlay permission is a settings toggle, not a runtime dialog, so this row
+                // sends you there. Without it the rest timer still runs — you just get the
+                // notification instead of the bubble.
+                ForgedListRow(
+                    title = "Floating rest timer",
+                    subtitle = if (canOverlay) {
+                        "On — the bubble follows you out of the app"
+                    } else {
+                        "Off — allow \"display over other apps\" to keep it on screen"
+                    },
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    "package:${context.packageName}".toUri(),
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                    },
+                    chevron = true,
+                    trailing = {
+                        Text(
+                            text = if (canOverlay) "On" else "Off",
+                            fontSize = 13.sp,
+                            color = if (canOverlay) GymTheme.colors.success
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                )
                 RowRule()
                 ForgedListRow(
                     title = "Add launcher widget",

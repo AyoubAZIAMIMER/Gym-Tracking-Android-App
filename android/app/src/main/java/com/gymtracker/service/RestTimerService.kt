@@ -47,6 +47,9 @@ class RestTimerService : Service() {
     private var deadlineElapsedMs = 0L
     private var total = 0
 
+    /** The floating bubble. Null-safe no-op unless the overlay permission is granted. */
+    private val bubble by lazy { RestBubbleOverlay(this) }
+
     private val remaining: Int
         get() = (((deadlineElapsedMs - SystemClock.elapsedRealtime()) + 999) / 1000)
             .coerceAtLeast(0).toInt()
@@ -94,13 +97,18 @@ class RestTimerService : Service() {
     private fun stopTimer() {
         ticker?.cancel()
         ticker = null
+        bubble.hide()
         _state.value = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
     private fun publish() {
-        _state.value = RestState(remaining, total)
+        val left = remaining
+        _state.value = RestState(left, total)
+        // the in-app Compose bubble only exists while the session screen is composed; this one
+        // keeps the same information on screen after you switch apps or go Home
+        if (left > 0) bubble.show(left, total) else bubble.hide()
     }
 
     private fun startForegroundWithType() {
@@ -179,6 +187,7 @@ class RestTimerService : Service() {
         PendingIntent.getService(this, requestCode, intent(this, action), PendingIntent.FLAG_IMMUTABLE)
 
     override fun onDestroy() {
+        bubble.hide()
         ticker?.cancel()
         scope.cancel()
         _state.value = null

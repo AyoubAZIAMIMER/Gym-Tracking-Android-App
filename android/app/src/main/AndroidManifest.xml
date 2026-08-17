@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Floating rest bubble over other apps. A settings toggle, not a runtime dialog, and the
+         timer works without it — the bubble simply does not appear. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
