@@ -61,6 +61,9 @@ class TrainingReminderWorker(
                 .setSmallIcon(R.drawable.ic_widget_flame)
                 .setContentTitle("Time to train")
                 .setContentText(text)
+                // matches the rest timer's accent: this is a heat cue, not app chrome
+                .setColor(0xFFFF5A1F.toInt())
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setAutoCancel(true)
                 .setContentIntent(
                     PendingIntent.getActivity(

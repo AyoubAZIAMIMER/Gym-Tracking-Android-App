@@ -160,7 +160,47 @@ class WorkoutRepository(
         val programs: Int,
     )
 
+    /**
+     * Restore a file written by [exportJson].
+     *
+     * Export and import used to be unrelated formats: export wrote our own Room entities under
+     * `format: "repforge-v1"`, while the importer only understood Progression's schema and died
+     * on it with "JsonPrimitive cannot be cast to JsonArray" (our `muscles` is a String, theirs
+     * is an array). "Full backup of the Forged database" therefore had no way back in. Found in
+     * QA 2026-08-17.
+     *
+     * REPLACE rather than IGNORE: this is a restore, so the file is the source of truth. It is
+     * still id-keyed, so re-running it is idempotent.
+     */
+    private suspend fun importNativeBackup(root: com.google.gson.JsonObject): ImportSummary {
+        val gson = com.google.gson.Gson()
+        fun <T> rows(key: String, type: Class<T>): List<T> =
+            root.getAsJsonArray(key)?.map { gson.fromJson(it, type) } ?: emptyList()
+
+        val exercises = rows("exercises", ExerciseEntity::class.java)
+        val workouts = rows("workouts", WorkoutEntity::class.java)
+        val sets = rows("sets", SetEntity::class.java)
+
+        // exercises first: sets and workouts reference them
+        if (exercises.isNotEmpty()) db.exerciseDao().upsertAll(exercises)
+        if (workouts.isNotEmpty()) db.workoutDao().upsertAll(workouts)
+        if (sets.isNotEmpty()) db.setDao().upsertAll(sets)
+        return ImportSummary(
+            workouts = workouts.size,
+            sets = sets.size,
+            exercises = exercises.size,
+            programs = 0,
+        )
+    }
+
     suspend fun importProgression(json: String): ImportSummary {
+        // one entry point, two formats: our own backup restores natively, anything else is
+        // treated as a Progression export
+        val root = runCatching { com.google.gson.JsonParser.parseString(json).asJsonObject }
+            .getOrNull()
+        if (root?.get("format")?.asString == "repforge-v1") {
+            return importNativeBackup(root)
+        }
         val parsed = ProgressionImporter.parse(json)
         val aliases = loadAliases()
         // IGNORE inserts + alias skips: re-importing never undoes renames or merges

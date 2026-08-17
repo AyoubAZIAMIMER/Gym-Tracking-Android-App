@@ -82,8 +82,8 @@ class RestTimerService : Service() {
                 if (leftMs <= 0) break
                 delay((leftMs % 1_000L).takeIf { it > 0 } ?: 1_000L)
                 if (deadlineElapsedMs - SystemClock.elapsedRealtime() <= 0) break
+                // in-app bubble only; the notification draws its own countdown
                 publish()
-                updateNotification()
             }
             publish()
             notifyDone()
@@ -119,10 +119,22 @@ class RestTimerService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_TICK)
             .setSmallIcon(R.drawable.ic_stat_timer)
             .setContentTitle("Rest timer")
-            .setContentText("${TimeFormat.mmss(remaining)} remaining")
+            // The system renders the countdown itself from `when`. Re-posting a rebuilt
+            // notification every second (which is what this used to do) collapsed the card on
+            // each tick, so the +15s / Skip actions were unreachable in practice — and it burned
+            // a wakeup per second for something SystemUI can draw for free.
+            .setWhen(System.currentTimeMillis() + (deadlineElapsedMs - SystemClock.elapsedRealtime()))
+            .setUsesChronometer(true)
+            .setChronometerCountDown(true)
+            .setShowWhen(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openApp)
+            // The accent stays ember even though the app's chrome is chalk: this notification
+            // IS the rest clock, so it is data, and chalk would vanish on a light shade.
+            .setColor(NOTIFICATION_ACCENT)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(0, "+15s", servicePendingIntent(ACTION_ADD_15, 1))
             .addAction(0, "Skip", servicePendingIntent(ACTION_STOP, 2))
             .build()
@@ -142,6 +154,9 @@ class RestTimerService : Service() {
             .setContentTitle("Rest over")
             .setContentText("Time for the next set.")
             .setAutoCancel(true)
+            .setColor(NOTIFICATION_ACCENT)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
         try {
             getSystemService(NotificationManager::class.java).notify(DONE_NOTIFICATION_ID, done)
@@ -184,6 +199,9 @@ class RestTimerService : Service() {
         private const val EXTRA_SECONDS = "seconds"
         private const val CHANNEL_TICK = "rest_timer"
         private const val CHANNEL_DONE = "rest_done"
+        /** Heat, not chrome — see buildNotification(). */
+        private const val NOTIFICATION_ACCENT = 0xFFFF5A1F.toInt()
+
         private const val NOTIFICATION_ID = 42
         private const val DONE_NOTIFICATION_ID = 43
 
