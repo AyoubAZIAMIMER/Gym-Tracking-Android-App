@@ -3,16 +3,13 @@
 // Outputs: renders Home / Plan / Library / Recovery / Stats / Session / Data / subpages
 package com.gymtracker
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -74,9 +71,10 @@ private fun isTab(route: String?): Boolean = tabIndex(route) >= 0
 
 class MainActivity : ComponentActivity() {
 
-    // Rest-timer countdown + training reminders both need this on Android 13+
-    private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    // POST_NOTIFICATIONS is NOT requested here. Asking at cold start put a system dialog on top
+    // of the first-run profile sheet — two modals before the user has seen anything. The session
+    // screen asks instead, at the moment the rest timer actually needs it (Android's
+    // request-in-context guidance), and reminders simply stay silent until it is granted.
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // must run before super.onCreate so the system hands the splash over to us cleanly
@@ -92,12 +90,6 @@ class MainActivity : ComponentActivity() {
         }
         TrainingReminderWorker.schedule(this)
         ForgeWidgetProvider.requestUpdate(this)
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
         // UX v6 move 3 — one gesture in: widget/notification arrive with FIRE_UP set.
         // The extra is removed after reading so a rotation's re-read can't re-fire.
         consumeFireUpExtra(intent)

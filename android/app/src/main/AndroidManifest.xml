@@ -15,11 +15,18 @@
         android:theme="@style/Theme.Forged.Splash">
 
         <!-- singleTask: widget/notification deep links must land in the existing
-             instance (a second instance would carry a second, empty session VM) -->
+             instance (a second instance would carry a second, empty session VM).
+
+             Portrait only. Landscape is not broken so much as unbuilt: the floating nav overlaps
+             mid-screen content and the CTA stretches the full width, because every screen is
+             composed for one column. Supporting it properly means adaptive layouts, which is a
+             project rather than a fix — and this is a phone app used standing at a rack.
+             Deliberate MVP limitation: drop screenOrientation to re-enable. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

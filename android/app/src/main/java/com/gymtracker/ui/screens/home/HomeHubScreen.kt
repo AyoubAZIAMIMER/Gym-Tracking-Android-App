@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymtracker.ui.components.ForgeHairline
 import com.gymtracker.ui.components.ForgeSectionHeader
+import com.gymtracker.ui.components.ForgedMark
 import com.gymtracker.ui.components.ForgedWordmark
 import com.gymtracker.ui.components.forgeGround
 import com.gymtracker.ui.components.forgeHero
@@ -140,11 +141,17 @@ fun HomeHubScreen(
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = ui.avatarInitial,
-                        style = type.labelLarge,
-                        color = scheme.onPrimaryContainer,
-                    )
+                    // no name saved yet (first run, or the profile sheet was skipped) — a blank
+                    // circle reads as a broken avatar, so fall back to the mark
+                    if (ui.avatarInitial.isBlank()) {
+                        ForgedMark(size = 15.dp, tint = scheme.onSurfaceVariant)
+                    } else {
+                        Text(
+                            text = ui.avatarInitial,
+                            style = type.labelLarge,
+                            color = scheme.onPrimaryContainer,
+                        )
+                    }
                 }
             }
 
@@ -236,7 +243,9 @@ fun HomeHubScreen(
                 }
             }
 
-            // 4 — Ready to train rail
+            // 4 — Ready to train rail. Hidden entirely when empty: on a fresh install these
+            // headings sat over blank space and the screen read as half-rendered.
+            if (ui.readyToTrain.isNotEmpty()) {
             // the link says Recovery, so it must go to Recovery — it called onOpenPlan before
             RailHeader("Ready to train", "Recovery ›", onOpenRecovery)
             LazyRow(
@@ -264,7 +273,10 @@ fun HomeHubScreen(
                 }
             }
 
+            }
+
             // 5 — Jump back in rail
+            if (ui.jumpBackIn.isNotEmpty()) {
             RailHeader("Jump back in", "All history ›", onOpenHistory)
             LazyRow(
                 contentPadding = PaddingValues(horizontal = Dim.screenPadH),
@@ -288,6 +300,21 @@ fun HomeHubScreen(
                         Text(s.volume, style = type.titleLarge, color = scheme.onSurface)
                     }
                 }
+            }
+
+            }
+
+            // Nothing logged yet: say so once, instead of leaving the screen empty below the hero.
+            if (ui.readyToTrain.isEmpty() && ui.jumpBackIn.isEmpty()) {
+                Text(
+                    text = "Nothing logged yet. Finish a session and your recovery, history " +
+                        "and stats fill in from there.",
+                    style = type.bodyMedium,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(
+                        start = Dim.screenPadH, end = Dim.screenPadH, top = 26.dp,
+                    ),
+                )
             }
 
             // 6 — PR watch (only when non-empty; gold is PRs and nothing else)
