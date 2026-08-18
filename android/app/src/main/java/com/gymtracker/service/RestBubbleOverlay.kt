@@ -1,7 +1,7 @@
 // Purpose: The rest-timer bubble as a floating overlay, so it survives leaving the app.
 //          RestTimerBubble (Compose) only exists inside the session screen; switch apps or go
-//          Home and it disappears, leaving only the notification. This draws the same idea in a
-//          WindowManager overlay: a chalk ring that empties as the rest runs down, over whatever
+//          Home and it disappears, leaving only the notification. This redraws that exact
+//          bubble in a WindowManager overlay — same 52 dp ring, same heat ramp — over whatever
 //          you are looking at. Draggable; tap returns to the session.
 // Inputs: show(seconds remaining, total) / hide(), driven by RestTimerService
 // Outputs: a TYPE_APPLICATION_OVERLAY window (only when the user has granted the permission)
@@ -23,6 +23,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 class RestBubbleOverlay(private val context: Context) {
@@ -102,22 +103,32 @@ class RestBubbleOverlay(private val context: Context) {
         }
     }
 
-    /** Chalk ring on iron, emptying clockwise; goes ember in the last ten seconds. */
+    /**
+     * Deliberately a pixel-for-pixel match of the in-app RestTimerBubble: 52 dp ring, 4 dp
+     * stroke, 64 dp overall, sweeping counter-clockwise from twelve o'clock, on the same heat
+     * ramp (quenched steel -> ember -> red). Two timers that look different read as two
+     * different features; this is the same bubble, just drawn by a different toolkit.
+     */
     private class BubbleView(context: Context) : View(context) {
         private var remaining = 0
         private var total = 1
 
-        private val plate = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = IRON }
+        private val plate = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = GLASS }
+        private val hairline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = OUTLINE; style = Paint.Style.STROKE
+        }
         private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = TRACK; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND
         }
         private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = CHALK; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND
+            style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND
+        }
+        private val halo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND
         }
         private val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = CHALK
             textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
 
         fun update(remainingSec: Int, totalSec: Int) {
@@ -126,39 +137,112 @@ class RestBubbleOverlay(private val context: Context) {
             invalidate()
         }
 
+        /** RestTimerBubble's ramp, same breakpoints: >50% steel->ember, below that ember->red. */
+        private fun ringColour(fraction: Float): Int = if (fraction > 0.5f) {
+            lerpColor(HEAT_HOT, HEAT_READY, (fraction - 0.5f) / 0.5f)
+        } else {
+            lerpColor(HEAT_SPENT, HEAT_HOT, (fraction / 0.5f).coerceIn(0f, 1f))
+        }
+
         override fun onDraw(canvas: Canvas) {
-            val w = width.toFloat()
-            val h = height.toFloat()
-            val stroke = w * 0.085f
+            val d = context.resources.displayMetrics.density
+            val cx = width / 2f
+            val cy = height / 2f
+
+            // the glass plate: 64 dp round-rect, matching GlassSurface's 32 dp corner
+            val plateR = 32f * d
+            canvas.drawCircle(cx, cy, plateR, plate)
+            hairline.strokeWidth = 1f * d
+            canvas.drawCircle(cx, cy, plateR - 0.5f * d, hairline)
+
+            val stroke = 4f * d
             track.strokeWidth = stroke
             ring.strokeWidth = stroke
-            label.textSize = w * 0.27f
-
-            val r = (minOf(w, h) - stroke) / 2f
-            val cx = w / 2f
-            val cy = h / 2f
-            canvas.drawCircle(cx, cy, r, plate)
-
+            val r = (52f * d - stroke) / 2f
             val box = RectF(cx - r, cy - r, cx + r, cy + r)
-            canvas.drawArc(box, -90f, 360f, false, track)
-            // last ten seconds run hot — heat is data, and this is the clock
-            ring.color = if (remaining <= 10) EMBER else CHALK
-            label.color = ring.color
-            canvas.drawArc(box, -90f, 360f * (remaining / total.toFloat()).coerceIn(0f, 1f), false, ring)
 
+            canvas.drawArc(box, -90f, 360f, false, track)
+
+            val fraction = (remaining / total.toFloat()).coerceIn(0f, 1f)
+            val colour = ringColour(fraction)
+            val finalCountdown = remaining in 1..5
+            if (finalCountdown) {
+                halo.strokeWidth = stroke * 2.4f
+                halo.color = (colour and 0x00FFFFFF) or (0x59 shl 24)   // ~35% alpha
+                canvas.drawArc(box, -90f, -360f * fraction, false, halo)
+            }
+            ring.color = colour
+            canvas.drawArc(box, -90f, -360f * fraction, false, ring)
+
+            label.textSize = 14f * d
+            label.color = if (finalCountdown) colour else CHALK
             val text = "%d:%02d".format(remaining / 60, remaining % 60)
-            val baseline = cy - (label.descent() + label.ascent()) / 2f
-            canvas.drawText(text, cx, baseline, label)
+            canvas.drawText(text, cx, cy - (label.descent() + label.ascent()) / 2f, label)
         }
+
+        /**
+         * Oklab interpolation, because that is what Compose's Color lerp does and this bubble
+         * must match it. Interpolating ember -> steel in plain RGB passes through grey: at ~0.8
+         * of the way the ring came out #A3A4A9 while the in-app one was still clearly blue.
+         */
+        private fun lerpColor(from: Int, to: Int, t: Float): Int {
+            val f = t.coerceIn(0f, 1f)
+            val a = toOklab(from)
+            val b = toOklab(to)
+            return fromOklab(
+                a[0] + (b[0] - a[0]) * f,
+                a[1] + (b[1] - a[1]) * f,
+                a[2] + (b[2] - a[2]) * f,
+            )
+        }
+
+        private fun srgbToLinear(c: Float): Float =
+            if (c <= 0.04045f) c / 12.92f else ((c + 0.055f) / 1.055f).toDouble().pow(2.4).toFloat()
+
+        private fun linearToSrgb(c: Float): Float =
+            if (c <= 0.0031308f) c * 12.92f
+            else (1.055f * c.toDouble().pow(1.0 / 2.4) - 0.055).toFloat()
+
+        private fun toOklab(color: Int): FloatArray {
+            val r = srgbToLinear(((color shr 16) and 0xFF) / 255f)
+            val g = srgbToLinear(((color shr 8) and 0xFF) / 255f)
+            val b = srgbToLinear((color and 0xFF) / 255f)
+            val l = cbrt(0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b)
+            val m = cbrt(0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b)
+            val s2 = cbrt(0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b)
+            return floatArrayOf(
+                0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * s2,
+                1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * s2,
+                0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * s2,
+            )
+        }
+
+        private fun fromOklab(okL: Float, okA: Float, okB: Float): Int {
+            val l = (okL + 0.3963377774f * okA + 0.2158037573f * okB).let { it * it * it }
+            val m = (okL - 0.1055613458f * okA - 0.0638541728f * okB).let { it * it * it }
+            val s2 = (okL - 0.0894841775f * okA - 1.2914855480f * okB).let { it * it * it }
+            fun ch(v: Float) = (linearToSrgb(v).coerceIn(0f, 1f) * 255f).roundToInt()
+            return (0xFF shl 24) or
+                (ch(4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s2) shl 16) or
+                (ch(-1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s2) shl 8) or
+                ch(-0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s2)
+        }
+
+        private fun cbrt(v: Float): Float = v.toDouble().pow(1.0 / 3.0).toFloat()
     }
 
     companion object {
-        private const val SIZE_DP = 76
+        // 52 dp ring + RestTimerBubble's 6 dp padding either side
+        private const val SIZE_DP = 64
         private const val TOUCH_SLOP = 12f
-        private val IRON = Color.parseColor("#F21A1918")
-        private val TRACK = Color.parseColor("#332C2A27")
-        private val CHALK = Color.parseColor("#FFEDE6D8")
-        private val EMBER = Color.parseColor("#FFFF5A1F")
+        // v10 tokens, mirrored from ui/theme/Color.kt — this file cannot read the Compose theme
+        private val GLASS = Color.parseColor("#E61A1918")    // GlassSurface over an unknown backdrop
+        private val OUTLINE = Color.parseColor("#332C2A27")  // OutlineDark, faint
+        private val TRACK = Color.parseColor("#FF201F1D")    // outlineVariant
+        private val CHALK = Color.parseColor("#FFEDE6D8")    // onSurface
+        private val HEAT_READY = Color.parseColor("#FF8FB4C7")
+        private val HEAT_HOT = Color.parseColor("#FFFF5A1F")
+        private val HEAT_SPENT = Color.parseColor("#FFFF3320")
 
         /** The overlay permission is a settings toggle, not a runtime dialog. */
         fun canDraw(context: Context): Boolean =

@@ -70,6 +70,18 @@ import com.gymtracker.ui.theme.Anton
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.ui.theme.LocalForge
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 
 enum class SetStatus { Todo, Active, Done }
 
@@ -105,9 +117,9 @@ fun SessionSlateScreen(
     onBack: () -> Unit,
     onCompleteSet: () -> Unit,
     onWeightDelta: (Int) -> Unit,
-    /** Tap the weight to type it — no forced increments. */
-    onEditWeight: () -> Unit,
-    onEditReps: () -> Unit,
+    /** Typed straight over the figure — no forced increments, no dialog. */
+    onSetWeight: (String) -> Unit,
+    onSetReps: (String) -> Unit,
     onRepsDelta: (Int) -> Unit,
     onEffort: (Int) -> Unit,
     onEditNote: () -> Unit = {},
@@ -252,14 +264,15 @@ fun SessionSlateScreen(
                     label = "WEIGHT KG",
                     value = trimZeros(ui.draftWeight),
                     modifier = Modifier.weight(1f),
-                    onTapValue = onEditWeight,
+                    decimal = true,
+                    onCommit = onSetWeight,
                 ) { onWeightDelta(it) }
                 Box(Modifier.width(1.dp).height(72.dp).background(scheme.outlineVariant))
                 Stepper(
                     label = "REPS",
                     value = ui.draftReps.toString(),
                     modifier = Modifier.weight(1f),
-                    onTapValue = onEditReps,
+                    onCommit = onSetReps,
                 ) { onRepsDelta(it) }
             }
 
@@ -392,25 +405,83 @@ private fun Stepper(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    /** Tap the number to type a value outright — the steppers are a convenience, not a limit. */
-    onTapValue: (() -> Unit)? = null,
+    /** Decimal keypad for weight, whole numbers for reps. */
+    decimal: Boolean = false,
+    /** Non-null makes the figure editable in place: tap it and type over it. */
+    onCommit: ((String) -> Unit)? = null,
     onDelta: (Int) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val figure = MaterialTheme.typography.displayLarge.copy(fontSize = 42.sp)
+    // edit happens on the number itself — a dialog for one field is a detour
+    var editing by remember { mutableStateOf(false) }
+    var draft by remember(value, editing) { mutableStateOf(value) }
+    // onFocusChanged fires once with isFocused=false before requestFocus() lands; without this
+    // the field committed and closed itself in the same frame it opened
+    var gainedFocus by remember(editing) { mutableStateOf(false) }
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    fun commit() {
+        if (draft.isNotBlank() && draft != value) onCommit?.invoke(draft)
+        editing = false
+        keyboard?.hide()
+    }
+
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            // tighten while editing so a five-character value ("137.5") still fits between the
+            // two buttons at this type size
+            horizontalArrangement = Arrangement.spacedBy(if (editing) 4.dp else 14.dp),
+        ) {
             StepperButton("−") { onDelta(-1) }
-            val valueSource = remember { MutableInteractionSource() }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 42.sp),
-                color = scheme.onSurface,
-                modifier = if (onTapValue == null) Modifier else Modifier
-                    .forgedPress(valueSource, pressedScale = 0.96f)
-                    .clickable(interactionSource = valueSource, indication = null, onClick = onTapValue)
-                    .padding(vertical = 6.dp),
-            )
+            if (editing) {
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { t ->
+                        draft = if (decimal) t.filter { c -> c.isDigit() || c == '.' }.take(6)
+                        else t.filter(Char::isDigit).take(3)
+                    },
+                    textStyle = figure.copy(
+                        fontSize = 30.sp,
+                        color = scheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    ),
+                    singleLine = true,
+                    cursorBrush = SolidColor(scheme.primary),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { commit() }),
+                    modifier = Modifier
+                        // takes exactly the space the figure had, so the + button never gets
+                        // pushed off the row while editing
+                        .weight(1f)
+                        .focusRequester(focus)
+                        .onFocusChanged {
+                            if (it.isFocused) gainedFocus = true
+                            else if (gainedFocus && editing) commit()
+                        },
+                )
+                LaunchedEffect(Unit) {
+                    focus.requestFocus()
+                    keyboard?.show()
+                }
+            } else {
+                val valueSource = remember { MutableInteractionSource() }
+                Text(
+                    text = value,
+                    style = figure,
+                    color = scheme.onSurface,
+                    modifier = if (onCommit == null) Modifier else Modifier
+                        .forgedPress(valueSource, pressedScale = 0.96f)
+                        .clickable(interactionSource = valueSource, indication = null) { editing = true }
+                        .padding(vertical = 6.dp),
+                )
+            }
             StepperButton("+") { onDelta(1) }
         }
     }
