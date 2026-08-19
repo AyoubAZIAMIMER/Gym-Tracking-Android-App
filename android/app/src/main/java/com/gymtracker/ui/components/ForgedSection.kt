@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -273,6 +274,11 @@ fun ForgedSectionHeader(
 /**
  * The prototype's list row: title + caption on the left, caller-supplied trailing content,
  * optional chevron. Press physics come from [forgedPress] so contact reads in one frame.
+ *
+ * [leadingIcon] is null on almost every row — this list is mostly the screen's own data (a
+ * session, a program) and doesn't need one. Reach for it on a row that hands off to a
+ * different part of the app entirely, where a glyph earns its keep by signalling "this one
+ * leaves the tab" before the eye even reads the title.
  */
 @Composable
 fun ForgedListRow(
@@ -283,6 +289,7 @@ fun ForgedListRow(
     titleSize: Float = 15.5f,
     verticalPadding: Dp = 12.dp,
     chevron: Boolean = false,
+    leadingIcon: ImageVector? = null,
     trailing: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -300,6 +307,14 @@ fun ForgedListRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        if (leadingIcon != null) {
+            Icon(
+                leadingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = GymTheme.colors.hint,
+            )
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -121,7 +122,8 @@ fun PlanScreen(
                 }
             }
 
-            // the prototype's hand-off row into the library
+            // the prototype's hand-off row into the library — a leading icon marks it as a
+            // jump out of this tab's own data (sessions, programs), not another item in it
             SectionRule()
             ForgedListRow(
                 title = "Exercise library",
@@ -130,6 +132,7 @@ fun PlanScreen(
                 titleSize = 16f,
                 verticalPadding = 15.dp,
                 chevron = true,
+                leadingIcon = Icons.Rounded.Search,
             )
 
             // programs directory — kept from the shipped app, restyled flat
