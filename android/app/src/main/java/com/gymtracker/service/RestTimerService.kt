@@ -108,6 +108,16 @@ class RestTimerService : Service() {
                 publish()
                 updateNotification()
             }
+            // The rest-actions sheet's -15/+15 chips — same deadline shift as ACTION_ADD_15,
+            // just signed, so a negative delta can pull time back off a running rest too.
+            ACTION_ADJUST -> if (ticker != null) {
+                val deltaSeconds = intent.getIntExtra(EXTRA_DELTA_SECONDS, 0)
+                deadlineElapsedMs += deltaSeconds * 1_000L
+                if (deltaSeconds > 0) lastBuzzedSecond = -1
+                total = maxOf(total, remaining)
+                publish()
+                updateNotification()
+            }
             ACTION_STOP -> stopTimer()
         }
         return START_NOT_STICKY
@@ -299,8 +309,10 @@ class RestTimerService : Service() {
 
         private const val ACTION_START = "com.gymtracker.rest.START"
         private const val ACTION_ADD_15 = "com.gymtracker.rest.ADD_15"
+        private const val ACTION_ADJUST = "com.gymtracker.rest.ADJUST"
         private const val ACTION_STOP = "com.gymtracker.rest.STOP"
         private const val EXTRA_SECONDS = "seconds"
+        private const val EXTRA_DELTA_SECONDS = "delta_seconds"
         private const val CHANNEL_TICK = "rest_timer"
         private const val CHANNEL_DONE = "rest_done"
         /** Heat, not chrome — see buildNotification(). */
@@ -319,6 +331,11 @@ class RestTimerService : Service() {
 
         fun add15(context: Context) {
             context.startService(intent(context, ACTION_ADD_15))
+        }
+
+        /** No-op if nothing is running — the sheet only shows these chips while [state] is non-null. */
+        fun adjust(context: Context, deltaSeconds: Int) {
+            context.startService(intent(context, ACTION_ADJUST).putExtra(EXTRA_DELTA_SECONDS, deltaSeconds))
         }
 
         fun stop(context: Context) {

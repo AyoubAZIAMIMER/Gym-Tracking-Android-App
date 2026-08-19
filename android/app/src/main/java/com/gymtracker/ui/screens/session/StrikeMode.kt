@@ -82,7 +82,7 @@ fun StrikeModePanel(
     barKg: Double,
     topPadding: Dp,
     restSeconds: Int? = null,        // null = not resting; negative = over the time you set
-    onOpenRestActions: () -> Unit = {},  // opens the rest/stopwatch sheet — any time rest is on
+    onFinishRest: () -> Unit = {},   // tapping the caption once it's over stops the rest directly
     onScrubWeight: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onScrubReps: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onSetRpe: (exerciseId: Long, setId: Long, rpe: Int?) -> Unit,
@@ -125,7 +125,7 @@ fun StrikeModePanel(
             barKg = barKg,
             topPadding = topPadding,
             restSeconds = restSeconds,
-            onOpenRestActions = onOpenRestActions,
+            onFinishRest = onFinishRest,
             onScrubWeight = { steps -> onScrubWeight(strike.exercise.id, strike.set.id, steps) },
             onScrubReps = { steps -> onScrubReps(strike.exercise.id, strike.set.id, steps) },
             onSetRpe = { rpe -> onSetRpe(strike.exercise.id, strike.set.id, rpe) },
@@ -141,7 +141,7 @@ private fun StrikeSet(
     barKg: Double,
     topPadding: Dp,
     restSeconds: Int? = null,
-    onOpenRestActions: () -> Unit = {},
+    onFinishRest: () -> Unit = {},
     onScrubWeight: (Int) -> Unit,
     onScrubReps: (Int) -> Unit,
     onSetRpe: (Int?) -> Unit,
@@ -346,11 +346,9 @@ private fun StrikeSet(
                         warning -> GymTheme.colors.heat.hot.copy(alpha = pulse)
                         else -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                     },
-                    // Tapping this — any time rest is running, not just once you're over — opens
-                    // the rest + stopwatch sheet: end it now, or run a plain stopwatch instead.
-                    modifier = if (restSeconds != null) {
-                        Modifier.clickable(onClick = onOpenRestActions)
-                    } else Modifier,
+                    // Tappable only once you're over: that's "I'm done resting", direct, no
+                    // sheet in the way. Counting down stays protected from an accidental tap.
+                    modifier = if (overtime) Modifier.clickable(onClick = onFinishRest) else Modifier,
                 )
             }
         }

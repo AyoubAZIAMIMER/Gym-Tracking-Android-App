@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -119,7 +120,8 @@ fun SessionSlateScreen(
     heatAt: (Float) -> Color,
     onBack: () -> Unit,
     onOpenActiveSet: () -> Unit = {},
-    onOpenRestActions: () -> Unit = {},  // opens the rest/stopwatch sheet — any time rest is on
+    onOpenRestActions: () -> Unit = {},  // the Timer icon — rest + stopwatch, start either manually
+    onFinishRest: () -> Unit = {},       // tapping the pill once it's over stops the rest directly
     onCompleteSet: () -> Unit,
     onWeightDelta: (Int) -> Unit,
     /** Typed straight over the figure — no forced increments, no dialog. */
@@ -169,8 +171,8 @@ fun SessionSlateScreen(
                 // Superset => outlined pill (no rest). Straight set => ember fill, hot orange in
                 // the last 5 seconds, or a slow red pulse once you've gone past the rest you set.
                 // Opposite side of the bar from the elapsed clock, on purpose — the two numbers
-                // read as different things. Tapping it any time rest is running (not just once
-                // it's over) opens the rest + stopwatch sheet.
+                // read as different things. Tappable only once you're over: that's "I'm done
+                // resting", direct, no sheet — counting down stays protected from a stray tap.
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
@@ -188,7 +190,7 @@ fun SessionSlateScreen(
                                 )
                             }
                         )
-                        .clickable(onClick = onOpenRestActions)
+                        .then(if (overtime) Modifier.clickable(onClick = onFinishRest) else Modifier)
                         .padding(horizontal = 11.dp, vertical = 5.dp)
                 ) {
                     Text(
@@ -197,6 +199,15 @@ fun SessionSlateScreen(
                         color = if (superset) scheme.onSurfaceVariant else forge.palette.onAction,
                     )
                 }
+            }
+            // Rest + stopwatch together, reached here whether or not either is running — the
+            // dedicated way to start one manually (see RestActionsSheet).
+            IconButton(onClick = onOpenRestActions, modifier = Modifier.size(38.dp)) {
+                Icon(
+                    Icons.Rounded.Timer,
+                    contentDescription = "Rest and stopwatch",
+                    tint = scheme.onSurfaceVariant,
+                )
             }
             // exercise paging — the multi-exercise table used to provide this by scrolling
             Icon(
