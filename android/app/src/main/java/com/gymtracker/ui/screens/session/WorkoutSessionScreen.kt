@@ -171,9 +171,10 @@ fun WorkoutSessionScreen(
     // plate calculator follows whichever weight field currently has focus
     var focusedWeightSetId by remember { mutableStateOf<Long?>(null) }
 
-    // Strike Mode (UX v6): default surface while a set is live; the table is one
-    // gesture away and becomes the surface once every set is struck
-    var strikeMode by rememberSaveable { mutableStateOf(true) }
+    // Strike Mode (UX v6): big scrub-to-adjust numbers for one set. The table (the Slate) is
+    // the default surface now — Strike is reached by tapping the active row, and left again by
+    // swiping up or tapping past the last set.
+    var strikeMode by rememberSaveable { mutableStateOf(false) }
     val activeStrike = state.activeSetId?.let { activeId ->
         state.exercises.firstNotNullOfOrNull { ex ->
             val idx = ex.sets.indexOfFirst { it.id == activeId }
@@ -219,10 +220,10 @@ fun WorkoutSessionScreen(
     }
 
     // Without this, system back popped the whole NavHost and dumped you on Home with a session
-    // still live and no explanation. Now it mirrors what is on screen: the Slate steps back to
-    // Strike, and from the top level it minimises — same as the header control.
+    // still live and no explanation. Now it mirrors what is on screen: Strike steps back to the
+    // table (its home), and from the table it minimises — same as the header control.
     BackHandler {
-        if (slateShowing) strikeMode = true else onMinimise()
+        if (strikeShowing) strikeMode = false else onMinimise()
     }
     // the Slate's note + overflow affordances (the legacy table keeps its own inside ExerciseCard)
     var slateNoteDialog by rememberSaveable { mutableStateOf(false) }
@@ -334,6 +335,7 @@ fun WorkoutSessionScreen(
                     barKg = state.barKg,
                     topPadding = topPadding,
                     restSeconds = restState?.remainingSec,
+                    onTapRest = { RestTimerService.stop(context) },
                     onScrubWeight = vm::dragWeight,
                     onScrubReps = vm::dragReps,
                     onSetRpe = vm::setRpe,
@@ -380,9 +382,11 @@ fun WorkoutSessionScreen(
                         effort = slateDraftSet?.rpe?.let { it - 5 },
                     ),
                     heatAt = { heat.at(it) },
-                    // the Slate is reached FROM Strike, so its back arrow returns there;
-                    // leaving the session entirely is the top bar's job
-                    onBack = { strikeMode = true },
+                    // The table is the base now — its chevron leaves the session (it keeps
+                    // running); tapping the active row is how you get to Strike from here.
+                    onBack = onMinimise,
+                    onOpenActiveSet = { strikeMode = true },
+                    onTapRest = { RestTimerService.stop(context) },
                     onCompleteSet = {
                         slateDraftSet?.let { vm.toggleCompleted(slateExercise.id, it.id) }
                     },
@@ -502,6 +506,7 @@ fun WorkoutSessionScreen(
                 name = state.workoutName,
                 elapsedMillis = nowMillis - state.startedAtMillis,
                 restSeconds = restState?.remainingSec,
+                onTapRest = { RestTimerService.stop(context) },
                 showStopwatch = showStopwatch,
                 onToggleStopwatch = { showStopwatch = !showStopwatch },
                 onFinishClick = {
@@ -649,6 +654,7 @@ private fun SessionTopBar(
     name: String,
     elapsedMillis: Long,
     restSeconds: Int? = null,        // null = not resting; negative = over the time you set
+    onTapRest: () -> Unit = {},      // tapping the chip while over stops the rest — Skip
     showStopwatch: Boolean,
     onToggleStopwatch: () -> Unit,
     onFinishClick: () -> Unit,
@@ -705,20 +711,26 @@ private fun SessionTopBar(
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    if (restSeconds != null) {
-                        val overtime = restSeconds < 0
-                        val pulse = if (overtime) rememberOvertimePulse() else 1f
-                        Text(
-                            text = "REST " + TimeFormat.signedMmss(restSeconds),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = (if (overtime) GymTheme.colors.heat.spent else GymTheme.colors.heat.ready)
-                                .copy(alpha = pulse),
-                        )
-                    }
                     Text(
                         text = name,
                         fontSize = 12.5.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (restSeconds != null) {
+                    // Opposite side of the bar from the session clock, on purpose — the two
+                    // numbers read as different things. Tappable only in overtime: that's "I'm
+                    // done resting", a live countdown stays protected from an accidental tap.
+                    val overtime = restSeconds < 0
+                    val pulse = if (overtime) rememberOvertimePulse() else 1f
+                    Text(
+                        text = "REST " + TimeFormat.signedMmss(restSeconds),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = (if (overtime) GymTheme.colors.heat.spent else GymTheme.colors.heat.ready)
+                            .copy(alpha = pulse),
+                        modifier = Modifier
+                            .padding(end = 10.dp)
+                            .then(if (overtime) Modifier.clickable(onClick = onTapRest) else Modifier),
                     )
                 }
                 IconButton(onClick = onToggleStopwatch) {

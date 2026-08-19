@@ -30,7 +30,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -118,6 +118,8 @@ fun SessionSlateScreen(
     ui: SessionUi,
     heatAt: (Float) -> Color,
     onBack: () -> Unit,
+    onOpenActiveSet: () -> Unit = {},
+    onTapRest: () -> Unit = {},
     onCompleteSet: () -> Unit,
     onWeightDelta: (Int) -> Unit,
     /** Typed straight over the figure — no forced increments, no dialog. */
@@ -148,20 +150,26 @@ fun SessionSlateScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // The table is home now — this used to step back to Strike; it minimises instead,
+            // same glyph and meaning as the Strike top bar's own exit control.
             Icon(
-                Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back",
+                Icons.Rounded.KeyboardArrowDown,
+                contentDescription = "Leave session — it keeps running",
                 tint = scheme.onSurfaceVariant,
                 modifier = Modifier.clickable(onClick = onBack),
             )
             Text(ui.elapsed, style = type.headlineMedium, color = scheme.onSurface)
+            Spacer(Modifier.weight(1f))
 
             if (ui.restSeconds != null) {
                 val superset = ui.supersetTag != null
                 val overtime = ui.restSeconds < 0
                 val pulse = if (overtime) rememberOvertimePulse() else 1f
                 // Superset => outlined pill (no rest). Straight set => ember fill, or a slow red
-                // pulse once you've gone past the rest you set.
+                // pulse once you've gone past the rest you set. Opposite side of the bar from the
+                // elapsed clock, on purpose — the two numbers read as different things. Tappable
+                // only in overtime: that's "I'm done resting, moving on" — a live countdown stays
+                // protected from an accidental tap cutting it short.
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
@@ -175,6 +183,7 @@ fun SessionSlateScreen(
                                 )
                             }
                         )
+                        .then(if (overtime) Modifier.clickable(onClick = onTapRest) else Modifier)
                         .padding(horizontal = 11.dp, vertical = 5.dp)
                 ) {
                     Text(
@@ -184,7 +193,6 @@ fun SessionSlateScreen(
                     )
                 }
             }
-            Spacer(Modifier.weight(1f))
             // exercise paging — the multi-exercise table used to provide this by scrolling
             Icon(
                 Icons.Rounded.ChevronLeft,
@@ -246,7 +254,7 @@ fun SessionSlateScreen(
         // ---- set list (scrolls) ----------------------------------------------------------
         LazyColumn(Modifier.weight(1f).padding(horizontal = Dim.screenPadH)) {
             itemsIndexed(ui.sets) { _, set ->
-                SetRow(set, heatAt)
+                SetRow(set, heatAt, onOpenActiveSet)
                 ForgeHairline()
             }
         }
@@ -338,7 +346,7 @@ fun SessionSlateScreen(
 }
 
 @Composable
-private fun SetRow(set: SetRowUi, heatAt: (Float) -> Color) {
+private fun SetRow(set: SetRowUi, heatAt: (Float) -> Color, onOpenActiveSet: () -> Unit = {}) {
     val forge = LocalForge.current
     val scheme = MaterialTheme.colorScheme
     val type = MaterialTheme.typography
@@ -358,6 +366,7 @@ private fun SetRow(set: SetRowUi, heatAt: (Float) -> Color) {
                 if (active) Modifier.graphicsLayer { scaleX = settle; scaleY = settle } else Modifier
             )
             .then(if (active) Modifier.clip(MaterialTheme.shapes.small).background(forge.palette.actionContainer) else Modifier)
+            .then(if (active) Modifier.clickable(onClick = onOpenActiveSet) else Modifier)
             .padding(vertical = Dim.rowPadV, horizontal = if (active) 10.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

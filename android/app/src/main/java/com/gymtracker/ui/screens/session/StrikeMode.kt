@@ -82,6 +82,7 @@ fun StrikeModePanel(
     barKg: Double,
     topPadding: Dp,
     restSeconds: Int? = null,        // null = not resting; negative = over the time you set
+    onTapRest: () -> Unit = {},      // tapping the rest readout while over stops it — Skip
     onScrubWeight: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onScrubReps: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onSetRpe: (exerciseId: Long, setId: Long, rpe: Int?) -> Unit,
@@ -124,6 +125,7 @@ fun StrikeModePanel(
             barKg = barKg,
             topPadding = topPadding,
             restSeconds = restSeconds,
+            onTapRest = onTapRest,
             onScrubWeight = { steps -> onScrubWeight(strike.exercise.id, strike.set.id, steps) },
             onScrubReps = { steps -> onScrubReps(strike.exercise.id, strike.set.id, steps) },
             onSetRpe = { rpe -> onSetRpe(strike.exercise.id, strike.set.id, rpe) },
@@ -139,6 +141,7 @@ private fun StrikeSet(
     barKg: Double,
     topPadding: Dp,
     restSeconds: Int? = null,
+    onTapRest: () -> Unit = {},
     onScrubWeight: (Int) -> Unit,
     onScrubReps: (Int) -> Unit,
     onSetRpe: (Int?) -> Unit,
@@ -342,6 +345,9 @@ private fun StrikeSet(
                     } else {
                         MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                     },
+                    // Over is the moment tapping it means something: "I'm done resting". A live
+                    // countdown stays protected from an accidental tap cutting it short.
+                    modifier = if (overtime) Modifier.clickable(onClick = onTapRest) else Modifier,
                 )
             }
         }
