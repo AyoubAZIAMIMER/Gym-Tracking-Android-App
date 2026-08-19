@@ -1,6 +1,8 @@
-// Purpose: Foreground countdown for rest periods, so the timer survives app-switch
+// Purpose: Foreground countdown for rest periods, so the timer survives app-switch. Runs past
+//          zero rather than stopping — going over the time you set is shown, not hidden.
 // Inputs: intents (START seconds / ADD_15 / STOP) via the companion helpers
-// Outputs: RestState via companion StateFlow (drives the in-app bubble) + a live notification
+// Outputs: RestState via companion StateFlow (drives the floating overlay and the in-session
+//          readouts) + a live notification
 package com.gymtracker.service
 
 import android.app.Notification
@@ -47,6 +49,10 @@ class RestTimerService : Service() {
      * second, so the timer drifted: it resumed from wherever it had got to instead of from
      * where the clock actually was. elapsedRealtime() keeps running while the device sleeps, so
      * deriving `remaining` from a deadline is self-correcting — a missed tick costs nothing.
+     *
+     * The same deadline keeps working once you're over: `remaining` just goes negative, and
+     * +15s naturally pulls it back across zero with no separate "am I in overtime" state to
+     * keep in sync.
      */
     private var deadlineElapsedMs = 0L
     private var total = 0
@@ -66,9 +72,21 @@ class RestTimerService : Service() {
     /** Guards against re-buzzing the same second when publish() runs more than once for it. */
     private var lastBuzzedSecond = -1
 
+    /** Fires the one-shot "rest over" alert and flips the notification into overtime exactly
+     *  once per crossing — re-arms itself if +15s pulls the timer back under the target. */
+    private var overtimeAlerted = false
+
+    /**
+     * Positive while counting down, negative once you're over — e.g. -15 means 15 seconds past
+     * the time you set. Rounds the countdown up (so the last partial second still reads "1")
+     * and the overtime down (so "+0:00" appears the instant you cross zero, not a second late).
+     */
     private val remaining: Int
-        get() = (((deadlineElapsedMs - SystemClock.elapsedRealtime()) + 999) / 1000)
-            .coerceAtLeast(0).toInt()
+        get() {
+            val diffMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
+            return if (diffMs >= 0) ((diffMs + 999) / 1000).toInt()
+            else -((-diffMs) / 1000).toInt()
+        }
 
     override fun onCreate() {
         super.onCreate()
@@ -96,11 +114,12 @@ class RestTimerService : Service() {
     }
 
     /**
-     * Exactly one bubble at a time. The session screen draws its own Compose bubble, so the
-     * overlay is for when our UI is gone — showing both put two timers on screen at once.
+     * The session screen shows its own inline readout, so this overlay is only for when our UI
+     * is gone. No floor at zero any more: it stays up through overtime too, climbing past the
+     * time you set for as long as you're away from the app.
      */
     private fun syncBubble(remainingSec: Int) {
-        if (remainingSec > 0 && !AppForeground.visible.value) {
+        if (!AppForeground.visible.value) {
             bubble.show(remainingSec, total)
         } else {
             bubble.hide()
@@ -113,7 +132,9 @@ class RestTimerService : Service() {
      * is on screen — or neither, when only the notification is up. Respects Settings -> Haptics.
      */
     private fun buzzFinalSeconds(remainingSec: Int) {
-        if (remainingSec > 5 || remainingSec == lastBuzzedSecond) return
+        // remainingSec can now run negative in overtime, and a negative number is not > 5 —
+        // without the lower bound this would buzz every second for as long as you're over.
+        if (remainingSec !in 0..5 || remainingSec == lastBuzzedSecond) return
         lastBuzzedSecond = remainingSec
         if (!WorkoutRepository.get(this).settings().haptics) return
         val v = vibrator?.takeIf { it.hasVibrator() } ?: return
@@ -128,25 +149,27 @@ class RestTimerService : Service() {
     private fun startTimer(seconds: Int) {
         total = seconds.coerceAtLeast(1)
         lastBuzzedSecond = -1
+        overtimeAlerted = false
         deadlineElapsedMs = SystemClock.elapsedRealtime() + total * 1_000L
         createChannels()
         startForegroundWithType()
         publish()
         ticker?.cancel()
         ticker = scope.launch {
-            // tick on the second the deadline actually falls on, so the displayed number never
-            // sits a beat behind; a late wake-up just skips a value instead of stretching time
+            // Ticks on the second the deadline actually falls on, in both directions, so the
+            // displayed number never sits a beat behind; a late wake-up just skips a value
+            // instead of stretching time. Never stops itself — rest keeps counting once you're
+            // over, until Skip, the next set restarts it, or Finish tears the service down.
             while (true) {
-                val leftMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
-                if (leftMs <= 0) break
-                delay((leftMs % 1_000L).takeIf { it > 0 } ?: 1_000L)
-                if (deadlineElapsedMs - SystemClock.elapsedRealtime() <= 0) break
-                // in-app bubble only; the notification draws its own countdown
+                val diffMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
+                val delayMs = if (diffMs > 0) {
+                    (diffMs % 1_000L).takeIf { it > 0 } ?: 1_000L
+                } else {
+                    1_000L - ((-diffMs) % 1_000L)
+                }
+                delay(delayMs)
                 publish()
             }
-            publish()
-            notifyDone()
-            stopTimer()
         }
     }
 
@@ -164,6 +187,15 @@ class RestTimerService : Service() {
         _state.value = RestState(left, total)
         syncBubble(left)
         buzzFinalSeconds(left)
+        if (left < 0) {
+            if (!overtimeAlerted) {
+                overtimeAlerted = true
+                notifyDone()
+                updateNotification()   // flips the chronometer from counting down to counting up
+            }
+        } else {
+            overtimeAlerted = false
+        }
     }
 
     private fun startForegroundWithType() {
@@ -179,23 +211,31 @@ class RestTimerService : Service() {
         val openApp = packageManager.getLaunchIntentForPackage(packageName)?.let {
             PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
         }
+        val diffMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
+        val overtime = diffMs < 0
         return NotificationCompat.Builder(this, CHANNEL_TICK)
             .setSmallIcon(R.drawable.ic_stat_timer)
-            .setContentTitle("Rest timer")
+            .setContentTitle(if (overtime) "Over rest" else "Rest timer")
+            .apply {
+                if (overtime) setContentText("Extra rest — log when you're ready")
+            }
             // The system renders the countdown itself from `when`. Re-posting a rebuilt
             // notification every second (which is what this used to do) collapsed the card on
             // each tick, so the +15s / Skip actions were unreachable in practice — and it burned
-            // a wakeup per second for something SystemUI can draw for free.
-            .setWhen(System.currentTimeMillis() + (deadlineElapsedMs - SystemClock.elapsedRealtime()))
+            // a wakeup per second for something SystemUI can draw for free. Going into overtime
+            // is the one moment this gets rebuilt: `when` moves into the past and the chronometer
+            // flips from counting down to counting up, so it keeps climbing on its own from there.
+            .setWhen(System.currentTimeMillis() + diffMs)
             .setUsesChronometer(true)
-            .setChronometerCountDown(true)
+            .setChronometerCountDown(!overtime)
             .setShowWhen(true)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(openApp)
             // The accent stays ember even though the app's chrome is chalk: this notification
-            // IS the rest clock, so it is data, and chalk would vanish on a light shade.
-            .setColor(NOTIFICATION_ACCENT)
+            // IS the rest clock, so it is data, and chalk would vanish on a light shade. Overtime
+            // deepens it to the same red the ring and the in-session readouts turn.
+            .setColor(if (overtime) NOTIFICATION_ACCENT_OVERTIME else NOTIFICATION_ACCENT)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(0, "+15s", servicePendingIntent(ACTION_ADD_15, 1))
@@ -265,6 +305,8 @@ class RestTimerService : Service() {
         private const val CHANNEL_DONE = "rest_done"
         /** Heat, not chrome — see buildNotification(). */
         private const val NOTIFICATION_ACCENT = 0xFFFF5A1F.toInt()
+        /** Same red the ring and the in-session readouts turn once you're over the time you set. */
+        private const val NOTIFICATION_ACCENT_OVERTIME = 0xFFFF3320.toInt()
 
         private const val NOTIFICATION_ID = 42
         private const val DONE_NOTIFICATION_ID = 43

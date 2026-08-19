@@ -6,6 +6,11 @@
 // Outputs: ForgedScreenTitle / SectionRule / RowRule / StampText / ForgedSectionHeader / ForgedListRow
 package com.gymtracker.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,8 +55,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymtracker.ui.theme.Dim
+import com.gymtracker.ui.theme.ForgeExpression
 import com.gymtracker.ui.theme.LocalForge
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.Motion
 import com.gymtracker.ui.theme.StampLabel
 import com.gymtracker.ui.theme.forgedEntrance
 import com.gymtracker.ui.theme.forgedPress
@@ -156,6 +163,28 @@ fun rememberEntered(): Boolean {
     var entered by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
     return entered
+}
+
+/**
+ * A slow 0.55..1 alpha breathe for anything marking "you're over the time you set" — the rest
+ * chip, the Strike caption, the Slate pill all share this one rhythm so going over reads as one
+ * signal across the session screen, not three unrelated blinks. Energy.Calm kills it like every
+ * other ambient loop.
+ */
+@Composable
+fun rememberOvertimePulse(): Float {
+    if (!ForgeExpression.current.ambientLoops) return 1f
+    val transition = rememberInfiniteTransition(label = "overtimePulse")
+    val alpha by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1_400, easing = Motion.Temper),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "overtimeAlpha",
+    )
+    return alpha
 }
 
 /**

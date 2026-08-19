@@ -56,6 +56,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.withTimeoutOrNull
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.utils.TimeFormat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,11 +65,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymtracker.ui.components.EffortBars
 import com.gymtracker.ui.components.ForgeHairline
+import com.gymtracker.ui.components.rememberOvertimePulse
 import androidx.compose.ui.text.TextStyle
 import com.gymtracker.ui.components.emberBloomPulsing
 import com.gymtracker.ui.theme.Anton
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.forgedPress
+import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.LocalForge
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -104,7 +107,7 @@ data class SessionUi(
     val supersetTag: String? = null,     // "A1" / "A2" — present means NO rest after this set
     val setsLabel: String,               // "1 / 4"
     val sets: List<SetRowUi>,
-    val restSeconds: Int? = null,        // null = not resting
+    val restSeconds: Int? = null,        // null = not resting; negative = over the target
     val draftWeight: Double,
     val draftReps: Int,
     val effort: Int? = null,             // 1..5, optional
@@ -155,18 +158,27 @@ fun SessionSlateScreen(
 
             if (ui.restSeconds != null) {
                 val superset = ui.supersetTag != null
-                // Superset => outlined pill (no rest). Straight set => ember fill.
+                val overtime = ui.restSeconds < 0
+                val pulse = if (overtime) rememberOvertimePulse() else 1f
+                // Superset => outlined pill (no rest). Straight set => ember fill, or a slow red
+                // pulse once you've gone past the rest you set.
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
                         .then(
-                            if (superset) Modifier.border(1.dp, scheme.outline, RoundedCornerShape(50))
-                            else Modifier.background(forge.palette.action)
+                            if (superset) {
+                                Modifier.border(1.dp, scheme.outline, RoundedCornerShape(50))
+                            } else {
+                                Modifier.background(
+                                    (if (overtime) GymTheme.colors.heat.spent else forge.palette.action)
+                                        .copy(alpha = if (overtime) pulse else 1f)
+                                )
+                            }
                         )
                         .padding(horizontal = 11.dp, vertical = 5.dp)
                 ) {
                     Text(
-                        formatRest(ui.restSeconds),
+                        TimeFormat.signedMmss(ui.restSeconds),
                         style = type.titleLarge.copy(fontSize = 15.sp),
                         color = if (superset) scheme.onSurfaceVariant else forge.palette.onAction,
                     )
@@ -517,12 +529,6 @@ private fun StepperButton(glyph: String, onClick: () -> Unit) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) { Text(glyph, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface) }
-}
-
-private fun formatRest(s: Int): String {
-    val sign = if (s < 0) "+" else ""
-    val a = kotlin.math.abs(s)
-    return "$sign${a / 60}:${(a % 60).toString().padStart(2, '0')}"
 }
 
 private fun effortWord(e: Int?): String = when (e) {

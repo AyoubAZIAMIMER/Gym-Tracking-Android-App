@@ -97,7 +97,6 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.domain.Progression
-import com.gymtracker.service.RestBubblePosition
 import com.gymtracker.service.RestTimerService
 import com.gymtracker.ui.components.AlertBody
 import com.gymtracker.ui.components.ForgedAlert
@@ -106,7 +105,7 @@ import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.PlateCalculatorPanel
-import com.gymtracker.ui.components.RestTimerBubble
+import com.gymtracker.ui.components.rememberOvertimePulse
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
@@ -334,6 +333,7 @@ fun WorkoutSessionScreen(
                     active = activeStrike,
                     barKg = state.barKg,
                     topPadding = topPadding,
+                    restSeconds = restState?.remainingSec,
                     onScrubWeight = vm::dragWeight,
                     onScrubReps = vm::dragReps,
                     onSetRpe = vm::setRpe,
@@ -374,7 +374,7 @@ fun WorkoutSessionScreen(
                                 isPr = set.isPr,
                             )
                         },
-                        restSeconds = restState?.remainingSec?.takeIf { it > 0 },
+                        restSeconds = restState?.remainingSec,
                         draftWeight = slateDraftSet?.effectiveWeightKg ?: 0.0,
                         draftReps = slateDraftSet?.effectiveReps ?: 0,
                         effort = slateDraftSet?.rpe?.let { it - 5 },
@@ -501,6 +501,7 @@ fun WorkoutSessionScreen(
             if (!slateShowing) SessionTopBar(
                 name = state.workoutName,
                 elapsedMillis = nowMillis - state.startedAtMillis,
+                restSeconds = restState?.remainingSec,
                 showStopwatch = showStopwatch,
                 onToggleStopwatch = { showStopwatch = !showStopwatch },
                 onFinishClick = {
@@ -519,33 +520,9 @@ fun WorkoutSessionScreen(
                     .onSizeChanged { topBarHeightPx = it.height },
             )
 
-            restState?.let { rest ->
-                // Positioned in absolute screen pixels from the shared store, so this bubble and
-                // the overlay are the same object: drag it here, leave the app, and it is still
-                // where you put it. TopStart because the overlay's window uses the same origin.
-                LaunchedEffect(Unit) { RestBubblePosition.ensureLoaded(context) }
-                val bubblePos by RestBubblePosition.offset.collectAsStateWithLifecycle()
-                RestTimerBubble(
-                    remainingSec = rest.remainingSec,
-                    totalSec = rest.totalSec,
-                    onAdd15 = { RestTimerService.add15(context) },
-                    onSkip = { RestTimerService.stop(context) },
-                    hazeState = hazeState,
-                    position = bubblePos,
-                    onDrag = { dx, dy ->
-                        bubblePos?.let {
-                            RestBubblePosition.set(
-                                context, it.x + dx.roundToInt(), it.y + dy.roundToInt(),
-                                persist = false,
-                            )
-                        }
-                    },
-                    onDragEnd = {
-                        bubblePos?.let { RestBubblePosition.set(context, it.x, it.y, persist = true) }
-                    },
-                    modifier = Modifier.align(Alignment.TopStart),
-                )
-            }
+            // No floating bubble while the app is open — replaced by the top-bar chip
+            // (SessionTopBar) and the live readout on the Strike/Slate surface below.
+            // RestBubbleOverlay still floats one once you leave the app; see AppForeground.
 
             // legacy-table chrome only — the Slate carries its own equivalents
             if (!strikeShowing && !slateShowing) {
@@ -671,6 +648,7 @@ fun WorkoutSessionScreen(
 private fun SessionTopBar(
     name: String,
     elapsedMillis: Long,
+    restSeconds: Int? = null,        // null = not resting; negative = over the time you set
     showStopwatch: Boolean,
     onToggleStopwatch: () -> Unit,
     onFinishClick: () -> Unit,
@@ -727,6 +705,16 @@ private fun SessionTopBar(
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
                     )
+                    if (restSeconds != null) {
+                        val overtime = restSeconds < 0
+                        val pulse = if (overtime) rememberOvertimePulse() else 1f
+                        Text(
+                            text = "REST " + TimeFormat.signedMmss(restSeconds),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = (if (overtime) GymTheme.colors.heat.spent else GymTheme.colors.heat.ready)
+                                .copy(alpha = pulse),
+                        )
+                    }
                     Text(
                         text = name,
                         fontSize = 12.5.sp,

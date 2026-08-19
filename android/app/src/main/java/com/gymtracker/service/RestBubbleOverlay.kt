@@ -1,8 +1,9 @@
-// Purpose: The rest-timer bubble as a floating overlay, so it survives leaving the app.
-//          RestTimerBubble (Compose) only exists inside the session screen; switch apps or go
-//          Home and it disappears, leaving only the notification. This redraws that exact
-//          bubble in a WindowManager overlay — same 52 dp ring, same heat ramp — over whatever
-//          you are looking at. Draggable; tap returns to the session.
+// Purpose: The rest-timer bubble — the only one. The session screen shows the same countdown
+//          inline once you're looking at it, so this WindowManager overlay only needs to exist
+//          for when you're not: switch apps or go Home and it appears; come back and it's gone.
+//          52 dp ring, same heat ramp as the in-session readouts, and it keeps counting — into
+//          a slow red pulse — if you go over the time you set. Draggable; tap returns to the
+//          session.
 // Inputs: show(seconds remaining, total) / hide(), driven by RestTimerService
 // Outputs: a TYPE_APPLICATION_OVERLAY window (only when the user has granted the permission)
 package com.gymtracker.service
@@ -28,6 +29,7 @@ import android.view.animation.DecelerateInterpolator
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import com.gymtracker.utils.TimeFormat
 
 class RestBubbleOverlay(private val context: Context) {
 
@@ -164,10 +166,10 @@ class RestBubbleOverlay(private val context: Context) {
     }
 
     /**
-     * Deliberately a pixel-for-pixel match of the in-app RestTimerBubble: 52 dp ring, 4 dp
-     * stroke, 64 dp overall, sweeping counter-clockwise from twelve o'clock, on the same heat
-     * ramp (quenched steel -> ember -> red). Two timers that look different read as two
-     * different features; this is the same bubble, just drawn by a different toolkit.
+     * 52 dp ring, 4 dp stroke, 64 dp overall, sweeping counter-clockwise from twelve o'clock, on
+     * the same heat ramp (quenched steel -> ember -> red, flat spent-red once you're over) as the
+     * in-session readouts. Same numbers, same rhythm — it should read as the bubble following
+     * you out of the app, not a second timer.
      */
     private class BubbleView(context: Context) : View(context) {
         private var remaining = 0
@@ -192,12 +194,14 @@ class RestBubbleOverlay(private val context: Context) {
         }
 
         fun update(remainingSec: Int, totalSec: Int) {
-            remaining = remainingSec.coerceAtLeast(0)
+            // Negative now means overtime — see onDraw(). No floor here any more.
+            remaining = remainingSec
             total = totalSec.coerceAtLeast(1)
             invalidate()
         }
 
-        /** RestTimerBubble's ramp, same breakpoints: >50% steel->ember, below that ember->red. */
+        /** Same ramp as the in-session readouts: >50% steel->ember, below that ember->red. Only
+         *  used before zero — overtime is a flat HEAT_SPENT, see onDraw(). */
         private fun ringColour(fraction: Float): Int = if (fraction > 0.5f) {
             lerpColor(HEAT_HOT, HEAT_READY, (fraction - 0.5f) / 0.5f)
         } else {
@@ -208,14 +212,17 @@ class RestBubbleOverlay(private val context: Context) {
             val d = context.resources.displayMetrics.density
             val cx = width / 2f
             val cy = height / 2f
+            val overtime = remaining < 0
 
-            // The last five seconds pulse, same 0.08 amplitude as the in-app bubble. Redrawn per
-            // frame only during that window; the rest of the time one repaint a second is plenty.
+            // The last five seconds pulse quick and sharp; overtime pulses slow and gentle — it
+            // has to stay bearable for however long you're actually over, not just five seconds.
             val finalWindow = remaining in 1..5
-            if (finalWindow && animationsEnabled(context)) {
-                val phase = (SystemClock.uptimeMillis() % 520L) / 520f
+            if ((finalWindow || overtime) && animationsEnabled(context)) {
+                val period = if (finalWindow) 520L else 1_400L
+                val amp = if (finalWindow) 0.08f else 0.05f
+                val phase = (SystemClock.uptimeMillis() % period) / period.toFloat()
                 val wave = kotlin.math.sin(phase * 2f * Math.PI).toFloat()
-                canvas.scale(1f + 0.08f * wave, 1f + 0.08f * wave, cx, cy)
+                canvas.scale(1f + amp * wave, 1f + amp * wave, cx, cy)
                 postInvalidateOnAnimation()
             }
 
@@ -233,10 +240,13 @@ class RestBubbleOverlay(private val context: Context) {
 
             canvas.drawArc(box, -90f, 360f, false, track)
 
-            val fraction = (remaining / total.toFloat()).coerceIn(0f, 1f)
-            val colour = ringColour(fraction)
+            // Overtime holds the ring fully lit instead of shrinking it further — it already
+            // told you time was up once; the second lap reads as "still over", not "hurry".
+            val fraction = if (overtime) 1f else (remaining / total.toFloat()).coerceIn(0f, 1f)
+            val colour = if (overtime) HEAT_SPENT else ringColour(fraction)
             val finalCountdown = remaining in 1..5
-            if (finalCountdown) {
+            val glowing = finalCountdown || overtime
+            if (glowing) {
                 halo.strokeWidth = stroke * 2.4f
                 halo.color = (colour and 0x00FFFFFF) or (0x59 shl 24)   // ~35% alpha
                 canvas.drawArc(box, -90f, -360f * fraction, false, halo)
@@ -245,9 +255,10 @@ class RestBubbleOverlay(private val context: Context) {
             canvas.drawArc(box, -90f, -360f * fraction, false, ring)
 
             label.textSize = 14f * d
-            label.color = if (finalCountdown) colour else CHALK
-            val text = "%d:%02d".format(remaining / 60, remaining % 60)
-            canvas.drawText(text, cx, cy - (label.descent() + label.ascent()) / 2f, label)
+            label.color = if (glowing) colour else CHALK
+            canvas.drawText(
+                TimeFormat.signedMmss(remaining), cx, cy - (label.descent() + label.ascent()) / 2f, label,
+            )
         }
 
         /**
@@ -302,7 +313,7 @@ class RestBubbleOverlay(private val context: Context) {
     }
 
     companion object {
-        // 52 dp ring + RestTimerBubble's 6 dp padding either side
+        // 52 dp ring + 6 dp padding either side, matching the in-session readouts' spec
         private const val SIZE_DP = 64
         private const val TOUCH_SLOP = 12f
         private const val ENTER_MS = 180L

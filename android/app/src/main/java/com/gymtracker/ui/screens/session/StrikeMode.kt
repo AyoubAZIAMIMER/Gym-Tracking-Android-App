@@ -61,9 +61,11 @@ import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
 import com.gymtracker.ui.components.EffortBars
+import com.gymtracker.ui.components.rememberOvertimePulse
 import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.utils.OneRM
 import com.gymtracker.utils.PlateCalculator
+import com.gymtracker.utils.TimeFormat
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -79,6 +81,7 @@ fun StrikeModePanel(
     active: ActiveStrike,
     barKg: Double,
     topPadding: Dp,
+    restSeconds: Int? = null,        // null = not resting; negative = over the time you set
     onScrubWeight: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onScrubReps: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onSetRpe: (exerciseId: Long, setId: Long, rpe: Int?) -> Unit,
@@ -120,6 +123,7 @@ fun StrikeModePanel(
             strike = strike,
             barKg = barKg,
             topPadding = topPadding,
+            restSeconds = restSeconds,
             onScrubWeight = { steps -> onScrubWeight(strike.exercise.id, strike.set.id, steps) },
             onScrubReps = { steps -> onScrubReps(strike.exercise.id, strike.set.id, steps) },
             onSetRpe = { rpe -> onSetRpe(strike.exercise.id, strike.set.id, rpe) },
@@ -134,6 +138,7 @@ private fun StrikeSet(
     strike: ActiveStrike,
     barKg: Double,
     topPadding: Dp,
+    restSeconds: Int? = null,
     onScrubWeight: (Int) -> Unit,
     onScrubReps: (Int) -> Unit,
     onSetRpe: (Int?) -> Unit,
@@ -319,10 +324,24 @@ private fun StrikeSet(
                     style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 6.sp),
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
+                val overtime = (restSeconds ?: 0) < 0
+                val pulse = if (overtime) rememberOvertimePulse() else 1f
                 Text(
-                    text = "rest starts automatically",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
+                    text = when {
+                        restSeconds == null -> "rest starts automatically"
+                        !overtime -> "rest ${TimeFormat.signedMmss(restSeconds)}"
+                        else -> "${TimeFormat.signedMmss(restSeconds)} over rest"
+                    },
+                    style = if (overtime) {
+                        MaterialTheme.typography.labelMedium
+                    } else {
+                        MaterialTheme.typography.labelSmall
+                    },
+                    color = if (overtime) {
+                        GymTheme.colors.heat.spent.copy(alpha = pulse)
+                    } else {
+                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+                    },
                 )
             }
         }
