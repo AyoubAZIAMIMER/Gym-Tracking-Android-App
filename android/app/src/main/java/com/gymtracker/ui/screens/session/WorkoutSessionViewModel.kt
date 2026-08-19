@@ -28,6 +28,19 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch { loadFreshSession(keepIfActive = true) }
+        // Lock-screen "Log set" action: identical to tapping the active row in-app.
+        viewModelScope.launch {
+            RestTimerService.logSetRequests.collect { logActiveSetFromNotification() }
+        }
+    }
+
+    private fun logActiveSetFromNotification() {
+        val st = _ui.value
+        val activeId = st.activeSetId ?: return
+        val exercise = st.exercises.firstOrNull { ex -> ex.sets.any { it.id == activeId } } ?: return
+        val set = exercise.sets.first { it.id == activeId }
+        if (set.completed) return   // toggleCompleted flips both ways — guard against re-firing
+        toggleCompleted(exercise.id, activeId)
     }
 
     private suspend fun refreshPrBaseline() {
@@ -227,7 +240,24 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
         // completing a set auto-starts rest; duration comes from imported Progression prefs
-        if (completedNow) RestTimerService.start(getApplication(), repo.restSeconds())
+        if (completedNow) {
+            val st = _ui.value
+            val active = st.activeSetId?.let { id ->
+                st.exercises.firstNotNullOfOrNull { ex -> ex.sets.find { it.id == id }?.let { ex to it } }
+            }
+            RestTimerService.start(
+                getApplication(),
+                repo.restSeconds(),
+                setLabel = active?.let { (ex, s) ->
+                    "${ex.name} · set ${ex.sets.indexOfFirst { it.id == s.id } + 1} of ${ex.sets.size}"
+                },
+                upNext = active?.second?.let { s ->
+                    val w = s.suggestedWeightKg ?: s.prevWeightKg
+                    val r = s.suggestedReps ?: s.prevReps
+                    if (w != null && r != null) "${PlateCalculator.fmt(w)} kg × $r" else null
+                },
+            )
+        }
     }
 
     private fun isPr(dbExerciseId: String?, s: SessionSet): Boolean {

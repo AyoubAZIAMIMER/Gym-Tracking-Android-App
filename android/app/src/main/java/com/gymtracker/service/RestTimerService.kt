@@ -29,8 +29,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
@@ -56,6 +59,11 @@ class RestTimerService : Service() {
      */
     private var deadlineElapsedMs = 0L
     private var total = 0
+
+    /** What the expanded notification names, e.g. "Squat (Barbell) · set 2 of 4" / "100 kg × 8".
+     *  Null when the caller didn't supply session context (the manual rest-sheet start). */
+    private var setLabel: String? = null
+    private var upNext: String? = null
 
     /** The floating bubble. Null-safe no-op unless the overlay permission is granted. */
     private val bubble by lazy { RestBubbleOverlay(this) }
@@ -100,7 +108,14 @@ class RestTimerService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startTimer(intent.getIntExtra(EXTRA_SECONDS, DEFAULT_SECONDS))
+            ACTION_START -> startTimer(
+                intent.getIntExtra(EXTRA_SECONDS, DEFAULT_SECONDS),
+                intent.getStringExtra(EXTRA_SET_LABEL),
+                intent.getStringExtra(EXTRA_UP_NEXT),
+            )
+            // Lock-screen "Log set" action — the running app (if any) does the actual logging;
+            // this just wakes it up. No-op with nothing listening (app process is dead).
+            ACTION_LOG_SET -> _logSetRequests.tryEmit(Unit)
             ACTION_ADD_15 -> if (ticker != null) {
                 deadlineElapsedMs += 15_000
                 lastBuzzedSecond = -1        // +15s leaves the final-five window
@@ -156,8 +171,10 @@ class RestTimerService : Service() {
         runCatching { v.vibrate(effect) }
     }
 
-    private fun startTimer(seconds: Int) {
+    private fun startTimer(seconds: Int, setLabel: String? = null, upNext: String? = null) {
         total = seconds.coerceAtLeast(1)
+        this.setLabel = setLabel
+        this.upNext = upNext
         lastBuzzedSecond = -1
         overtimeAlerted = false
         deadlineElapsedMs = SystemClock.elapsedRealtime() + total * 1_000L
@@ -223,11 +240,17 @@ class RestTimerService : Service() {
         }
         val diffMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
         val overtime = diffMs < 0
+        // Reference: lock-screen live timer — "Squat (Barbell) · set 2 of 4" as the line under
+        // the countdown, "Up next: 100 kg × 8" in the expanded body. Falls back to the old
+        // generic text when the caller has no session context (manual rest-sheet start).
+        val line = setLabel ?: if (overtime) "Extra rest — log when you're ready" else null
+        val expanded = if (setLabel != null && upNext != null) "$setLabel\nUp next: $upNext" else line
         return NotificationCompat.Builder(this, CHANNEL_TICK)
             .setSmallIcon(R.drawable.ic_stat_timer)
             .setContentTitle(if (overtime) "Over rest" else "Rest timer")
             .apply {
-                if (overtime) setContentText("Extra rest — log when you're ready")
+                line?.let { setContentText(it) }
+                expanded?.let { setStyle(NotificationCompat.BigTextStyle().bigText(it)) }
             }
             // The system renders the countdown itself from `when`. Re-posting a rebuilt
             // notification every second (which is what this used to do) collapsed the card on
@@ -248,8 +271,8 @@ class RestTimerService : Service() {
             .setColor(if (overtime) NOTIFICATION_ACCENT_OVERTIME else NOTIFICATION_ACCENT)
             .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .addAction(0, "Log set", servicePendingIntent(ACTION_LOG_SET, 3))
             .addAction(0, "+15s", servicePendingIntent(ACTION_ADD_15, 1))
-            .addAction(0, "Skip", servicePendingIntent(ACTION_STOP, 2))
             .build()
     }
 
@@ -305,14 +328,23 @@ class RestTimerService : Service() {
         /** Null when idle. The session screen's bubble collects this. */
         val state: StateFlow<RestState?> = _state.asStateFlow()
 
+        private val _logSetRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        /** Fires when the lock-screen/notification "Log set" action is tapped. The ViewModel
+         *  collects this while a session is alive and logs the active set — same as tapping
+         *  its row in-app. No-op (buffered, then dropped) if nothing is collecting. */
+        val logSetRequests: SharedFlow<Unit> = _logSetRequests.asSharedFlow()
+
         const val DEFAULT_SECONDS = 120
 
         private const val ACTION_START = "com.gymtracker.rest.START"
         private const val ACTION_ADD_15 = "com.gymtracker.rest.ADD_15"
         private const val ACTION_ADJUST = "com.gymtracker.rest.ADJUST"
         private const val ACTION_STOP = "com.gymtracker.rest.STOP"
+        private const val ACTION_LOG_SET = "com.gymtracker.rest.LOG_SET"
         private const val EXTRA_SECONDS = "seconds"
         private const val EXTRA_DELTA_SECONDS = "delta_seconds"
+        private const val EXTRA_SET_LABEL = "set_label"
+        private const val EXTRA_UP_NEXT = "up_next"
         private const val CHANNEL_TICK = "rest_timer"
         private const val CHANNEL_DONE = "rest_done"
         /** Heat, not chrome — see buildNotification(). */
@@ -323,9 +355,17 @@ class RestTimerService : Service() {
         private const val NOTIFICATION_ID = 42
         private const val DONE_NOTIFICATION_ID = 43
 
-        fun start(context: Context, seconds: Int = DEFAULT_SECONDS) {
+        fun start(
+            context: Context,
+            seconds: Int = DEFAULT_SECONDS,
+            setLabel: String? = null,
+            upNext: String? = null,
+        ) {
             context.startForegroundService(
-                intent(context, ACTION_START).putExtra(EXTRA_SECONDS, seconds)
+                intent(context, ACTION_START)
+                    .putExtra(EXTRA_SECONDS, seconds)
+                    .putExtra(EXTRA_SET_LABEL, setLabel)
+                    .putExtra(EXTRA_UP_NEXT, upNext)
             )
         }
 
