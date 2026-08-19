@@ -82,7 +82,7 @@ fun StrikeModePanel(
     barKg: Double,
     topPadding: Dp,
     restSeconds: Int? = null,        // null = not resting; negative = over the time you set
-    onTapRest: () -> Unit = {},      // tapping the rest readout while over stops it — Skip
+    onOpenRestActions: () -> Unit = {},  // opens the rest/stopwatch sheet — any time rest is on
     onScrubWeight: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onScrubReps: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onSetRpe: (exerciseId: Long, setId: Long, rpe: Int?) -> Unit,
@@ -125,7 +125,7 @@ fun StrikeModePanel(
             barKg = barKg,
             topPadding = topPadding,
             restSeconds = restSeconds,
-            onTapRest = onTapRest,
+            onOpenRestActions = onOpenRestActions,
             onScrubWeight = { steps -> onScrubWeight(strike.exercise.id, strike.set.id, steps) },
             onScrubReps = { steps -> onScrubReps(strike.exercise.id, strike.set.id, steps) },
             onSetRpe = { rpe -> onSetRpe(strike.exercise.id, strike.set.id, rpe) },
@@ -141,7 +141,7 @@ private fun StrikeSet(
     barKg: Double,
     topPadding: Dp,
     restSeconds: Int? = null,
-    onTapRest: () -> Unit = {},
+    onOpenRestActions: () -> Unit = {},
     onScrubWeight: (Int) -> Unit,
     onScrubReps: (Int) -> Unit,
     onSetRpe: (Int?) -> Unit,
@@ -328,7 +328,8 @@ private fun StrikeSet(
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
                 val overtime = (restSeconds ?: 0) < 0
-                val pulse = if (overtime) rememberOvertimePulse() else 1f
+                val warning = (restSeconds ?: 0) in 1..5
+                val pulse = if (overtime || warning) rememberOvertimePulse() else 1f
                 Text(
                     text = when {
                         restSeconds == null -> "rest starts automatically"
@@ -340,14 +341,16 @@ private fun StrikeSet(
                     } else {
                         MaterialTheme.typography.labelSmall
                     },
-                    color = if (overtime) {
-                        GymTheme.colors.heat.spent.copy(alpha = pulse)
-                    } else {
-                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+                    color = when {
+                        overtime -> GymTheme.colors.heat.spent.copy(alpha = pulse)
+                        warning -> GymTheme.colors.heat.hot.copy(alpha = pulse)
+                        else -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                     },
-                    // Over is the moment tapping it means something: "I'm done resting". A live
-                    // countdown stays protected from an accidental tap cutting it short.
-                    modifier = if (overtime) Modifier.clickable(onClick = onTapRest) else Modifier,
+                    // Tapping this — any time rest is running, not just once you're over — opens
+                    // the rest + stopwatch sheet: end it now, or run a plain stopwatch instead.
+                    modifier = if (restSeconds != null) {
+                        Modifier.clickable(onClick = onOpenRestActions)
+                    } else Modifier,
                 )
             }
         }

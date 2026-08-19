@@ -119,7 +119,7 @@ fun SessionSlateScreen(
     heatAt: (Float) -> Color,
     onBack: () -> Unit,
     onOpenActiveSet: () -> Unit = {},
-    onTapRest: () -> Unit = {},
+    onOpenRestActions: () -> Unit = {},  // opens the rest/stopwatch sheet — any time rest is on
     onCompleteSet: () -> Unit,
     onWeightDelta: (Int) -> Unit,
     /** Typed straight over the figure — no forced increments, no dialog. */
@@ -164,12 +164,13 @@ fun SessionSlateScreen(
             if (ui.restSeconds != null) {
                 val superset = ui.supersetTag != null
                 val overtime = ui.restSeconds < 0
-                val pulse = if (overtime) rememberOvertimePulse() else 1f
-                // Superset => outlined pill (no rest). Straight set => ember fill, or a slow red
-                // pulse once you've gone past the rest you set. Opposite side of the bar from the
-                // elapsed clock, on purpose — the two numbers read as different things. Tappable
-                // only in overtime: that's "I'm done resting, moving on" — a live countdown stays
-                // protected from an accidental tap cutting it short.
+                val warning = ui.restSeconds in 1..5
+                val pulse = if (overtime || warning) rememberOvertimePulse() else 1f
+                // Superset => outlined pill (no rest). Straight set => ember fill, hot orange in
+                // the last 5 seconds, or a slow red pulse once you've gone past the rest you set.
+                // Opposite side of the bar from the elapsed clock, on purpose — the two numbers
+                // read as different things. Tapping it any time rest is running (not just once
+                // it's over) opens the rest + stopwatch sheet.
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(50))
@@ -177,13 +178,17 @@ fun SessionSlateScreen(
                             if (superset) {
                                 Modifier.border(1.dp, scheme.outline, RoundedCornerShape(50))
                             } else {
+                                val fill = when {
+                                    overtime -> GymTheme.colors.heat.spent
+                                    warning -> GymTheme.colors.heat.hot
+                                    else -> forge.palette.action
+                                }
                                 Modifier.background(
-                                    (if (overtime) GymTheme.colors.heat.spent else forge.palette.action)
-                                        .copy(alpha = if (overtime) pulse else 1f)
+                                    fill.copy(alpha = if (overtime || warning) pulse else 1f)
                                 )
                             }
                         )
-                        .then(if (overtime) Modifier.clickable(onClick = onTapRest) else Modifier)
+                        .clickable(onClick = onOpenRestActions)
                         .padding(horizontal = 11.dp, vertical = 5.dp)
                 ) {
                     Text(

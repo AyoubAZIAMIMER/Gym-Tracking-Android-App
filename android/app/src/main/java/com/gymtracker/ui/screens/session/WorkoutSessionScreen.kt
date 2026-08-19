@@ -105,6 +105,7 @@ import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.PlateCalculatorPanel
+import com.gymtracker.ui.components.RestActionsSheet
 import com.gymtracker.ui.components.rememberOvertimePulse
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
@@ -175,6 +176,41 @@ fun WorkoutSessionScreen(
     // the default surface now — Strike is reached by tapping the active row, and left again by
     // swiping up or tapping past the last set.
     var strikeMode by rememberSaveable { mutableStateOf(false) }
+
+    // Rest + stopwatch, together: tapping the live rest readout (Strike caption / Slate pill)
+    // opens this rather than acting directly, so "finish rest" and "start the stopwatch" are
+    // both one tap away without either one risking an accidental trigger.
+    var restActionsSheetOpen by rememberSaveable { mutableStateOf(false) }
+
+    // Hoisted here (not owned by StopwatchRow) so both the top-bar row and the rest-actions
+    // sheet read and drive the same running stopwatch instead of two independent ones.
+    var stopwatchAccumulatedMs by rememberSaveable { mutableLongStateOf(0L) }
+    var stopwatchRunning by rememberSaveable { mutableStateOf(false) }
+    var stopwatchStartedAt by rememberSaveable { mutableLongStateOf(0L) }
+    var stopwatchNow by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(stopwatchRunning) {
+        while (stopwatchRunning) {
+            stopwatchNow = SystemClock.elapsedRealtime()
+            delay(200)
+        }
+    }
+    val stopwatchShownMs = stopwatchAccumulatedMs +
+        if (stopwatchRunning) (stopwatchNow - stopwatchStartedAt).coerceAtLeast(0) else 0
+    val onToggleStopwatchRun = {
+        if (stopwatchRunning) {
+            stopwatchAccumulatedMs += SystemClock.elapsedRealtime() - stopwatchStartedAt
+            stopwatchRunning = false
+        } else {
+            stopwatchStartedAt = SystemClock.elapsedRealtime()
+            stopwatchNow = stopwatchStartedAt
+            stopwatchRunning = true
+        }
+    }
+    val onResetStopwatch = {
+        stopwatchAccumulatedMs = 0L
+        stopwatchStartedAt = SystemClock.elapsedRealtime()
+        stopwatchNow = stopwatchStartedAt
+    }
     val activeStrike = state.activeSetId?.let { activeId ->
         state.exercises.firstNotNullOfOrNull { ex ->
             val idx = ex.sets.indexOfFirst { it.id == activeId }
@@ -335,7 +371,7 @@ fun WorkoutSessionScreen(
                     barKg = state.barKg,
                     topPadding = topPadding,
                     restSeconds = restState?.remainingSec,
-                    onTapRest = { RestTimerService.stop(context) },
+                    onOpenRestActions = { restActionsSheetOpen = true },
                     onScrubWeight = vm::dragWeight,
                     onScrubReps = vm::dragReps,
                     onSetRpe = vm::setRpe,
@@ -386,7 +422,7 @@ fun WorkoutSessionScreen(
                     // running); tapping the active row is how you get to Strike from here.
                     onBack = onMinimise,
                     onOpenActiveSet = { strikeMode = true },
-                    onTapRest = { RestTimerService.stop(context) },
+                    onOpenRestActions = { restActionsSheetOpen = true },
                     onCompleteSet = {
                         slateDraftSet?.let { vm.toggleCompleted(slateExercise.id, it.id) }
                     },
@@ -506,9 +542,12 @@ fun WorkoutSessionScreen(
                 name = state.workoutName,
                 elapsedMillis = nowMillis - state.startedAtMillis,
                 restSeconds = restState?.remainingSec,
-                onTapRest = { RestTimerService.stop(context) },
                 showStopwatch = showStopwatch,
                 onToggleStopwatch = { showStopwatch = !showStopwatch },
+                stopwatchShownMs = stopwatchShownMs,
+                stopwatchRunning = stopwatchRunning,
+                onToggleStopwatchRun = onToggleStopwatchRun,
+                onResetStopwatch = onResetStopwatch,
                 onFinishClick = {
                     if (state.completedSets == 0) {
                         recoilTick++
@@ -647,6 +686,18 @@ fun WorkoutSessionScreen(
             onDismiss = { vm.showFinishSheet(false) },
         )
     }
+    if (restActionsSheetOpen) {
+        RestActionsSheet(
+            restRemainingSec = restState?.remainingSec,
+            restTotalSec = restState?.totalSec ?: 1,
+            onFinishRest = { RestTimerService.stop(context) },
+            stopwatchElapsedMs = stopwatchShownMs,
+            stopwatchRunning = stopwatchRunning,
+            onToggleStopwatch = onToggleStopwatchRun,
+            onResetStopwatch = onResetStopwatch,
+            onDismiss = { restActionsSheetOpen = false },
+        )
+    }
 }
 
 @Composable
@@ -654,9 +705,12 @@ private fun SessionTopBar(
     name: String,
     elapsedMillis: Long,
     restSeconds: Int? = null,        // null = not resting; negative = over the time you set
-    onTapRest: () -> Unit = {},      // tapping the chip while over stops the rest — Skip
     showStopwatch: Boolean,
     onToggleStopwatch: () -> Unit,
+    stopwatchShownMs: Long = 0L,
+    stopwatchRunning: Boolean = false,
+    onToggleStopwatchRun: () -> Unit = {},
+    onResetStopwatch: () -> Unit = {},
     onFinishClick: () -> Unit,
     onMinimise: () -> Unit,
     hazeState: HazeState,
@@ -719,18 +773,22 @@ private fun SessionTopBar(
                 }
                 if (restSeconds != null) {
                     // Opposite side of the bar from the session clock, on purpose — the two
-                    // numbers read as different things. Tappable only in overtime: that's "I'm
-                    // done resting", a live countdown stays protected from an accidental tap.
+                    // numbers read as different things. Glance-only here — the same value with
+                    // full finish/stopwatch controls is one line down in the Strike caption, and
+                    // duplicating a tap target this small next to it would just invite mis-taps.
                     val overtime = restSeconds < 0
-                    val pulse = if (overtime) rememberOvertimePulse() else 1f
+                    val warning = restSeconds in 1..5
+                    val pulse = if (overtime || warning) rememberOvertimePulse() else 1f
+                    val tint = when {
+                        overtime -> GymTheme.colors.heat.spent
+                        warning -> GymTheme.colors.heat.hot
+                        else -> GymTheme.colors.heat.ready
+                    }
                     Text(
                         text = "REST " + TimeFormat.signedMmss(restSeconds),
                         style = MaterialTheme.typography.labelSmall,
-                        color = (if (overtime) GymTheme.colors.heat.spent else GymTheme.colors.heat.ready)
-                            .copy(alpha = pulse),
-                        modifier = Modifier
-                            .padding(end = 10.dp)
-                            .then(if (overtime) Modifier.clickable(onClick = onTapRest) else Modifier),
+                        color = tint.copy(alpha = if (overtime || warning) pulse else 1f),
+                        modifier = Modifier.padding(end = 10.dp),
                     )
                 }
                 IconButton(onClick = onToggleStopwatch) {
@@ -757,7 +815,12 @@ private fun SessionTopBar(
                 }
             }
             AnimatedVisibility(visible = showStopwatch) {
-                StopwatchRow()
+                StopwatchRow(
+                    shownMs = stopwatchShownMs,
+                    running = stopwatchRunning,
+                    onToggleRun = onToggleStopwatchRun,
+                    onReset = onResetStopwatch,
+                )
             }
         }
     }
@@ -765,19 +828,15 @@ private fun SessionTopBar(
 
 // Built-in stopwatch — independent of the workout clock and the rest timer
 @Composable
-private fun StopwatchRow(modifier: Modifier = Modifier) {
-    var accumulatedMs by rememberSaveable { mutableLongStateOf(0L) }
-    var running by rememberSaveable { mutableStateOf(false) }
-    var startedAt by rememberSaveable { mutableLongStateOf(0L) }
-    var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    LaunchedEffect(running) {
-        while (running) {
-            now = SystemClock.elapsedRealtime()
-            delay(200)
-        }
-    }
-    val shownMs = accumulatedMs + if (running) (now - startedAt).coerceAtLeast(0) else 0
-
+private fun StopwatchRow(
+    shownMs: Long,
+    running: Boolean,
+    onToggleRun: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // State lives one level up now (WorkoutSessionScreen), shared with the rest-actions sheet —
+    // this row is purely a display + controls bound to it, not its own stopwatch.
     Row(
         modifier
             .fillMaxWidth()
@@ -798,30 +857,14 @@ private fun StopwatchRow(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.secondary,
         )
         Spacer(Modifier.weight(1f))
-        IconButton(onClick = {
-            if (running) {
-                accumulatedMs += SystemClock.elapsedRealtime() - startedAt
-                running = false
-            } else {
-                startedAt = SystemClock.elapsedRealtime()
-                now = startedAt
-                running = true
-            }
-        }) {
+        IconButton(onClick = onToggleRun) {
             Icon(
                 if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (running) "Pause stopwatch" else "Start stopwatch",
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
-        IconButton(
-            onClick = {
-                accumulatedMs = 0L
-                startedAt = SystemClock.elapsedRealtime()
-                now = startedAt
-            },
-            enabled = shownMs > 0,
-        ) {
+        IconButton(onClick = onReset, enabled = shownMs > 0) {
             Icon(
                 Icons.Rounded.Refresh,
                 contentDescription = "Reset stopwatch",
