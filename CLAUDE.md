@@ -1,4 +1,4 @@
-# AGENTS.md — GymTracker
+# CLAUDE.md — GymTracker
 
 ## Read this file at the start of every Claude Code session, before touching any code.
 
@@ -7,11 +7,21 @@ Personal Android gym tracker (Progression-clone, all features free) + Python bac
 + LangGraph AI coaching agent. No paywall. No subscriptions. Built for one user.
 
 ## Model routing (check this before every task)
-- Fable 5: architecture-wide decisions, schema design, LangGraph graph — only if before July 12 2026
-- Opus 4.8: multi-file work, complex debugging, feature review — default after July 12
-- Sonnet 4.6: single screens, single endpoints, individual bug fixes — default for focused tasks
-- Haiku 4.5: mechanical edits, boilerplate, imports, renames
-Use /model to switch. Check /usage before long sessions.
+
+Run this session in **opusplan** (`/model opusplan`). The split is deliberate: reasoning is
+where mistakes get expensive, mechanical edits are where they get slow.
+
+- **Opus** — planning, architecture, debugging, reading device state, reviewing diffs, and
+  every judgement call about design or correctness. Opus decides *what* changes and *why*.
+- **Sonnet** — carrying out those decisions: writing and editing files, applying refactors
+  already specified, boilerplate, imports, renames. Sonnet does the typing.
+
+Practical rule: think in Opus, type in Sonnet. When a change is already fully specified
+(exact file, exact edit, no open questions), hand it to a Sonnet subagent via the Agent tool
+rather than editing inline — the plan stays in Opus context, the edits do not.
+
+Escalate back to Opus the moment a "mechanical" edit turns out to need a decision.
+Check /usage before long sessions.
 
 ## Hard constraints — never violate
 1. Android does NO machine learning. No TensorFlow Lite. No on-device LLM.
