@@ -11,10 +11,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +29,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.TableRows
 import androidx.compose.material.icons.rounded.TrendingDown
@@ -54,9 +60,12 @@ import com.gymtracker.domain.Progression
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.ui.components.EffortBars
+import com.gymtracker.ui.components.rememberOvertimePulse
 import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.utils.OneRM
 import com.gymtracker.utils.PlateCalculator
+import com.gymtracker.utils.TimeFormat
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -72,8 +81,11 @@ fun StrikeModePanel(
     active: ActiveStrike,
     barKg: Double,
     topPadding: Dp,
+    restSeconds: Int? = null,        // null = not resting; negative = over the time you set
+    onFinishRest: () -> Unit = {},   // tapping the caption once it's over stops the rest directly
     onScrubWeight: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
     onScrubReps: (exerciseId: Long, setId: Long, steps: Int) -> Unit,
+    onSetRpe: (exerciseId: Long, setId: Long, rpe: Int?) -> Unit,
     onStrike: (exerciseId: Long, setId: Long) -> Unit,
     onOpenTable: () -> Unit,
     modifier: Modifier = Modifier,
@@ -112,8 +124,11 @@ fun StrikeModePanel(
             strike = strike,
             barKg = barKg,
             topPadding = topPadding,
+            restSeconds = restSeconds,
+            onFinishRest = onFinishRest,
             onScrubWeight = { steps -> onScrubWeight(strike.exercise.id, strike.set.id, steps) },
             onScrubReps = { steps -> onScrubReps(strike.exercise.id, strike.set.id, steps) },
+            onSetRpe = { rpe -> onSetRpe(strike.exercise.id, strike.set.id, rpe) },
             onStrike = { onStrike(strike.exercise.id, strike.set.id) },
             onOpenTable = onOpenTable,
         )
@@ -125,8 +140,11 @@ private fun StrikeSet(
     strike: ActiveStrike,
     barKg: Double,
     topPadding: Dp,
+    restSeconds: Int? = null,
+    onFinishRest: () -> Unit = {},
     onScrubWeight: (Int) -> Unit,
     onScrubReps: (Int) -> Unit,
+    onSetRpe: (Int?) -> Unit,
     onStrike: () -> Unit,
     onOpenTable: () -> Unit,
 ) {
@@ -164,8 +182,8 @@ private fun StrikeSet(
         exercise.plan?.let { plan ->
             val planColor = when (plan.kind) {
                 Progression.Kind.INCREASE -> MaterialTheme.colorScheme.primary
-                Progression.Kind.DELOAD -> GymTheme.colors.heat.bronze
-                Progression.Kind.HOLD -> GymTheme.colors.heat.steel
+                Progression.Kind.DELOAD -> GymTheme.colors.heat.worn
+                Progression.Kind.HOLD -> MaterialTheme.colorScheme.secondary
             }
             Row(
                 Modifier.padding(top = 10.dp),
@@ -247,7 +265,18 @@ private fun StrikeSet(
             color = GymTheme.colors.hint,
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(14.dp))
+
+        // effort — optional, tap-cycles 6..10; secondary to weight/reps by design
+        // (Strike Mode's law is one number at a time — this stays a small chip, not a scrub numeral)
+        // the prototype's five rising bars — one tap to the effort you actually felt
+        EffortBars(
+            rpe = set.rpe,
+            onSelect = onSetRpe,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Spacer(Modifier.height(14.dp))
 
         // context: what you did last time, what it was worth, what to load
         val context = buildList {
@@ -294,14 +323,32 @@ private fun StrikeSet(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "STRIKE",
-                    style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 8.sp),
+                    text = "LOG SET",
+                    style = MaterialTheme.typography.headlineMedium.copy(letterSpacing = 6.sp),
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
+                val overtime = (restSeconds ?: 0) < 0
+                val warning = (restSeconds ?: 0) in 1..5
+                val pulse = if (overtime || warning) rememberOvertimePulse() else 1f
                 Text(
-                    text = "press to log · rest starts",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f),
+                    text = when {
+                        restSeconds == null -> "rest starts automatically"
+                        !overtime -> "rest ${TimeFormat.signedMmss(restSeconds)}"
+                        else -> "${TimeFormat.signedMmss(restSeconds)} over rest"
+                    },
+                    style = if (overtime) {
+                        MaterialTheme.typography.labelMedium
+                    } else {
+                        MaterialTheme.typography.labelSmall
+                    },
+                    color = when {
+                        overtime -> GymTheme.colors.heat.spent.copy(alpha = pulse)
+                        warning -> GymTheme.colors.heat.hot.copy(alpha = pulse)
+                        else -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
+                    },
+                    // Tappable only once you're over: that's "I'm done resting", direct, no
+                    // sheet in the way. Counting down stays protected from an accidental tap.
+                    modifier = if (overtime) Modifier.clickable(onClick = onFinishRest) else Modifier,
                 )
             }
         }
@@ -321,3 +368,6 @@ private fun StrikeSet(
         }
     }
 }
+
+// Optional effort rating, RPE 6-10. A row of small tap targets, not a scrub numeral —
+// stays secondary to weight/reps per Strike Mode's "one number at a time" law.

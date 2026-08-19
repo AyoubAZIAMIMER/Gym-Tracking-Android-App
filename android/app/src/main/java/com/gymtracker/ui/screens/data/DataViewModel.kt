@@ -21,6 +21,17 @@ data class DataUiState(
     val exercises: Int = 0,
     val busy: Boolean = false,
     val message: String? = null,
+    val profileName: String = "",
+    val streakWeeks: Int = 0,
+    val settings: WorkoutRepository.Settings = WorkoutRepository.Settings(
+        units = "kg",
+        weightStepKg = 2.5,
+        restSeconds = 120,
+        startRestOnLog = true,
+        alertOnRestEnd = true,
+        theme = "Dark",
+        haptics = true,
+    ),
 )
 
 class DataViewModel(app: Application) : AndroidViewModel(app) {
@@ -33,6 +44,24 @@ class DataViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.workoutCount.collect { c -> _ui.update { it.copy(workouts = c) } } }
         viewModelScope.launch { repo.setCount.collect { c -> _ui.update { it.copy(sets = c) } } }
         viewModelScope.launch { repo.exerciseCount.collect { c -> _ui.update { it.copy(exercises = c) } } }
+        refreshProfile()
+    }
+
+    /** Name + streak drive the Settings-style identity row at the top of this screen. */
+    fun refreshProfile() = viewModelScope.launch {
+        val streak = repo.homeStats().streakWeeks
+        _ui.update {
+            it.copy(
+                profileName = repo.profile().name,
+                streakWeeks = streak,
+                settings = repo.settings(),
+            )
+        }
+    }
+
+    fun saveSettings(settings: WorkoutRepository.Settings) {
+        repo.saveSettings(settings)
+        _ui.update { it.copy(settings = repo.settings()) }
     }
 
     fun importFrom(uri: Uri) = viewModelScope.launch {

@@ -20,11 +20,11 @@
             android:id="@+id/widget_streak"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:fontFamily="@font/anton"
             android:includeFontPadding="false"
             android:text="0"
-            android:textColor="#F2EDE4"
-            android:textSize="34sp" />
+            android:textColor="#EDE6D8"
+            android:textSize="34sp"
+            android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/widget_flame"
@@ -33,7 +33,7 @@
             android:layout_marginStart="7dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_widget_flame"
-            android:tint="#FFC93C" />
+            android:tint="#FF5A1F" />
     </LinearLayout>
 
     <TextView
@@ -43,7 +43,7 @@
         android:layout_marginTop="2dp"
         android:letterSpacing="0.14"
         android:text="WEEK STREAK"
-        android:textColor="#A89F91"
+        android:textColor="#8A8378"
         android:textSize="10sp" />
 
     <LinearLayout
@@ -66,7 +66,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="7dp"
             android:text=""
-            android:textColor="#A89F91"
+            android:textColor="#8A8378"
             android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

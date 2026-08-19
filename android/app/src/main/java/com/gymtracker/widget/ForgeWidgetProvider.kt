@@ -51,10 +51,10 @@ class ForgeWidgetProvider : AppWidgetProvider() {
             setTextViewText(
                 R.id.widget_since,
                 when (days) {
-                    null -> "no strikes yet — fire it up"
-                    0 -> "struck today"
-                    1 -> "1d since last strike"
-                    else -> "${days}d since last strike"
+                    null -> "no sessions yet — start one"
+                    0 -> "trained today"
+                    1 -> "1d since last session"
+                    else -> "${days}d since last session"
                 },
             )
             setTextColor(R.id.widget_since, heat)

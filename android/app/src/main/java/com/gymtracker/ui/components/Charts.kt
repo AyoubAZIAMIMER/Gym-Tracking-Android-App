@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.AnnotatedString
@@ -36,8 +35,6 @@ import com.gymtracker.domain.AnalyticsEngine
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
 import java.time.Instant
-import kotlin.math.cos
-import kotlin.math.sin
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -191,7 +188,8 @@ fun WeeklyBarChart(
 ) {
     val measurer = rememberTextMeasurer()
     val avgColor = MaterialTheme.colorScheme.secondary
-    val heatScale = GymTheme.colors.heat
+    val barColor = MaterialTheme.colorScheme.primary
+    val onSurface = MaterialTheme.colorScheme.onSurface
     val labelStyle = TextStyle(fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     // bars rise with a light stagger, once per screen entry (Forged Motion §10)
@@ -218,13 +216,15 @@ fun WeeklyBarChart(
         weeks.forEachIndexed { i, (_, v) ->
             val barT = ((rise - i * stagger) / 0.5f).coerceIn(0f, 1f)
             val h = (chartH * (v / maxV)).toFloat() * barT
-            // Identity v5: effort is temperature — the heaviest week glows, light
-            // weeks stay quenched steel (design/IDENTITY_V5.md)
-            val heat = heatScale.at(1f - (v / maxV).toFloat())
+            // Handoff README §7: the bars are quiet history and ONLY the current week is
+            // accent-filled. Volume is not a temperature, so it gets no heat ramp and no
+            // intensity ladder — the eye goes to "now", then reads the shape around it.
+            val isCurrent = i == weeks.lastIndex
+            val tone = if (isCurrent) barColor else onSurface.copy(alpha = 0.26f)
             if (h > 0f) {
                 drawRoundRect(
                     brush = Brush.verticalGradient(
-                        listOf(heat, heat.copy(alpha = 0.55f)),
+                        listOf(tone, tone.copy(alpha = tone.alpha * 0.55f)),
                         startY = insetTop + chartH - h,
                         endY = insetTop + chartH,
                     ),
@@ -262,68 +262,6 @@ fun WeeklyBarChart(
             lastLabel,
             topLeft = Offset(insetH + chartW - lastLabel.size.width, size.height - 14.dp.toPx()),
         )
-    }
-}
-
-/**
- * Progress ring with the Hot Tip (Forged Motion §7.4): the fill is led by a white-gold
- * glow like drawn molten metal; the trail cools behind it. Fills via `settle`/`slow`.
- */
-@Composable
-fun ForgedRing(
-    progress: Float,
-    modifier: Modifier = Modifier,
-    strokeWidth: Float = 5f, // dp
-) {
-    val ember = MaterialTheme.colorScheme.primary
-    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
-    val gold = GymTheme.colors.prGold
-    val p by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = Motion.settle(Motion.SLOW),
-        label = "ringFill",
-    )
-    Canvas(modifier) {
-        val sw = strokeWidth.dp.toPx()
-        val inset = sw / 2f + 1.dp.toPx()
-        val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
-        val topLeft = Offset(inset, inset)
-        drawArc(
-            color = track,
-            startAngle = 0f, sweepAngle = 360f, useCenter = false,
-            topLeft = topLeft, size = arcSize,
-            style = Stroke(sw, cap = StrokeCap.Round),
-        )
-        if (p > 0.005f) {
-            drawArc(
-                color = ember,
-                startAngle = -90f, sweepAngle = 360f * p, useCenter = false,
-                topLeft = topLeft, size = arcSize,
-                style = Stroke(sw, cap = StrokeCap.Round),
-            )
-            // the Hot Tip at the leading end of the arc
-            val ang = Math.toRadians((-90f + 360f * p).toDouble())
-            val r = arcSize.minDimension / 2f
-            val tip = Offset(
-                size.width / 2f + r * cos(ang).toFloat(),
-                size.height / 2f + r * sin(ang).toFloat(),
-            )
-            if (p < 0.999f) {
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.85f),
-                            gold.copy(alpha = 0.40f),
-                            Color.Transparent,
-                        ),
-                        center = tip,
-                        radius = 9.dp.toPx(),
-                    ),
-                    radius = 9.dp.toPx(),
-                    center = tip,
-                )
-            }
-        }
     }
 }
 
@@ -379,7 +317,9 @@ fun CalendarHeatmap(
     modifier: Modifier = Modifier,
     weeks: Int = 20,
 ) {
-    val active = MaterialTheme.colorScheme.primary
+    // the calendar encodes training intensity, so it reads from the heat scale rather than the
+    // action colour — under Chalk & Iron the chrome is colourless and heat is the data channel
+    val active = GymTheme.colors.heat.hot
     val empty = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
     val todayOutline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
 

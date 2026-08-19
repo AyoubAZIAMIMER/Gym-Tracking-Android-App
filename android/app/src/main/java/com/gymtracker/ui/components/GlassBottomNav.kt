@@ -1,4 +1,10 @@
-// Purpose: Floating liquid-glass bottom navigation (Home / Library / Recovery)
+// Purpose: Floating liquid-glass bottom navigation — 4 tabs, prototype metrics
+//          (bar radius 32, item radius 20, primary @18% active fill, 20dp ForgedIcons
+//          stroke marks, 10.5sp labels that go bold when active).
+//          Owner's call 2026-08-08: six tabs cut to four, matching the 4-tab nav the
+//          handoff's own Recovery/Plan renders show and Material's max-5 guidance.
+//          History and Library are pushed destinations now — reached from Home's
+//          "All history" rail and Plan's "Exercise library" row — so they carry back arrows.
 // Inputs: current route
 // Outputs: onSelect(route) navigation events
 package com.gymtracker.ui.components
@@ -12,13 +18,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,7 +28,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.Motion
 
 @Composable
@@ -38,18 +40,16 @@ fun GlassBottomNav(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    GlassSurface(modifier = modifier, shape = RoundedCornerShape(32.dp)) {
+    GlassSurface(modifier = modifier, shape = RoundedCornerShape(Dim.navBarRadius)) {
         Row(
-            // 6 tabs: tighter than the 5-tab layout so "Recovery" still fits a 412 dp phone
-            Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            // 4 tabs breathe on a 412 dp phone — wider items, more gap
+            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            NavItem("home", "Home", Icons.Rounded.Home, current, onSelect)
-            NavItem("history", "History", Icons.Rounded.History, current, onSelect)
-            NavItem("plan", "Plan", Icons.Rounded.CalendarMonth, current, onSelect)
-            NavItem("library", "Library", Icons.Rounded.FitnessCenter, current, onSelect)
-            NavItem("recovery", "Recovery", Icons.Rounded.MonitorHeart, current, onSelect)
-            NavItem("stats", "Stats", Icons.Rounded.BarChart, current, onSelect)
+            NavItem("home", "Home", ForgedIcons.Home, current, onSelect)
+            NavItem("plan", "Plan", ForgedIcons.Plan, current, onSelect)
+            NavItem("recovery", "Body", ForgedIcons.Body, current, onSelect)
+            NavItem("stats", "Stats", ForgedIcons.Stats, current, onSelect)
         }
     }
 }
@@ -78,14 +78,20 @@ private fun NavItem(
     )
     Column(
         Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(Dim.navItemRadius))
             .background(fill)
             .clickable { onSelect(route) }
             .padding(horizontal = 7.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(20.dp), tint = tint)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = tint)
+        Icon(icon, contentDescription = label, modifier = Modifier.size(Dim.navIcon), tint = tint)
+        Text(
+            text = label,
+            fontSize = 10.5.sp,
+            letterSpacing = (-0.1).sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+            color = tint,
+        )
     }
 }

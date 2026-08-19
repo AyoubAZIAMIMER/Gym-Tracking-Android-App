@@ -59,7 +59,7 @@ object Progression {
                 val next = (floor(top * 0.95 / STEP_KG) * STEP_KG).coerceAtLeast(STEP_KG)
                 Plan(
                     Kind.DELOAD, next, repMin,
-                    "temper to ${PlateCalculator.fmt(next)} kg — two stalls at ${PlateCalculator.fmt(top)}",
+                    "deload to ${PlateCalculator.fmt(next)} kg — two stalls at ${PlateCalculator.fmt(top)}",
                 )
             }
             stalledNow -> Plan(

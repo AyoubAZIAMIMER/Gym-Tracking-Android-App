@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.gymtracker.ui.theme.Dim
+import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.utils.PlateCalculator
 
 @Composable
@@ -39,8 +41,9 @@ fun PlateCalculatorPanel(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = Color.White.copy(alpha = 0.05f), // glass wash — sits on a glass card
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+        // theme glass, not a raw white wash — the panel must warm with the ember ground
+        color = GymTheme.colors.glassTint.copy(alpha = 0.35f),
+        border = BorderStroke(Dim.hairline, GymTheme.colors.glassOutline),
     ) {
         Column(
             Modifier.padding(12.dp),

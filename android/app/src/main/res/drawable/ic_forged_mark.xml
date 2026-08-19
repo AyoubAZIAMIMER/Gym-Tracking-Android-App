@@ -1,0 +1,13 @@
+<!-- The Forged mark: an F built from struck bars, mid-arm sheared at 45°.
+     Keep in step with ui/components/ForgedMark.kt — same 32x32 vertices.
+     Tint at the use site with android:tint / setTint — chalk on Ink, Ink on the chalk CTA. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32"
+    android:tint="#EDE6D8">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7,5.5 L26.5,5.5 L26.5,11.2 L13.4,11.2 L13.4,15 L23,15 L18.4,20.4 L13.4,20.4 L13.4,26.8 L7,26.8 Z" />
+</vector>

@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProgramDayEntity::class,
         ProgramExerciseEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class GymDb : RoomDatabase() {
@@ -59,6 +59,13 @@ abstract class GymDb : RoomDatabase() {
             }
         }
 
+        // v3 → v4: optional per-set RPE (effort rating) — genuinely optional, no default
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sets ADD COLUMN rpe REAL")
+            }
+        }
+
         @Volatile private var instance: GymDb? = null
 
         fun get(context: Context): GymDb =
@@ -68,7 +75,7 @@ abstract class GymDb : RoomDatabase() {
                     GymDb::class.java,
                     "repforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                     .also { instance = it }
             }

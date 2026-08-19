@@ -6,6 +6,8 @@ package com.gymtracker.ui.screens.history
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,13 +43,30 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gymtracker.ui.components.FlatRow
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
+import com.gymtracker.ui.components.ForgedListRow
+import com.gymtracker.ui.components.ForgedScreenTitle
+import com.gymtracker.ui.components.ForgedSectionHeader
+import com.gymtracker.ui.components.RowRule
+import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.forgeHero
+import com.gymtracker.ui.theme.Anton
+import com.gymtracker.ui.theme.Dim
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.text.font.FontWeight
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.StampLabel
+import com.gymtracker.ui.theme.forgedPress
+import java.time.LocalDate
+import java.util.Locale
 import com.gymtracker.ui.theme.forgedEntrance
 import com.gymtracker.ui.theme.rollUpValue
 import com.gymtracker.utils.Formats
@@ -56,6 +75,7 @@ import kotlin.math.roundToInt
 @Composable
 fun HistoryScreen(
     onOpenWorkout: (String) -> Unit = {},
+    onBack: () -> Unit = {},
     vm: HistoryViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
@@ -64,82 +84,56 @@ fun HistoryScreen(
     var entered by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
 
-    GlowBackground {
+    GlowBackground(glowAlpha = 0.10f) {
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .statusBarsPadding(),
         ) {
-            Text("History", style = MaterialTheme.typography.headlineLarge)
-            // §7.4: the month's numbers roll — count up on entry, re-roll on month change
-            if (state.monthWorkouts > 0) {
+            // pushed destination now, not a tab — so it carries a back arrow
+            ForgedScreenTitle("History", onBack = onBack)
+
+            // the prototype leads with two Anton figures, not a sentence
+            SectionRule()
+            Row(
+                Modifier.padding(
+                    start = Dim.screenPadH, end = Dim.screenPadH, top = 18.dp, bottom = 20.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(26.dp),
+            ) {
                 val rolledWorkouts = rollUpValue(state.monthWorkouts.toFloat()).roundToInt()
                 val rolledVolume = rollUpValue(state.monthVolumeKg.toFloat())
-                Text(
-                    text = "$rolledWorkouts workouts · ${Formats.volumeKg(rolledVolume.toDouble())} kg",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFeatureSettings = FONT_FEATURE_TABULAR
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = state.monthSummary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                HeadlineStat("$rolledWorkouts", null, "sessions this month")
+                HeadlineStat(Formats.volumeKg(rolledVolume.toDouble()), "kg", "lifted this month")
             }
 
+            SectionRule()
             MonthCalendar(state, vm::previousMonth, vm::nextMonth, vm::toggleDay)
 
-            // the calendar above is the hero; the log reads as a flat, denser list (1b)
-            Column {
-                state.rows.forEachIndexed { index, row ->
-                    FlatRow(
-                        modifier = Modifier.forgedEntrance(index, entered),
-                        onClick = { onOpenWorkout(row.workoutId) },
-                        divider = index != state.rows.lastIndex,
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = row.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = row.subtitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Text(
-                                text = row.detail +
-                                    if (row.muscles.isNotEmpty()) "  ·  ${row.muscles}" else "",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+            // README §8: sessions grouped by week under mono headers, each row led by a
+            // 44dp mono day column. Rows arrive newest-first, so the first group is "SESSIONS".
+            SectionRule()
+            var lastBucket: String? = null
+            state.rows.forEach { row ->
+                val bucket = weekBucketLabel(row.day, state.monthLabel)
+                if (bucket != lastBucket) {
+                    ForgedSectionHeader(bucket)
+                    lastBucket = bucket
                 }
+                RowRule()
+                HistorySessionRow(row, onClick = { onOpenWorkout(row.workoutId) })
             }
             if (state.rows.isEmpty()) {
                 Text(
-                    text = "Nothing forged here yet — finish a session and it lands in this list.",
+                    text = "Nothing here yet — finish a session and it lands in this list.",
                     style = MaterialTheme.typography.bodySmall,
                     color = GymTheme.colors.hint,
+                    modifier = Modifier.padding(horizontal = Dim.screenPadH, vertical = 12.dp),
                 )
             }
 
-            // clearance for the floating bottom nav (measured, not the OS bar alone)
-            Spacer(
-                Modifier
-                    .navigationBarsPadding()
-                    .height(112.dp)
-            )
+            Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))
         }
     }
 }
@@ -151,7 +145,13 @@ private fun MonthCalendar(
     onNext: () -> Unit,
     onDayTap: (Int) -> Unit,
 ) {
-    GlassSurface {
+    // BUILD_ORDER step 4: the calendar is History's ONE hero; the log below stays flat
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dim.screenPadH)
+            .forgeHero()
+    ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrev, enabled = state.canGoPrev) {
@@ -218,7 +218,8 @@ private fun RowScope.DayCell(
     // heavier day → stronger volt fill, so the month reads as a heat map
     val ratio = if (state.maxDayVolume > 0) (volume / state.maxDayVolume).toFloat() else 0f
     val fill = if (trained) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f + 0.42f * ratio)
+        // heavier day = hotter, from the heat scale (not the chrome colour)
+        GymTheme.colors.heat.hot.copy(alpha = 0.16f + 0.42f * ratio)
     } else Color.Transparent
     val selected = state.selectedDay == day
     val isToday = state.todayDay == day
@@ -248,6 +249,99 @@ private fun RowScope.DayCell(
             style = MaterialTheme.typography.labelMedium,
             color = if (trained) MaterialTheme.colorScheme.onSurface
             else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Prototype stat pair: an Anton figure with a small unit, over a muted caption. */
+@Composable
+private fun HeadlineStat(value: String, unit: String?, caption: String) {
+    Column {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = 22.sp,
+                    fontFeatureSettings = FONT_FEATURE_TABULAR,
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (unit != null) {
+                Text(
+                    text = unit,
+                    fontSize = 11.sp,
+                    color = GymTheme.colors.hint,
+                    modifier = Modifier.padding(start = 3.dp, bottom = 2.dp),
+                )
+            }
+        }
+        Text(
+            text = caption,
+            fontSize = 11.5.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 1.dp),
+        )
+    }
+}
+
+/**
+ * Week bucket for the grouped list. The calendar already scopes the view to one month, so
+ * buckets are "this week" vs how many weeks back within it — enough to break a long month
+ * into readable groups without inventing a second date model.
+ */
+private fun weekBucketLabel(dayOfMonth: Int, monthLabel: String): String {
+    val today = LocalDate.now()
+    val sameMonth = monthLabel.startsWith(
+        today.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH)
+    )
+    if (!sameMonth) return "SESSIONS"
+    val weeksBack = ((today.dayOfMonth - dayOfMonth) / 7)
+    return when {
+        weeksBack <= 0 -> "SESSIONS"
+        weeksBack == 1 -> "LAST WEEK"
+        else -> "$weeksBack WEEKS AGO"
+    }
+}
+
+/** 44dp mono day column · name (+ gold star on a PR) · duration caption · Anton volume. */
+@Composable
+private fun HistorySessionRow(row: HistoryListRow, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .forgedPress(interaction, pressedScale = 0.99f)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = Dim.screenPadH, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = row.day.toString().padStart(2, '0'),
+            style = StampLabel.copy(fontSize = 13.sp, letterSpacing = 0.5.sp),
+            color = GymTheme.colors.hint,
+            modifier = Modifier.width(44.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = row.title,
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = row.subtitle,
+                fontSize = 12.5.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        Text(
+            text = row.detail.substringAfter("·").trim().ifBlank { row.detail },
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 17.sp,
+                fontFeatureSettings = FONT_FEATURE_TABULAR,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

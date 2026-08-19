@@ -1,6 +1,8 @@
-// Purpose: All RepForge colors — "Molten Forge" identity (2026-07-13): dark iron and
-//          smoked steel with ONE hot color (ember orange); molten gold strictly for PRs,
-//          quenched steel blue-grey for cool/secondary data. Owner-approved direction.
+// Purpose: All Forged colors — restored "Molten Forge" identity (v9, 2026-08-07): dark iron and
+//          smoked steel with ONE hot color (ember orange) as the primary/action signal; molten
+//          gold strictly for PRs; quenched steel blue-grey reads calm/recovered data. Restores the
+//          v5 palette (superseded by v7 "Night Session" and v8 "Blue Hour") because the Claude
+//          Design mockup at design/redesign-2026-07/ was built against it — see IDENTITY_V9.md.
 // Inputs: none (constants)
 // Outputs: Color values consumed by Theme.kt (never reference these directly from screens)
 package com.gymtracker.ui.theme
@@ -9,14 +11,24 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 
-// --- Dark palette (the designed, default theme: a night forge) ----------------
-val Ink = Color(0xFF0E0D0B)            // charcoal iron — screen background
-val SurfaceDark = Color(0xFF1A1815)    // smoked steel — cards
-val SurfaceRaised = Color(0xFF242019)  // nested cards, input fields (warm coal)
-val OutlineDark = Color(0xFF35302A)
-val OutlineFaint = Color(0xFF272319)
+// --- Dark palette (the designed, default theme: iron under work light) --------
+val Ink = Color(0xFF111110)            // iron — screen background
+val SurfaceDark = Color(0xFF1A1918)    // smoked steel — cards
+val SurfaceRaised = Color(0xFF232221)  // nested cards, input fields
+val OutlineDark = Color(0xFF2C2A27)
+val OutlineFaint = Color(0xFF201F1D)
 
-// Primary: ember orange — the single hot color; everything else stays metal
+// --- The action colour (v10 "Chalk & Iron") -----------------------------------
+// Chalk, not ember. The chrome is colourless so that warm hue means exactly one thing in this
+// app: heat, i.e. data. Ember survives as an opt-in Heat setting, never as the default.
+val Chalk = Color(0xFFEDE6D8)
+val ChalkContainer = Color(0xFF262523)   // tinted containers / icon tiles / active nav pill
+val ChalkBright = Color(0xFFFFFBF2)      // on-container text
+val OnChalk = Color(0xFF151311)          // label on a chalk fill
+val InkAction = Color(0xFF1B150E)        // the light-theme action fill
+
+// Ember — NO LONGER the app's action colour. It is the hot stop of the data heat scale below,
+// and the Heat.Ember opt-in. Do not reach for it as chrome.
 val AccentPrimary = Color(0xFFFF5A1F)
 val AccentPrimaryDim = Color(0xFF3A1608)     // tinted containers / icon tiles
 val AccentPrimaryBright = Color(0xFFFFB294)  // on-container text
@@ -29,10 +41,12 @@ val CyanDim = Color(0xFF232B30)
 // Forge red — errors, failure sets (hotter, redder than the ember primary)
 val ActivityPink = Color(0xFFFF4B36)
 
-val TextPrimary = Color(0xFFF2EDE4)    // warm off-white, like light on hot metal
-val TextSecondary = Color(0xFFA89F91)
-val TextHint = Color(0xFF6B6357)
+val TextPrimary = Chalk                // chalk — 15:1 on Ink
+val TextSecondary = Color(0xFF8A8378)  // 5.4:1 on Ink
+val TextHint = Color(0xFF57524A)       // decorative only — never body copy
 
+// Success is its own hue again — not merged into the one signal color (v5/mockup: "This
+// Week" checkmarks are olive, distinct from the ember Start button)
 val Success = Color(0xFFB8C77A)        // tempered olive — completed sets
 val SuccessDim = Color(0xFF262B12)
 val PrGold = Color(0xFFFFC93C)         // molten gold — PRs only, never decoration
@@ -45,42 +59,53 @@ val TagNegative = Color(0xFFFF8A6B)
 val TagTempo = Color(0xFF9FB6C2)
 val TagFailure = Color(0xFFFF4B36)
 
+// Rank medals (subtle gamification, v8 — unrelated to the ember/indigo axis, kept as-is).
+// Gold rank reuses PrGold; Olympian uses chalk (onSurface).
+val RankWood = Color(0xFF8A7A66)
+val RankBronze = Color(0xFFB57C4A)
+val RankSilver = Color(0xFFB9C0CC)
+val RankWoodLight = Color(0xFF6E5E4A)
+val RankBronzeLight = Color(0xFF9A6636)
+val RankSilverLight = Color(0xFF71798A)
+
 // --- Heat scale (Identity v5, design/IDENTITY_V5.md: "heat is data") ----------
-// Steel reads its temperature: quenched blue = recovered/calm, glowing red = just
-// worked. Screens never hand-pick a heat hue — they ask GymTheme.colors.heat.at().
+// Steel reads its temperature: quenched blue = recovered/calm, glowing red = just worked.
+// Screens never hand-pick a heat hue — they ask GymTheme.colors.heat.at(). Field names
+// (ready/worn/hot/spent) kept from the v8 API so call sites across Recovery/Strike Mode/
+// the rest timer don't need to change — only the values and curve are restored to v5.
 @Immutable
 class HeatScale(
-    val steel: Color,   // quenched — fully recovered, ready to strike
-    val bronze: Color,  // warming — mid recovery / moderate effort
-    val ember: Color,   // working — the one hot color
-    val red: Color,     // glowing — just trained / maximal effort
+    val ready: Color,   // quenched — fully recovered, ready to strike
+    val worn: Color,    // warming — mid recovery / moderate effort
+    val hot: Color,     // ember — working, the one hot color
+    val spent: Color,   // glowing — just trained / maximal effort
 ) {
     /** Maps freshness (1f = fully recovered … 0f = just worked) onto the spectrum. */
     fun at(freshness: Float): Color {
         val heat = 1f - freshness.coerceIn(0f, 1f)
         return when {
-            heat <= 0.45f -> lerp(steel, bronze, heat / 0.45f)
-            heat <= 0.75f -> lerp(bronze, ember, (heat - 0.45f) / 0.30f)
-            else -> lerp(ember, red, (heat - 0.75f) / 0.25f)
+            heat <= 0.45f -> lerp(ready, worn, heat / 0.45f)
+            heat <= 0.75f -> lerp(worn, hot, (heat - 0.45f) / 0.30f)
+            else -> lerp(hot, spent, (heat - 0.75f) / 0.25f)
         }
     }
 }
 
 // Night forge: hot hues read against dark iron
 val DarkHeat = HeatScale(
-    steel = Color(0xFF8FB4C7),
-    bronze = Color(0xFFD08A45),
-    ember = AccentPrimary,
-    red = Color(0xFFFF3320),
+    ready = Color(0xFF8FB4C7),
+    worn = Color(0xFFD08A45),
+    hot = AccentPrimary,
+    spent = Color(0xFFFF3320),
 )
 
 // Daylight workshop: every stop deepened so it holds ≥3:1 contrast on bone paper
 val LightHeat = HeatScale(
-    steel = Color(0xFF4E7086),
-    bronze = Color(0xFF9A5A1D),
-    ember = Color(0xFFC63D08),  // = AccentPrimaryLight (declared below; literal avoids
-                                //   a forward reference in top-level init order)
-    red = Color(0xFFB3230F),
+    ready = Color(0xFF4E7086),
+    worn = Color(0xFF9A5A1D),
+    hot = Color(0xFFC63D08),  // = AccentPrimaryLight (declared below; literal avoids
+                               //   a forward reference in top-level init order)
+    spent = Color(0xFFB3230F),
 )
 
 val HeatWhite = Color(0xFFFFE3C2)      // white-hot flash — momentary highlights only

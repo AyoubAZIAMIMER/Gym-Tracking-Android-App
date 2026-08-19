@@ -7,9 +7,9 @@ package com.gymtracker.ui.screens.session
 import android.Manifest
 import android.os.Build
 import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,17 +41,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DragIndicator
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TrendingDown
 import androidx.compose.material.icons.rounded.TrendingFlat
 import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -90,20 +88,30 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.domain.Progression
 import com.gymtracker.service.RestTimerService
+import com.gymtracker.ui.components.AlertBody
+import com.gymtracker.ui.components.ForgedAlert
 import com.gymtracker.ui.components.DragNumberField
 import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.PlateCalculatorPanel
-import com.gymtracker.ui.components.RestTimerBubble
+import com.gymtracker.ui.components.RestActionsSheet
+import com.gymtracker.ui.components.rememberOvertimePulse
+import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
+import androidx.compose.ui.text.TextStyle
+import com.gymtracker.ui.theme.Anton
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.ui.components.ConfettiBurst
+import com.gymtracker.ui.components.PrBanner
 import com.gymtracker.utils.OneRM
 import com.gymtracker.utils.PlateCalculator
 import com.gymtracker.utils.TimeFormat
@@ -117,11 +125,14 @@ import kotlinx.coroutines.launch
 private val IndexColWidth = 22.dp
 private val PrevColWidth = 68.dp
 private val TagColWidth = 34.dp
+private val RpeColWidth = 30.dp
 private val CheckColWidth = 34.dp
 
 @Composable
 fun WorkoutSessionScreen(
     onFinished: () -> Unit,
+    /** Leave the session on screen but go back to the app. The workout keeps running. */
+    onMinimise: () -> Unit = {},
     vm: WorkoutSessionViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
@@ -138,6 +149,7 @@ fun WorkoutSessionScreen(
     }
 
     LaunchedEffect(Unit) { vm.markSessionActive() }
+
     LaunchedEffect(state.finished) {
         if (state.finished) {
             onFinished()
@@ -157,9 +169,47 @@ fun WorkoutSessionScreen(
     // plate calculator follows whichever weight field currently has focus
     var focusedWeightSetId by remember { mutableStateOf<Long?>(null) }
 
-    // Strike Mode (UX v6): default surface while a set is live; the table is one
-    // gesture away and becomes the surface once every set is struck
-    var strikeMode by rememberSaveable { mutableStateOf(true) }
+    // Strike Mode (UX v6): big scrub-to-adjust numbers for one set. The table (the Slate) is
+    // the default surface now — Strike is reached by tapping the active row, and left again by
+    // swiping up or tapping past the last set.
+    var strikeMode by rememberSaveable { mutableStateOf(false) }
+
+    // Rest + stopwatch, together: a Timer icon (Strike top bar / Slate header) opens this at
+    // any time, running or not, so starting either one manually doesn't depend on a rest
+    // already being in progress. The rest readouts themselves stay a quick direct tap once
+    // they're over — see onFinishRest below — the sheet is for everything short of that.
+    var restActionsSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val defaultRestSeconds = remember { WorkoutRepository.get(context).restSeconds() }
+
+    // Hoisted here (not owned by StopwatchRow) so both the top-bar row and the rest-actions
+    // sheet read and drive the same running stopwatch instead of two independent ones.
+    var stopwatchAccumulatedMs by rememberSaveable { mutableLongStateOf(0L) }
+    var stopwatchRunning by rememberSaveable { mutableStateOf(false) }
+    var stopwatchStartedAt by rememberSaveable { mutableLongStateOf(0L) }
+    var stopwatchNow by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(stopwatchRunning) {
+        while (stopwatchRunning) {
+            stopwatchNow = SystemClock.elapsedRealtime()
+            delay(200)
+        }
+    }
+    val stopwatchShownMs = stopwatchAccumulatedMs +
+        if (stopwatchRunning) (stopwatchNow - stopwatchStartedAt).coerceAtLeast(0) else 0
+    val onToggleStopwatchRun = {
+        if (stopwatchRunning) {
+            stopwatchAccumulatedMs += SystemClock.elapsedRealtime() - stopwatchStartedAt
+            stopwatchRunning = false
+        } else {
+            stopwatchStartedAt = SystemClock.elapsedRealtime()
+            stopwatchNow = stopwatchStartedAt
+            stopwatchRunning = true
+        }
+    }
+    val onResetStopwatch = {
+        stopwatchAccumulatedMs = 0L
+        stopwatchStartedAt = SystemClock.elapsedRealtime()
+        stopwatchNow = stopwatchStartedAt
+    }
     val activeStrike = state.activeSetId?.let { activeId ->
         state.exercises.firstNotNullOfOrNull { ex ->
             val idx = ex.sets.indexOfFirst { it.id == activeId }
@@ -175,7 +225,44 @@ fun WorkoutSessionScreen(
         // last strike lands → surface the table so Finish is in reach
         if (activeStrike == null) strikeMode = false
     }
+    // ...and offer the finish sheet, once. Reaching the end of the plan is the moment the app
+    // exists for; it should not be something you have to go hunting for. Dismissing it leaves
+    // you on the table (with Finish in the top bar) so you can still add or edit sets.
+    var finishOffered by rememberSaveable { mutableStateOf(false) }
     val strikeShowing = strikeMode && activeStrike != null
+    // The Slate shows one exercise; default to whichever holds the active set.
+    var slateExerciseId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val slateExercise = state.exercises.firstOrNull { it.id == slateExerciseId }
+        ?: state.exercises.firstOrNull { ex -> ex.sets.any { it.id == state.activeSetId } }
+        ?: state.exercises.firstOrNull()
+    // the set the logging bar edits: the active one, else the first not yet logged
+    val slateDraftSet = slateExercise?.sets?.firstOrNull { it.id == state.activeSetId }
+        ?: slateExercise?.sets?.firstOrNull { !it.completed }
+        ?: slateExercise?.sets?.lastOrNull()
+    // Every set logged: the plan is over. slateExercise falls back to the first exercise, so
+    // without this the Slate stayed up with a "Complete set" CTA pointed at an already-logged
+    // set — and SessionTopBar is hidden while the Slate shows, so there was no Finish and no way
+    // out. Reported 2026-08-17 as "it never ends and it stucks there".
+    val allSetsLogged = state.exercises.isNotEmpty() &&
+        state.exercises.all { ex -> ex.sets.all { it.completed } }
+    val slateShowing = !strikeShowing && slateExercise != null && !allSetsLogged
+
+    LaunchedEffect(allSetsLogged) {
+        if (allSetsLogged && !finishOffered && state.completedSets > 0) {
+            finishOffered = true
+            vm.showFinishSheet(true)
+        }
+    }
+
+    // Without this, system back popped the whole NavHost and dumped you on Home with a session
+    // still live and no explanation. Now it mirrors what is on screen: Strike steps back to the
+    // table (its home), and from the table it minimises — same as the header control.
+    BackHandler {
+        if (strikeShowing) strikeMode = false else onMinimise()
+    }
+    // the Slate's note + overflow affordances (the legacy table keeps its own inside ExerciseCard)
+    var slateNoteDialog by rememberSaveable { mutableStateOf(false) }
+    var slateMenu by rememberSaveable { mutableStateOf(false) }
 
     // drag-to-reorder state; heights tracked per exercise so swaps stay under the finger
     var draggedId by remember { mutableStateOf<Long?>(null) }
@@ -186,7 +273,6 @@ fun WorkoutSessionScreen(
     // liquid glass: content is the blur source; top bar / FAB / bubble float over it
     val hazeState = remember { HazeState() }
     var topBarHeightPx by remember { mutableIntStateOf(0) }
-    var showStopwatch by remember { mutableStateOf(false) }
 
     // Forged Motion §11: the forge burns hotter while you're at the anvil
     var forgeLit by remember { mutableStateOf(false) }
@@ -233,24 +319,139 @@ fun WorkoutSessionScreen(
         120.dp
     }
 
+    // PR reveal: the frame a set logs a new all-time best, a gold trophy banner drops in
+    // and confetti falls for ~2 s, with a firm reward buzz. Count-up rides the e1RM label.
+    val prCount = state.exercises.sumOf { ex -> ex.sets.count { it.completed && it.isPr } }
+    var prevPrCount by remember { mutableIntStateOf(prCount) }
+    var prVisible by remember { mutableStateOf(false) }
+    var prLabel by remember { mutableStateOf("") }
+    val prHaptic = LocalHapticFeedback.current
+    LaunchedEffect(prCount) {
+        if (prCount > prevPrCount) {
+            val best = state.exercises.flatMap { it.sets }
+                .filter { it.completed && it.isPr }
+                .mapNotNull { s ->
+                    val w = s.effectiveWeightKg
+                    val r = s.effectiveReps
+                    if (w != null && r != null) OneRM.estimate(w, r) else null
+                }
+                .maxOrNull()
+            prLabel = best?.let { "New PR · ${PlateCalculator.fmt(it)} kg" } ?: "New PR"
+            prVisible = true
+            prHaptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            delay(2_200)
+            prVisible = false
+        }
+        prevPrCount = prCount
+    }
+
     GlowBackground(emberHeat = emberHeat) {
         Box(
             Modifier
                 .fillMaxSize()
                 .imePadding()
         ) {
+            // PR celebration floats above everything (confetti + trophy banner)
+            if (prVisible) {
+                ConfettiBurst(run = true, modifier = Modifier.matchParentSize().zIndex(4f))
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(5f)
+                    .padding(top = topPadding + 8.dp),
+            ) {
+                PrBanner(visible = prVisible, label = prLabel)
+            }
             if (strikeShowing && activeStrike != null) {
                 StrikeModePanel(
                     active = activeStrike,
                     barKg = state.barKg,
                     topPadding = topPadding,
+                    restSeconds = restState?.remainingSec,
+                    onFinishRest = { RestTimerService.stop(context) },
                     onScrubWeight = vm::dragWeight,
                     onScrubReps = vm::dragReps,
+                    onSetRpe = vm::setRpe,
                     onStrike = vm::toggleCompleted,
                     onOpenTable = { strikeMode = false },
                     modifier = Modifier
                         .fillMaxSize()
                         .hazeSource(hazeState),
+                )
+            } else if (slateExercise != null) {
+                // BUILD_ORDER step 7 — "The Slate" replaces the old multi-exercise table as the
+                // non-Strike surface. Exercise paging (the chevrons) preserves the navigation the
+                // scrolling table used to give.
+                val heat = GymTheme.colors.heat
+                val slateIndex = state.exercises.indexOfFirst { it.id == slateExercise.id }
+                val activeSetId = state.activeSetId
+                SessionSlateScreen(
+                    ui = SessionUi(
+                        elapsed = TimeFormat.clock(nowMillis - state.startedAtMillis),
+                        exerciseProgress = if (state.totalSets > 0) {
+                            state.completedSets / state.totalSets.toFloat()
+                        } else 0f,
+                        exerciseIndexLabel = "${slateIndex + 1}",
+                        exerciseName = slateExercise.name,
+                        muscleCaption = slateExercise.muscleGroup,
+                        setsLabel = "${slateExercise.sets.count { it.completed }} / ${slateExercise.sets.size}",
+                        sets = slateExercise.sets.mapIndexed { i, set ->
+                            SetRowUi(
+                                index = i + 1,
+                                status = when {
+                                    set.completed -> SetStatus.Done
+                                    set.id == activeSetId -> SetStatus.Active
+                                    else -> SetStatus.Todo
+                                },
+                                weightKg = set.effectiveWeightKg,
+                                reps = set.effectiveReps,
+                                intensity = set.intensity,
+                                isPr = set.isPr,
+                            )
+                        },
+                        restSeconds = restState?.remainingSec,
+                        draftWeight = slateDraftSet?.effectiveWeightKg ?: 0.0,
+                        draftReps = slateDraftSet?.effectiveReps ?: 0,
+                        effort = slateDraftSet?.rpe?.let { it - 5 },
+                    ),
+                    heatAt = { heat.at(it) },
+                    // The table is the base now — its chevron leaves the session (it keeps
+                    // running); tapping the active row is how you get to Strike from here.
+                    onBack = onMinimise,
+                    onOpenActiveSet = { strikeMode = true },
+                    onOpenRestActions = { restActionsSheetOpen = true },
+                    onFinishRest = { RestTimerService.stop(context) },
+                    onCompleteSet = {
+                        slateDraftSet?.let { vm.toggleCompleted(slateExercise.id, it.id) }
+                    },
+                    onWeightDelta = { steps ->
+                        slateDraftSet?.let { vm.dragWeight(slateExercise.id, it.id, steps) }
+                    },
+                    onSetWeight = { text ->
+                        slateDraftSet?.let { vm.setWeightText(slateExercise.id, it.id, text) }
+                    },
+                    onSetReps = { text ->
+                        slateDraftSet?.let { vm.setRepsText(slateExercise.id, it.id, text) }
+                    },
+                    onRepsDelta = { delta ->
+                        slateDraftSet?.let { vm.dragReps(slateExercise.id, it.id, delta) }
+                    },
+                    onEffort = { step ->
+                        slateDraftSet?.let {
+                            // EffortBars hands back 1..5 (or 0 to clear); the model stores RPE 6..10
+                            vm.setRpe(slateExercise.id, it.id, if (step <= 0) null else step + 5)
+                        }
+                    },
+                    onEditNote = { slateNoteDialog = true },
+                    onExerciseMenu = { slateMenu = true },
+                    onPrevExercise = if (slateIndex > 0) {
+                        { slateExerciseId = state.exercises[slateIndex - 1].id }
+                    } else null,
+                    onNextExercise = if (slateIndex < state.exercises.lastIndex) {
+                        { slateExerciseId = state.exercises[slateIndex + 1].id }
+                    } else null,
+                    modifier = Modifier.fillMaxSize().hazeSource(hazeState),
                 )
             } else {
             LazyColumn(
@@ -311,6 +512,7 @@ fun WorkoutSessionScreen(
                         onWeightDrag = { setId, steps -> vm.dragWeight(exercise.id, setId, steps) },
                         onRepsDrag = { setId, steps -> vm.dragReps(exercise.id, setId, steps) },
                         onCycleTag = { setId -> vm.cycleTag(exercise.id, setId) },
+                        onCycleRpe = { setId -> vm.cycleRpe(exercise.id, setId) },
                         onToggleComplete = { setId -> vm.toggleCompleted(exercise.id, setId) },
                         onWeightFocus = { setId, focused ->
                             focusedWeightSetId = when {
@@ -335,11 +537,12 @@ fun WorkoutSessionScreen(
             }
             }
 
-            SessionTopBar(
+            if (!slateShowing) SessionTopBar(
                 name = state.workoutName,
                 elapsedMillis = nowMillis - state.startedAtMillis,
-                showStopwatch = showStopwatch,
-                onToggleStopwatch = { showStopwatch = !showStopwatch },
+                restSeconds = restState?.remainingSec,
+                onFinishRest = { RestTimerService.stop(context) },
+                onOpenRestActions = { restActionsSheetOpen = true },
                 onFinishClick = {
                     if (state.completedSets == 0) {
                         recoilTick++
@@ -348,6 +551,7 @@ fun WorkoutSessionScreen(
                         vm.showFinishSheet(true)
                     }
                 },
+                onMinimise = onMinimise,
                 recoilTick = recoilTick,
                 hazeState = hazeState,
                 modifier = Modifier
@@ -355,22 +559,12 @@ fun WorkoutSessionScreen(
                     .onSizeChanged { topBarHeightPx = it.height },
             )
 
-            restState?.let { rest ->
-                RestTimerBubble(
-                    remainingSec = rest.remainingSec,
-                    totalSec = rest.totalSec,
-                    onAdd15 = { RestTimerService.add15(context) },
-                    onSkip = { RestTimerService.stop(context) },
-                    hazeState = hazeState,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .navigationBarsPadding()
-                        .padding(start = 16.dp, bottom = 24.dp),
-                )
-            }
+            // No floating bubble while the app is open — replaced by the top-bar chip
+            // (SessionTopBar) and the live readout on the Strike/Slate surface below.
+            // RestBubbleOverlay still floats one once you leave the app; see AppForeground.
 
-            // table mode only: add-exercise FAB + the way back to the anvil
-            if (!strikeShowing) {
+            // legacy-table chrome only — the Slate carries its own equivalents
+            if (!strikeShowing && !slateShowing) {
                 if (activeStrike != null) {
                     GlassSurface(
                         modifier = Modifier
@@ -382,7 +576,7 @@ fun WorkoutSessionScreen(
                         onClick = { strikeMode = true },
                     ) {
                         Text(
-                            text = "STRIKE MODE",
+                            text = "FOCUS MODE",
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
@@ -413,6 +607,51 @@ fun WorkoutSessionScreen(
         }
     }
 
+    if (slateNoteDialog && slateExercise != null) {
+        var text by remember(slateExercise.note) { mutableStateOf(slateExercise.note) }
+        ForgedAlert(
+            title = "Machine note",
+            onDismissRequest = { slateNoteDialog = false },
+            confirmLabel = "Save",
+            onConfirm = {
+                vm.setExerciseNote(slateExercise.id, text)
+                slateNoteDialog = false
+            },
+            dismissLabel = "Cancel",
+            body = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AlertBody(
+                        "Seat height, pin, grip width — pinned to ${slateExercise.name} every session."
+                    )
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.take(120) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        placeholder = { Text("Seat 4 · pin 12 · narrow grip") },
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                }
+            },
+        )
+    }
+    if (slateMenu) {
+        ForgedAlert(
+            title = "Exercise",
+            onDismissRequest = { slateMenu = false },
+            confirmLabel = "Add exercise",
+            onConfirm = {
+                slateMenu = false
+                vm.showExercisePicker(true)
+            },
+            dismissLabel = "Edit note",
+            onDismissAction = {
+                slateMenu = false
+                slateNoteDialog = true
+            },
+            body = { AlertBody("Add another exercise to this session, or edit this one's note.") },
+        )
+    }
     if (state.showExercisePicker) {
         ExercisePickerSheet(
             items = state.pickerItems,
@@ -421,19 +660,17 @@ fun WorkoutSessionScreen(
         )
     }
     if (showDiscardDialog) {
-        AlertDialog(
+        ForgedAlert(
+            title = "Nothing logged",
             onDismissRequest = { showDiscardDialog = false },
-            title = { Text("Cold metal") },
-            text = { Text("Nothing logged yet. Leave the forge and discard this session?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDiscardDialog = false
-                    vm.discardSession()
-                }) { Text("Leave the forge") }
+            confirmLabel = "Discard",
+            onConfirm = {
+                showDiscardDialog = false
+                vm.discardSession()
             },
-            dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep working") }
-            },
+            dismissLabel = "Keep going",
+            destructive = true,
+            body = { AlertBody("Discard this session? Nothing will be saved.") },
         )
     }
     if (state.showFinishSheet) {
@@ -444,15 +681,32 @@ fun WorkoutSessionScreen(
             onDismiss = { vm.showFinishSheet(false) },
         )
     }
+    if (restActionsSheetOpen) {
+        RestActionsSheet(
+            restRemainingSec = restState?.remainingSec,
+            restTotalSec = restState?.totalSec ?: 1,
+            defaultRestSeconds = defaultRestSeconds,
+            onStartRest = { seconds -> RestTimerService.start(context, seconds) },
+            onAdjustRest = { delta -> RestTimerService.adjust(context, delta) },
+            onFinishRest = { RestTimerService.stop(context) },
+            stopwatchElapsedMs = stopwatchShownMs,
+            stopwatchRunning = stopwatchRunning,
+            onToggleStopwatch = onToggleStopwatchRun,
+            onResetStopwatch = onResetStopwatch,
+            onDismiss = { restActionsSheetOpen = false },
+        )
+    }
 }
 
 @Composable
 private fun SessionTopBar(
     name: String,
     elapsedMillis: Long,
-    showStopwatch: Boolean,
-    onToggleStopwatch: () -> Unit,
+    restSeconds: Int? = null,        // null = not resting; negative = over the time you set
+    onFinishRest: () -> Unit = {},   // tapping the chip once it's over stops the rest directly
+    onOpenRestActions: () -> Unit = {},  // the Timer icon — rest + stopwatch, start either manually
     onFinishClick: () -> Unit,
+    onMinimise: () -> Unit,
     hazeState: HazeState,
     modifier: Modifier = Modifier,
     recoilTick: Int = 0,
@@ -484,32 +738,62 @@ private fun SessionTopBar(
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.titleLarge)
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = TimeFormat.clock(elapsedMillis),
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontFeatureSettings = FONT_FEATURE_TABULAR
-                            ),
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                        Text(
-                            text = "elapsed",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                // Escape route. The session is a full-screen flow, so it must offer a way out
+                // that is not "Finish" (Apple HIG §escape-routes; found in QA 2026-08-09 —
+                // Strike Mode is the default surface and had no exit control at all).
+                IconButton(onClick = onMinimise, modifier = Modifier.size(38.dp)) {
+                    Icon(
+                        Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = "Leave session — it keeps running",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                IconButton(onClick = onToggleStopwatch) {
+                Spacer(Modifier.width(4.dp))
+                // the prototype leads the session header with the clock in Anton — the
+                // number you glance at mid-set — and demotes the workout name beneath it
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = TimeFormat.clock(elapsedMillis),
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFeatureSettings = FONT_FEATURE_TABULAR,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = name,
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (restSeconds != null) {
+                    // Opposite side of the bar from the session clock, on purpose — the two
+                    // numbers read as different things. Tappable only once you're over: that's
+                    // "I'm done resting", direct, no sheet in the way. Counting down stays
+                    // protected from an accidental tap cutting a real rest short.
+                    val overtime = restSeconds < 0
+                    val warning = restSeconds in 1..5
+                    val pulse = if (overtime || warning) rememberOvertimePulse() else 1f
+                    val tint = when {
+                        overtime -> GymTheme.colors.heat.spent
+                        warning -> GymTheme.colors.heat.hot
+                        else -> GymTheme.colors.heat.ready
+                    }
+                    Text(
+                        text = "REST " + TimeFormat.signedMmss(restSeconds),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tint.copy(alpha = if (overtime || warning) pulse else 1f),
+                        modifier = Modifier
+                            .padding(end = 10.dp)
+                            .then(if (overtime) Modifier.clickable(onClick = onFinishRest) else Modifier),
+                    )
+                }
+                // Rest + stopwatch together, reached here whether or not either is running —
+                // the dedicated way to start one manually (see RestActionsSheet).
+                IconButton(onClick = onOpenRestActions) {
                     Icon(
                         Icons.Rounded.Timer,
-                        contentDescription = "Stopwatch",
-                        tint = if (showStopwatch) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        contentDescription = "Rest and stopwatch",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Button(
@@ -527,80 +811,10 @@ private fun SessionTopBar(
                     Text("Finish", style = MaterialTheme.typography.labelLarge)
                 }
             }
-            AnimatedVisibility(visible = showStopwatch) {
-                StopwatchRow()
-            }
         }
     }
 }
 
-// Built-in stopwatch — independent of the workout clock and the rest timer
-@Composable
-private fun StopwatchRow(modifier: Modifier = Modifier) {
-    var accumulatedMs by rememberSaveable { mutableLongStateOf(0L) }
-    var running by rememberSaveable { mutableStateOf(false) }
-    var startedAt by rememberSaveable { mutableLongStateOf(0L) }
-    var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    LaunchedEffect(running) {
-        while (running) {
-            now = SystemClock.elapsedRealtime()
-            delay(200)
-        }
-    }
-    val shownMs = accumulatedMs + if (running) (now - startedAt).coerceAtLeast(0) else 0
-
-    Row(
-        modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            text = "STOPWATCH",
-            style = MaterialTheme.typography.labelSmall,
-            color = GymTheme.colors.hint,
-        )
-        Text(
-            text = TimeFormat.clock(shownMs),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontFeatureSettings = FONT_FEATURE_TABULAR
-            ),
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = {
-            if (running) {
-                accumulatedMs += SystemClock.elapsedRealtime() - startedAt
-                running = false
-            } else {
-                startedAt = SystemClock.elapsedRealtime()
-                now = startedAt
-                running = true
-            }
-        }) {
-            Icon(
-                if (running) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = if (running) "Pause stopwatch" else "Start stopwatch",
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        IconButton(
-            onClick = {
-                accumulatedMs = 0L
-                startedAt = SystemClock.elapsedRealtime()
-                now = startedAt
-            },
-            enabled = shownMs > 0,
-        ) {
-            Icon(
-                Icons.Rounded.Refresh,
-                contentDescription = "Reset stopwatch",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 @Composable
 private fun ExerciseCard(
@@ -616,6 +830,7 @@ private fun ExerciseCard(
     onWeightDrag: (Long, Int) -> Unit,
     onRepsDrag: (Long, Int) -> Unit,
     onCycleTag: (Long) -> Unit,
+    onCycleRpe: (Long) -> Unit,
     onToggleComplete: (Long) -> Unit,
     onWeightFocus: (Long, Boolean) -> Unit,
     onAddSet: () -> Unit,
@@ -645,7 +860,7 @@ private fun ExerciseCard(
             Modifier
                 .then(
                     if (inSuperset) Modifier.drawBehind {
-                        // indigo bracket along the left edge marks superset membership
+                        // primary-tinted bracket along the left edge marks superset membership
                         drawRoundRect(
                             color = supersetColor,
                             topLeft = Offset(0f, 8.dp.toPx()),
@@ -733,8 +948,8 @@ private fun ExerciseCard(
             exercise.plan?.let { plan ->
                 val planColor = when (plan.kind) {
                     Progression.Kind.INCREASE -> MaterialTheme.colorScheme.primary
-                    Progression.Kind.DELOAD -> GymTheme.colors.heat.bronze
-                    Progression.Kind.HOLD -> GymTheme.colors.heat.steel
+                    Progression.Kind.DELOAD -> GymTheme.colors.heat.worn
+                    Progression.Kind.HOLD -> MaterialTheme.colorScheme.secondary
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -787,6 +1002,7 @@ private fun ExerciseCard(
                     onWeightDrag = { onWeightDrag(set.id, it) },
                     onRepsDrag = { onRepsDrag(set.id, it) },
                     onCycleTag = { onCycleTag(set.id) },
+                    onCycleRpe = { onCycleRpe(set.id) },
                     onToggleComplete = { onToggleComplete(set.id) },
                     onWeightFocus = { onWeightFocus(set.id, it) },
                 )
@@ -809,15 +1025,19 @@ private fun ExerciseCard(
 
     if (noteDialog) {
         var text by remember(exercise.note) { mutableStateOf(exercise.note) }
-        AlertDialog(
+        ForgedAlert(
+            title = "Machine note",
             onDismissRequest = { noteDialog = false },
-            title = { Text("Machine note") },
-            text = {
+            confirmLabel = "Save",
+            onConfirm = {
+                onSaveNote(text)
+                noteDialog = false
+            },
+            dismissLabel = "Cancel",
+            body = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Seat height, pin, grip width — pinned to ${exercise.name} every session.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    AlertBody(
+                        "Seat height, pin, grip width — pinned to ${exercise.name} every session."
                     )
                     OutlinedTextField(
                         value = text,
@@ -825,17 +1045,9 @@ private fun ExerciseCard(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         placeholder = { Text("Seat 4 · pin 12 · narrow grip") },
+                        shape = MaterialTheme.shapes.medium,
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    onSaveNote(text)
-                    noteDialog = false
-                }) { Text("Save") }
-            },
-            dismissButton = {
-                TextButton(onClick = { noteDialog = false }) { Text("Cancel") }
             },
         )
     }
@@ -854,6 +1066,7 @@ private fun SetHeaderRow() {
         HeaderLabel("PREV", Modifier.width(PrevColWidth))
         HeaderLabel("KG", Modifier.weight(1.2f))
         HeaderLabel("REPS", Modifier.weight(1f))
+        HeaderLabel("RPE", Modifier.width(RpeColWidth))
         HeaderLabel("TAG", Modifier.width(TagColWidth))
         HeaderLabel("", Modifier.width(CheckColWidth))
     }
@@ -880,6 +1093,7 @@ private fun SetRow(
     onWeightDrag: (Int) -> Unit,
     onRepsDrag: (Int) -> Unit,
     onCycleTag: () -> Unit,
+    onCycleRpe: () -> Unit,
     onToggleComplete: () -> Unit,
     onWeightFocus: (Boolean) -> Unit,
 ) {
@@ -987,6 +1201,7 @@ private fun SetRow(
             modifier = Modifier.weight(1f),
             keyboardType = KeyboardType.Number,
         )
+        RpeChip(set.rpe, onClick = onCycleRpe, modifier = Modifier.width(RpeColWidth))
         SetTagChip(set.tag, onClick = onCycleTag, modifier = Modifier.width(TagColWidth))
         CompleteCheck(set.completed, onToggle = onToggleComplete, modifier = Modifier.width(CheckColWidth))
     }
@@ -995,9 +1210,17 @@ private fun SetRow(
 @Composable
 private fun OneRmBadge(oneRm: Double, isPr: Boolean = false, intensity: Float? = null) {
     val rounded = (oneRm * 2).roundToInt() / 2.0 // nearest 0.5 kg
-    // Identity v5: gold is for PRs only — ordinary sets wear their temperature instead
-    // (steel warm-up → bronze back-off → glowing top set), from e1RM ÷ all-time best
-    val color = if (isPr) GymTheme.colors.prGold else GymTheme.colors.heat.at(1f - (intensity ?: 0.6f))
+    // Identity v7: gold is for PRs only — ordinary sets scale ice → volt by intensity
+    // (e1RM ÷ all-time best): brighter signal = harder set, Apple Activity style
+    val color = if (isPr) {
+        GymTheme.colors.prGold
+    } else {
+        androidx.compose.ui.graphics.lerp(
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.primary,
+            intensity ?: 0.6f,
+        )
+    }
     Surface(
         shape = RoundedCornerShape(50),
         color = color.copy(alpha = if (isPr) 0.28f else 0.16f),
@@ -1041,6 +1264,35 @@ private fun SetTagChip(tag: SetTag?, onClick: () -> Unit, modifier: Modifier = M
                 text = tag?.letter ?: "–",
                 style = MaterialTheme.typography.labelLarge,
                 color = color,
+            )
+        }
+    }
+}
+
+// Optional effort rating (RPE 6-10). Tap-cycles like SetTagChip; "–" = not set.
+@Composable
+private fun RpeChip(rpe: Int?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(
+                    if (rpe != null) MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
+                    else Color.Transparent
+                )
+                .border(
+                    width = 1.dp,
+                    color = if (rpe != null) Color.Transparent else MaterialTheme.colorScheme.outline,
+                    shape = CircleShape,
+                )
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = rpe?.toString() ?: "–",
+                style = MaterialTheme.typography.labelMedium,
+                color = if (rpe != null) MaterialTheme.colorScheme.secondary else GymTheme.colors.hint,
             )
         }
     }

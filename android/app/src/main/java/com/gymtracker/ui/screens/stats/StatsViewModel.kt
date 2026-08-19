@@ -16,14 +16,27 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** The Week/Month/Year toggle above the volume block (handoff README §7). */
+enum class StatsPeriod(val label: String, val days: Int) {
+    Week("Week", 7), Month("Month", 30), Year("Year", 365)
+}
+
 data class StatsUiState(
     val hasData: Boolean = false,
+    val totalVolumeKg: Double = 0.0,   // lifetime working-set tonnage (drives the rank)
+    val totalWorkouts: Int = 0,
     val weeklyVolume: List<Pair<LocalDate, Double>> = emptyList(),
     val weekDeltaPct: Int? = null,
     val calendar: Map<LocalDate, Double> = emptyMap(),
     val durations: List<AnalyticsEngine.Point> = emptyList(),
     val prs: List<AnalyticsEngine.PrEvent> = emptyList(),
     val top: List<AnalyticsEngine.TopExercise> = emptyList(),
+    val period: StatsPeriod = StatsPeriod.Week,
+    /** Volume / sessions / hours for the selected period — the headline block. */
+    val periodVolumeKg: Double = 0.0,
+    val periodSessions: Int = 0,
+    val periodHours: Double = 0.0,
+    val periodPrs: Int = 0,
 )
 
 class StatsViewModel(app: Application) : AndroidViewModel(app) {
@@ -36,24 +49,50 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.setCount.collect { reload() } }
     }
 
-    private suspend fun reload() {
+    /** Re-aggregate for the chosen period without re-reading the DB snapshot cost twice. */
+    fun setPeriod(period: StatsPeriod) {
+        viewModelScope.launch { reload(period) }
+    }
+
+    private suspend fun reload(period: StatsPeriod = _ui.value.period) {
         val state = withContext(Dispatchers.Default) {
             val snap = repo.analyticsSnapshot()
-            if (snap.workouts.isEmpty()) return@withContext StatsUiState()
+            if (snap.workouts.isEmpty()) return@withContext StatsUiState(period = period)
+
+            // window the snapshot to the selected period for the headline figures
+            val since = System.currentTimeMillis() - period.days * 86_400_000L
+            val periodWorkouts = snap.workouts.filter { it.startedAt >= since }
+            val periodWorkoutIds = periodWorkouts.map { it.id }.toSet()
+            val periodSets = snap.sets.filter { it.workoutId in periodWorkoutIds && it.tag != "W" }
+            val periodVolume = periodSets.sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
+            val periodHours = periodWorkouts.sumOf { w ->
+                w.endedAt?.let { (it - w.startedAt) / 3_600_000.0 } ?: 0.0
+            }
             val weekly = AnalyticsEngine.weeklyVolume(snap.sets)
             val delta = weekly.takeLast(2).let { last ->
                 if (last.size == 2 && last[0].second > 0) {
                     (((last[1].second - last[0].second) / last[0].second) * 100).roundToInt()
                 } else null
             }
+            val totalVolume = snap.sets
+                .filter { it.tag != "W" }
+                .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
             StatsUiState(
                 hasData = true,
+                totalVolumeKg = totalVolume,
+                totalWorkouts = snap.workouts.size,
                 weeklyVolume = weekly,
                 weekDeltaPct = delta,
                 calendar = AnalyticsEngine.calendarVolume(snap.sets),
                 durations = AnalyticsEngine.durationSeries(snap.workouts),
                 prs = AnalyticsEngine.prTimeline(snap.sets, snap.exercises),
                 top = AnalyticsEngine.topExercises(snap.sets, snap.exercises),
+                period = period,
+                periodVolumeKg = periodVolume,
+                periodSessions = periodWorkouts.size,
+                periodHours = periodHours,
+                periodPrs = AnalyticsEngine.prTimeline(snap.sets, snap.exercises)
+                    .count { it.time >= since },
             )
         }
         _ui.value = state

@@ -88,6 +88,16 @@ interface WorkoutDao {
     @Query("SELECT * FROM workouts ORDER BY startedAt DESC LIMIT 1")
     suspend fun latest(): WorkoutEntity?
 
+    @Query("SELECT * FROM workouts ORDER BY startedAt DESC LIMIT :limit")
+    suspend fun latestN(limit: Int): List<WorkoutEntity>
+
+    /** Past runs of the same day, used to estimate "about N min" on Home. */
+    @Query(
+        "SELECT * FROM workouts WHERE name = :name AND endedAt IS NOT NULL " +
+            "ORDER BY startedAt DESC LIMIT :limit"
+    )
+    suspend fun latestNamed(name: String, limit: Int): List<WorkoutEntity>
+
     @Query("SELECT * FROM workouts WHERE id = :id")
     suspend fun byId(id: String): WorkoutEntity?
 

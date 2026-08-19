@@ -1,10 +1,13 @@
-// Purpose: Muscle recovery screen — the body map is the unambiguous hero; per-muscle
-//          freshness renders as flat supporting rows with Hot Tip fills (UI refresh 1b)
+// Purpose: Recovery / "Body" — rebuilt to the redesign prototype: one weighted READINESS
+//          numeral in Anton over a heat bar, FRONT/BACK figures side by side, the
+//          FRESH→FATIGUED legend, a BY MUSCLE list, and an ember-railed "what to train"
+//          call. Flat and hairline-ruled — the body is the hero, not a card.
 // Inputs: RecoveryViewModel (real history when imported/logged; sample fallback)
-// Outputs: none (read-only screen)
+// Outputs: onStartDay(dayId) when the call strip is tapped
 package com.gymtracker.ui.screens.recovery
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,218 +18,322 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.data.WorkoutRepository
-import com.gymtracker.ui.components.FlatRow
 import com.gymtracker.ui.components.ForgedBar
-import com.gymtracker.ui.components.GlassSurface
+import com.gymtracker.ui.components.ForgedBlock
+import com.gymtracker.ui.components.ForgedScreenTitle
+import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
-import com.gymtracker.ui.components.MuscleBodyMap
+import com.gymtracker.ui.components.body.BodySide
+import com.gymtracker.ui.components.body.MuscleBodyMap
+import com.gymtracker.ui.components.body.slugFreshness
+import com.gymtracker.ui.components.RowRule
+import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.rememberEntered
+import com.gymtracker.ui.components.forgeHero
+import com.gymtracker.ui.theme.Anton
+import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
-import com.gymtracker.ui.theme.forgedEntrance
+import com.gymtracker.ui.theme.StampLabel
 import com.gymtracker.ui.theme.rollUpValue
 import kotlin.math.roundToInt
 
 @Composable
-fun RecoveryScreen(vm: RecoveryViewModel = viewModel()) {
+fun RecoveryScreen(
+    onStartDay: (String) -> Unit = {},
+    vm: RecoveryViewModel = viewModel(),
+) {
     val state by vm.ui.collectAsStateWithLifecycle()
-    // §10: entrance plays once per screen entry, never on tab return
-    var entered by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) { entered = true }
+    val entered = rememberEntered()
+    LaunchedEffect(Unit) { vm.refresh() }
+    val heat = GymTheme.colors.heat
 
-    GlowBackground {
+    GlowBackground(glowAlpha = 0.10f) {
         Column(
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .statusBarsPadding(),
         ) {
-            Text("Recovery", style = MaterialTheme.typography.headlineLarge)
-            Text(
-                text = if (state.isSample) {
-                    "Sample data — import your history or log workouts to see real freshness."
-                } else {
-                    "Muscles cool between sessions — strike where the metal is ready."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            ForgedScreenTitle(
+                title = "Body",
+                trailing = if (state.isSample) "Sample data" else null,
             )
 
+            // READINESS — one number, weighted, in the heat colour it actually reports
+            ForgedBlock(0, entered) {
+            SectionRule()
+            ForgedSectionHeader(
+                label = "READINESS",
+                bottomPadding = 0.dp,
+                trailing = {
+                    Text(
+                        text = "WEIGHTED BY MUSCLE SIZE",
+                        style = StampLabel.copy(fontSize = 9.5.sp, letterSpacing = 1.1.sp),
+                        color = GymTheme.colors.hint,
+                    )
+                },
+            )
+            val readiness = state.readinessPercent
+            val rolled = rollUpValue(readiness.toFloat()).roundToInt()
             Row(
-                Modifier.forgedEntrance(0, entered),
+                Modifier.padding(start = Dim.screenPadH, end = Dim.screenPadH, top = 10.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(15.dp),
+            ) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = "$rolled",
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = 42.sp,
+                            lineHeight = 42.sp,
+                            fontFeatureSettings = FONT_FEATURE_TABULAR,
+                        ),
+                        color = heat.at(readiness / 100f),
+                    )
+                    Text(
+                        text = "%",
+                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp),
+                        color = heat.at(readiness / 100f),
+                        modifier = Modifier.padding(bottom = 3.dp),
+                    )
+                }
+                Column(Modifier.weight(1f).padding(bottom = 6.dp)) {
+                    Text(
+                        text = "ready to train",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = state.readinessNote,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
+            }
+            // 10 segments, each lit in its own position on the heat ramp — the design reads
+            // readiness as a scale you climb, not a single bar filling
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dim.screenPadH, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val lit = (readiness / 10f).roundToInt()
+                repeat(10) { i ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(
+                                // the ramp runs COOLED (left) → GLOWING (right), matching the
+                                // legend underneath; heat.at(1f) is "ready", so index inverts
+                                if (i < lit) heat.at(1f - i / 9f)
+                                else MaterialTheme.colorScheme.outlineVariant
+                            )
+                    )
+                }
+            }
+
+            }
+
+            // FRONT / BACK figures, captioned in stamped mono
+            ForgedBlock(1, entered) {
+            SectionRule()
+            // Owner's call: use the anatomy shipped with the Claude Design handoff
+            // (ui/components/body/), not the repo's v5 physique. It draws one side, so front
+            // and back sit side by side and this screen supplies the FRONT/BACK captions.
+            // expands 10 canonical groups over ~40 slugs — recompute only when the data moves
+            val slugs = remember(state.freshnessByMuscle) { slugFreshness(state.freshnessByMuscle) }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dim.screenPadH, vertical = 18.dp)
+                    .forgeHero()
+                    .padding(vertical = 18.dp, horizontal = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                listOf(BodySide.Front to "FRONT", BodySide.Back to "BACK").forEach { (side, caption) ->
+                    Column(
+                        Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        MuscleBodyMap(
+                            side = side,
+                            freshness = slugs,
+                            heatAt = { heat.at(it) },
+                            silhouette = MaterialTheme.colorScheme.surfaceVariant,
+                            outline = MaterialTheme.colorScheme.background,
+                        )
+                        Text(
+                            text = caption,
+                            style = StampLabel.copy(fontSize = 9.5.sp, letterSpacing = 1.5.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 9.dp),
+                        )
+                    }
+                }
+            }
+            // FRESH ←→ FATIGUED — the body speaks in colour, this is its caption
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dim.screenPadH, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                BigStat(
-                    value = state.daysSinceLast,
-                    label = "days since your\nlast workout",
-                    modifier = Modifier.weight(1f),
+                Text("COOLED · READY", style = StampLabel, color = heat.ready)
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(heat.ready, heat.worn, heat.hot, heat.spent)
+                            )
+                        )
                 )
-                BigStat(
-                    value = state.freshCount,
-                    label = "fresh muscle\ngroups",
-                    modifier = Modifier.weight(1f),
-                )
+                Text("GLOWING", style = StampLabel, color = heat.spent)
+            }
             }
 
-            // the hero — the only glass card on this screen's scroll body
-            GlassSurface(modifier = Modifier.forgedEntrance(1, entered)) {
-                Column {
-                    MuscleBodyMap(
-                        freshness = state.freshnessByMuscle,
-                        modifier = Modifier.padding(top = 14.dp, start = 8.dp, end = 8.dp),
+            // BY MUSCLE
+            ForgedBlock(2, entered) {
+            SectionRule()
+            ForgedSectionHeader(
+                label = "BY MUSCLE",
+                trailing = {
+                    Text(
+                        text = "FRESH",
+                        style = StampLabel.copy(fontSize = 9.5.sp, letterSpacing = 1.1.sp),
+                        color = GymTheme.colors.hint,
                     )
-                    HeatLegend(
-                        Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-                }
-            }
-
-            if (state.items.isNotEmpty()) {
-                Text(
-                    text = "BY MUSCLE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = GymTheme.colors.hint,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            Column {
-                state.items.forEachIndexed { index, item ->
-                    MuscleRow(
-                        status = item,
-                        last = index == state.items.lastIndex,
-                        modifier = Modifier.forgedEntrance(index + 2, entered),
-                    )
-                }
-            }
-
-            // clearance for the floating bottom nav (measured, not the OS bar alone)
-            Spacer(
-                Modifier
-                    .navigationBarsPadding()
-                    .height(112.dp)
+                },
             )
+            state.items.forEach { item ->
+                RowRule()
+                MuscleRow(item)
+            }
+            }
+
+            // the call: ember-dim plate with a 3dp ember rail, exactly as the prototype frames it
+            state.callTitle?.let { title ->
+                SectionRule()
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable(enabled = state.callDayId != null) {
+                            state.callDayId?.let(onStartDay)
+                        }
+                        .padding(horizontal = Dim.screenPadH, vertical = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp),
+                ) {
+                    // the rail itself
+                    Box(
+                        Modifier
+                            .width(3.dp)
+                            .height(38.dp)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        state.callBody?.let {
+                            Text(
+                                text = it,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.Rounded.ChevronRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))
         }
     }
 }
 
 @Composable
-private fun BigStat(value: Int?, label: String, modifier: Modifier = Modifier) {
-    // §7.4: numbers count up on entry, capped at Motion.COUNT_UP
-    val shown = value?.let { rollUpValue(it.toFloat()).roundToInt().toString() } ?: "–"
-    GlassSurface(modifier = modifier) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = shown,
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontFeatureSettings = FONT_FEATURE_TABULAR
-                ),
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MuscleRow(
-    status: WorkoutRepository.MuscleFreshness,
-    last: Boolean,
-    modifier: Modifier = Modifier,
-) {
+private fun MuscleRow(status: WorkoutRepository.MuscleFreshness) {
     val pct = status.freshnessPercent
-    // Identity v5: freshness is a temperature — quenched steel when ready, glowing red
-    // when just worked (design/IDENTITY_V5.md)
+    // heat is data: freshness is a temperature, never a hand-picked hue (INTEGRATION.md)
     val freshColor = GymTheme.colors.heat.at(pct / 100f)
     val rolledPct = rollUpValue(pct.toFloat()).roundToInt()
-    FlatRow(modifier = modifier, divider = !last) {
-        Column(Modifier.weight(1f)) {
-            Text(status.muscle, style = MaterialTheme.typography.titleSmall)
-            Text(
-                text = "trained ${status.lastTrainedDaysAgo}d ago",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Column(
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Text(
-                text = "$rolledPct%",
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontFeatureSettings = FONT_FEATURE_TABULAR
-                ),
-                color = freshColor,
-            )
-            ForgedBar(
-                progress = pct / 100f,
-                color = freshColor,
-                modifier = Modifier.width(110.dp),
-            )
-        }
-    }
-}
-
-// Heat-scale legend: the body speaks by color alone, this strip is its caption
-@Composable
-private fun HeatLegend(modifier: Modifier = Modifier) {
-    val heat = GymTheme.colors.heat
     Row(
-        modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dim.screenPadH, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
-        Text(
-            text = "COOLED · READY",
-            style = MaterialTheme.typography.labelSmall,
-            color = heat.steel,
-        )
+        // the dot carries the temperature; the name stays neutral so the list reads as a list
         Box(
             Modifier
-                .weight(1f)
-                .height(5.dp)
-                .clip(RoundedCornerShape(50))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(heat.steel, heat.bronze, heat.ember, heat.red)
-                    )
-                )
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(freshColor)
         )
         Text(
-            text = "GLOWING",
-            style = MaterialTheme.typography.labelSmall,
-            color = heat.red,
+            text = status.muscle,
+            fontSize = 15.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        ForgedBar(progress = pct / 100f, color = freshColor, modifier = Modifier.width(96.dp))
+        Text(
+            text = "$rolledPct%",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = 15.sp,
+                fontFeatureSettings = FONT_FEATURE_TABULAR,
+            ),
+            color = freshColor,
         )
     }
 }

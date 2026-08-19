@@ -3,15 +3,13 @@
 // Outputs: renders Home / Plan / Library / Recovery / Stats / Session / Data / subpages
 package com.gymtracker
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -26,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -38,6 +38,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.service.AppForeground
 import com.gymtracker.service.TrainingReminderWorker
 import com.gymtracker.widget.ForgeWidgetProvider
 import com.gymtracker.ui.components.GlassBottomNav
@@ -54,23 +55,31 @@ import com.gymtracker.ui.screens.session.WorkoutSessionScreen
 import com.gymtracker.ui.screens.session.WorkoutSessionViewModel
 import com.gymtracker.ui.screens.stats.ExerciseStatsScreen
 import com.gymtracker.ui.screens.stats.StatsScreen
+import com.gymtracker.ui.theme.Energy
 import com.gymtracker.ui.theme.GymTrackerTheme
+import com.gymtracker.ui.theme.Heat
+import com.gymtracker.ui.theme.SurfaceStyle
 import com.gymtracker.ui.theme.Motion
 import kotlinx.coroutines.launch
 
 // Forged Motion §11 — space is a workbench: tabs slide on one plane, details lift
 // off the bench, the session rises from the bottom like stepping toward the forge.
-private val TabOrder = listOf("home", "history", "plan", "library", "recovery", "stats")
+// 4 tabs (owner, 2026-08-08). History and Library dropped to pushed destinations; they keep
+// their nav-bar-free treatment via isSubpage below and gain back arrows.
+private val TabOrder = listOf("home", "plan", "recovery", "stats")
 private fun tabIndex(route: String?): Int = TabOrder.indexOf(route)
 private fun isTab(route: String?): Boolean = tabIndex(route) >= 0
 
 class MainActivity : ComponentActivity() {
 
-    // Rest-timer countdown + training reminders both need this on Android 13+
-    private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    // POST_NOTIFICATIONS is NOT requested here. Asking at cold start put a system dialog on top
+    // of the first-run profile sheet — two modals before the user has seen anything. The session
+    // screen asks instead, at the moment the rest timer actually needs it (Android's
+    // request-in-context guidance), and reminders simply stay silent until it is granted.
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // must run before super.onCreate so the system hands the splash over to us cleanly
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // one-time seed of the built-in exercise catalog (no-op afterwards),
@@ -82,23 +91,50 @@ class MainActivity : ComponentActivity() {
         }
         TrainingReminderWorker.schedule(this)
         ForgeWidgetProvider.requestUpdate(this)
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
         // UX v6 move 3 — one gesture in: widget/notification arrive with FIRE_UP set.
         // The extra is removed after reading so a rotation's re-read can't re-fire.
         consumeFireUpExtra(intent)
         setContent {
-            GymTrackerTheme {
+            // The three expression axes live here so changing one in Settings re-themes the
+            // whole app immediately (they feed LocalForge via GymTrackerTheme).
+            val repo = remember { WorkoutRepository.get(this) }
+            var expression by remember {
+                val saved = repo.expression()
+                mutableStateOf(
+                    Triple(
+                        runCatching { Heat.valueOf(saved.heat) }.getOrDefault(Heat.Chalk),
+                        runCatching { Energy.valueOf(saved.energy) }.getOrDefault(Energy.Alive),
+                        runCatching { SurfaceStyle.valueOf(saved.surface) }.getOrDefault(SurfaceStyle.Soft),
+                    )
+                )
+            }
+            GymTrackerTheme(
+                heat = expression.first,
+                energy = expression.second,
+                surface = expression.third,
+            ) {
                 AppNavHost(
                     fireUpRequest = fireUpRequest.value,
                     onFireUpHandled = { fireUpRequest.value = false },
+                    expression = expression,
+                    onExpressionChange = { heat, energy, surface ->
+                        expression = Triple(heat, energy, surface)
+                        repo.saveExpression(heat.name, energy.name, surface.name)
+                    },
                 )
             }
         }
+    }
+
+    // Drives which rest bubble is on screen: the Compose one in the session, or the overlay.
+    override fun onStart() {
+        super.onStart()
+        AppForeground.set(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppForeground.set(false)
     }
 
     // singleTask: a deep link while the app is alive lands here, not in onCreate
@@ -125,6 +161,8 @@ class MainActivity : ComponentActivity() {
 private fun AppNavHost(
     fireUpRequest: Boolean = false,
     onFireUpHandled: () -> Unit = {},
+    expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Chalk, Energy.Alive, SurfaceStyle.Soft),
+    onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
 ) {
     val nav = rememberNavController()
     val backStackEntry by nav.currentBackStackEntryAsState()
@@ -215,10 +253,16 @@ private fun AppNavHost(
                         )
                     } else null,
                     onOpenData = { nav.navigate("data") },
+                    onOpenPlan = { nav.navigate("plan") },
+                    onOpenHistory = { nav.navigate("history") },
+                    onOpenRecovery = { nav.navigate("recovery") },
                 )
             }
             composable("history") {
-                HistoryScreen(onOpenWorkout = { id -> nav.navigate("workout/$id") })
+                HistoryScreen(
+                    onOpenWorkout = { id -> nav.navigate("workout/$id") },
+                    onBack = { nav.popBackStack() },
+                )
             }
             composable("workout/{workoutId}") {
                 WorkoutDetailScreen(
@@ -234,12 +278,18 @@ private fun AppNavHost(
                 PlanScreen(
                     onStartDay = { dayId -> startSession(dayId) },
                     onOpenProgram = { id -> nav.navigate("program/$id") },
+                    onOpenLibrary = { nav.navigate("library") },
                 )
             }
             composable("library") {
-                ExerciseLibraryScreen(onOpenExercise = { id -> nav.navigate("exercise/$id") })
+                ExerciseLibraryScreen(
+                    onOpenExercise = { id -> nav.navigate("exercise/$id") },
+                    onBack = { nav.popBackStack() },
+                )
             }
-            composable("recovery") { RecoveryScreen() }
+            composable("recovery") {
+                RecoveryScreen(onStartDay = { dayId -> startSession(dayId) })
+            }
             composable("stats") {
                 StatsScreen(onOpenExercise = { id -> nav.navigate("exercise/$id") })
             }
@@ -250,13 +300,25 @@ private fun AppNavHost(
                 ProgramEditorScreen(onBack = { nav.popBackStack() })
             }
             composable("session") {
-                WorkoutSessionScreen(onFinished = { nav.popBackStack() }, vm = sessionVm)
+                WorkoutSessionScreen(
+                    onFinished = { nav.popBackStack() },
+                    // minimise != finish: the workout stays live and Home offers Resume
+                    onMinimise = { nav.popBackStack() },
+                    vm = sessionVm,
+                )
             }
-            composable("data") { DataScreen(onBack = { nav.popBackStack() }) }
+            composable("data") {
+                DataScreen(
+                    onBack = { nav.popBackStack() },
+                    expression = expression,
+                    onExpressionChange = onExpressionChange,
+                )
+            }
         }
         // session is full-focus; data/exercise/program pages are subpages: no bottom nav
         // (a subpage in the tab back stack would get saved/restored by tab switches)
         val isSubpage = route == "session" || route == "data" ||
+            route == "history" || route == "library" ||
             route?.startsWith("exercise/") == true || route?.startsWith("program/") == true ||
             route?.startsWith("workout/") == true
         if (!isSubpage) {
@@ -264,10 +326,19 @@ private fun AppNavHost(
                 current = route,
                 onSelect = { target ->
                     if (target != route) {
-                        nav.navigate(target) {
-                            popUpTo("home") { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        if (target == "home") {
+                            // "home" is the graph's start destination, so it is also the
+                            // popUpTo anchor below. navigate("home") with that anchor saves the
+                            // tab being left and then restoreState puts it straight back —
+                            // which made the Home tab a silent no-op from every other tab
+                            // (found in tap-through QA 2026-08-09). Pop to it instead.
+                            nav.popBackStack("home", inclusive = false)
+                        } else {
+                            nav.navigate(target) {
+                                popUpTo("home") { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     }
                 },

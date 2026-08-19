@@ -3,10 +3,18 @@
 // Outputs: "m:ss" / "h:mm:ss" strings
 package com.gymtracker.utils
 
+import kotlin.math.abs
+
 object TimeFormat {
 
     fun mmss(totalSeconds: Int): String =
         "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+
+    /** Same as [mmss], but negative means over — "+0:15" for 15 seconds past the target. */
+    fun signedMmss(totalSeconds: Int): String {
+        val sign = if (totalSeconds < 0) "+" else ""
+        return "$sign${mmss(abs(totalSeconds))}"
+    }
 
     fun clock(elapsedMillis: Long): String {
         val s = (elapsedMillis / 1000).coerceAtLeast(0)

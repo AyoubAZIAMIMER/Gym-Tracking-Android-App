@@ -9,9 +9,12 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import android.provider.Settings
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 // Colors Material3 has no slot for; kept out of ColorScheme so usage stays explicit
 @Immutable
@@ -25,6 +28,10 @@ data class ExtendedColors(
     val tagNegative: Color,
     val tagTempo: Color,
     val tagFailure: Color,
+    // rank medals (subtle gamification) — gold rank uses prGold, olympian uses onSurface
+    val rankWood: Color,
+    val rankBronze: Color,
+    val rankSilver: Color,
     // liquid glass tokens
     val glassTint: Color,
     val glassTintBlur: Color,
@@ -44,6 +51,9 @@ private val DarkExtended = ExtendedColors(
     tagNegative = TagNegative,
     tagTempo = TagTempo,
     tagFailure = TagFailure,
+    rankWood = RankWood,
+    rankBronze = RankBronze,
+    rankSilver = RankSilver,
     glassTint = GlassTintDark,
     glassTintBlur = GlassTintBlurDark,
     glassHighlight = GlassHighlightDark,
@@ -61,6 +71,9 @@ private val LightExtended = ExtendedColors(
     tagNegative = TagNegative,
     tagTempo = CyanLight,
     tagFailure = ErrorLight,
+    rankWood = RankWoodLight,
+    rankBronze = RankBronzeLight,
+    rankSilver = RankSilverLight,
     glassTint = GlassTintLight,
     glassTintBlur = GlassTintBlurLight,
     glassHighlight = GlassHighlightLight,
@@ -87,7 +100,7 @@ private val DarkColors = darkColorScheme(
     onSurface = TextPrimary,
     surfaceVariant = SurfaceRaised,
     onSurfaceVariant = TextSecondary,
-    surfaceContainerLowest = Color(0xFF14120F),
+    surfaceContainerLowest = Color(0xFF0A0906),
     surfaceContainerLow = SurfaceDark,
     surfaceContainer = SurfaceDark,
     surfaceContainerHigh = SurfaceRaised,
@@ -127,11 +140,44 @@ private val LightColors = lightColorScheme(
 @Composable
 fun GymTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    // The three expressive axes (design_handoff_forged_android/ForgeExpression.kt).
+    // v10 default is Heat.Chalk — the chrome carries no hue so heat can mean data.
+    heat: Heat = Heat.Chalk,
+    energy: Energy = Energy.Alive,
+    surface: SurfaceStyle = SurfaceStyle.Soft,
     content: @Composable () -> Unit,
 ) {
-    val colors = if (darkTheme) DarkColors else LightColors
+    val base = if (darkTheme) DarkColors else LightColors
     val extended = if (darkTheme) DarkExtended else LightExtended
-    CompositionLocalProvider(LocalExtendedColors provides extended) {
+    // Calm is also forced when the OS animator scale is 0 — reduce-motion is not a preference
+    // we get to override (BUILD_ORDER step 2).
+    val animatorScale = Settings.Global.getFloat(
+        LocalContext.current.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f,
+    )
+    val effectiveEnergy = if (animatorScale == 0f) Energy.Calm else energy
+    val forge = ForgeExpressionState(
+        heat = heat,
+        energy = effectiveEnergy,
+        surface = surface,
+        dark = darkTheme,
+    )
+    // Heat re-tints THE action colour, so it has to reach colorScheme.primary — otherwise only
+    // the handoff's own components (which read palette.action) would change and the rest of the
+    // app would keep the old accent.
+    val colors = base.copy(
+        primary = forge.palette.action,
+        onPrimary = forge.palette.onAction,
+        primaryContainer = forge.palette.actionContainer,
+        // was left on the ember tint, so hero eyebrows and the avatar stayed salmon after the
+        // action colour moved to chalk
+        onPrimaryContainer = forge.palette.onActionContainer,
+    )
+    // Energy drives every Motion.* duration (Calm == snap, and reduce-motion forces it)
+    SideEffect { Motion.applyScale(forge.motionScale) }
+    CompositionLocalProvider(
+        LocalExtendedColors provides extended,
+        LocalForge provides forge,
+    ) {
         MaterialTheme(
             colorScheme = colors,
             typography = AppTypography,

@@ -16,6 +16,13 @@ enum class SetTag(val letter: String, val label: String) {
     fun next(): SetTag? = entries.getOrNull(ordinal + 1)
 }
 
+// Optional effort rating, RPE 6-10 scale. Tap cycles (none) → 6 → 7 → 8 → 9 → 10 → (none).
+fun nextRpe(current: Int?): Int? = when (current) {
+    null -> 6
+    10 -> null
+    else -> current + 1
+}
+
 data class SessionSet(
     val id: Long,
     val prevWeightKg: Double? = null,
@@ -27,6 +34,7 @@ data class SessionSet(
     val weightText: String = "",
     val repsText: String = "",
     val tag: SetTag? = null,
+    val rpe: Int? = null,            // optional effort rating, RPE 6-10
     val completed: Boolean = false,
     val isPr: Boolean = false,      // beat the all-time e1RM at the moment of logging
     val intensity: Float? = null,   // e1RM ÷ all-time best at logging (heat badge, Identity v5)

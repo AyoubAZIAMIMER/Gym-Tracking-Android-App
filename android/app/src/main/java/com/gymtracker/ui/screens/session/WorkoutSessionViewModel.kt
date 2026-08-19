@@ -28,6 +28,19 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch { loadFreshSession(keepIfActive = true) }
+        // Lock-screen "Log set" action: identical to tapping the active row in-app.
+        viewModelScope.launch {
+            RestTimerService.logSetRequests.collect { logActiveSetFromNotification() }
+        }
+    }
+
+    private fun logActiveSetFromNotification() {
+        val st = _ui.value
+        val activeId = st.activeSetId ?: return
+        val exercise = st.exercises.firstOrNull { ex -> ex.sets.any { it.id == activeId } } ?: return
+        val set = exercise.sets.first { it.id == activeId }
+        if (set.completed) return   // toggleCompleted flips both ways — guard against re-firing
+        toggleCompleted(exercise.id, activeId)
     }
 
     private suspend fun refreshPrBaseline() {
@@ -163,11 +176,16 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     fun setRepsText(exerciseId: Long, setId: Long, text: String) =
         updateSet(exerciseId, setId) { it.copy(repsText = text.filter(Char::isDigit).take(3)) }
 
+    /**
+     * Step size comes from Settings → Weight step (1.25 / 2.5 / 5). It used to be hardcoded to
+     * 2.5 here AND at the Slate call site, so the setting silently did nothing. The steppers are
+     * a convenience, not a constraint: [setWeightText] takes any value the user types.
+     */
     fun dragWeight(exerciseId: Long, setId: Long, steps: Int) =
         updateSet(exerciseId, setId) {
-            // ±2.5 kg per step: smallest standard plate pair (owner-approved deviation from ±1)
+            val step = repo.settings().weightStepKg.takeIf { s -> s > 0.0 } ?: 2.5
             val base = it.weightText.toDoubleOrNull() ?: it.suggestedWeightKg ?: it.prevWeightKg ?: 0.0
-            it.copy(weightText = PlateCalculator.fmt((base + steps * 2.5).coerceAtLeast(0.0)))
+            it.copy(weightText = PlateCalculator.fmt((base + steps * step).coerceAtLeast(0.0)))
         }
 
     fun dragReps(exerciseId: Long, setId: Long, steps: Int) =
@@ -181,6 +199,13 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             val current = it.tag
             it.copy(tag = if (current == null) SetTag.WARMUP else current.next())
         }
+
+    /** Direct pick from the 5-bar EFFORT selector (null clears). */
+    fun setRpe(exerciseId: Long, setId: Long, rpe: Int?) =
+        updateSet(exerciseId, setId) { it.copy(rpe = rpe) }
+
+    fun cycleRpe(exerciseId: Long, setId: Long) =
+        updateSet(exerciseId, setId) { it.copy(rpe = nextRpe(it.rpe)) }
 
     fun toggleCompleted(exerciseId: Long, setId: Long) {
         var completedNow = false
@@ -215,7 +240,24 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
         // completing a set auto-starts rest; duration comes from imported Progression prefs
-        if (completedNow) RestTimerService.start(getApplication(), repo.restSeconds())
+        if (completedNow) {
+            val st = _ui.value
+            val active = st.activeSetId?.let { id ->
+                st.exercises.firstNotNullOfOrNull { ex -> ex.sets.find { it.id == id }?.let { ex to it } }
+            }
+            RestTimerService.start(
+                getApplication(),
+                repo.restSeconds(),
+                setLabel = active?.let { (ex, s) ->
+                    "${ex.name} · set ${ex.sets.indexOfFirst { it.id == s.id } + 1} of ${ex.sets.size}"
+                },
+                upNext = active?.second?.let { s ->
+                    val w = s.suggestedWeightKg ?: s.prevWeightKg
+                    val r = s.suggestedReps ?: s.prevReps
+                    if (w != null && r != null) "${PlateCalculator.fmt(w)} kg × $r" else null
+                },
+            )
+        }
     }
 
     private fun isPr(dbExerciseId: String?, s: SessionSet): Boolean {
@@ -376,6 +418,7 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                                 weightKg = s.effectiveWeightKg,
                                 reps = s.effectiveReps,
                                 tagLetter = s.tag?.letter,
+                                rpe = s.rpe?.toFloat(),
                             )
                         },
                     )
@@ -386,7 +429,12 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                 // program sessions rotate the active program to its next day
                 if (state.programDayId != null) repo.advanceProgramPointer()
             }
-            _ui.update { it.copy(showFinishSheet = false, finished = true) }
+            // sessionActive must drop here, not just `finished`: consumeFinished() rebuilds a
+            // fresh session and carries sessionActive across, so leaving it true made Home offer
+            // "Resume · 0 of N sets logged" for a workout that had just been saved.
+            _ui.update {
+                it.copy(showFinishSheet = false, finished = true, sessionActive = false)
+            }
         }
     }
 

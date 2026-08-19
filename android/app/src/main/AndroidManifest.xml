@@ -6,19 +6,35 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Floating rest bubble over other apps. A settings toggle, not a runtime dialog, and the
+         timer works without it — the bubble simply does not appear. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- Final-five-seconds countdown buzz from the rest timer service, so it fires whichever
+         bubble is on screen — or none. Honours Settings -> Haptics. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.GymTracker">
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/Theme.Forged.Splash">
 
         <!-- singleTask: widget/notification deep links must land in the existing
-             instance (a second instance would carry a second, empty session VM) -->
+             instance (a second instance would carry a second, empty session VM).
+
+             Portrait only. Landscape is not broken so much as unbuilt: the floating nav overlaps
+             mid-screen content and the CTA stretches the full width, because every screen is
+             composed for one column. Supporting it properly means adaptive layouts, which is a
+             project rather than a fix — and this is a phone app used standing at a rack.
+             Deliberate MVP limitation: drop screenOrientation to re-enable. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
