@@ -10,6 +10,10 @@
          timer works without it — the bubble simply does not appear. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Final-five-seconds countdown buzz from the rest timer service, so it fires whichever
+         bubble is on screen — or none. Honours Settings -> Haptics. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"

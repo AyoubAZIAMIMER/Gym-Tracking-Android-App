@@ -37,7 +37,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,15 +49,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.ForgeExpression
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
+import com.gymtracker.service.RestBubblePosition
 import com.gymtracker.utils.TimeFormat
 import dev.chrisbanes.haze.HazeState
 import kotlin.math.abs
@@ -72,28 +70,33 @@ fun RestTimerBubble(
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
     hazeState: HazeState? = null,
+    /**
+     * Absolute screen position, shared with the WindowManager overlay so the bubble stays put
+     * when you leave the app. Null keeps the caller's own placement (drag then does nothing).
+     */
+    position: RestBubblePosition.Pos? = null,
+    onDrag: ((dx: Float, dy: Float) -> Unit)? = null,
+    onDragEnd: (() -> Unit)? = null,
 ) {
-    var offset by remember { mutableStateOf(Offset.Zero) }
     var expanded by remember { mutableStateOf(false) }
 
     val finalCountdown = remainingSec in 1..5
 
-    // Gentle haptics: a light tick each of the last 5 seconds, a firmer buzz on completion.
-    val haptic = LocalHapticFeedback.current
-    LaunchedEffect(remainingSec) {
-        when {
-            remainingSec == 0 -> haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            remainingSec in 1..5 -> haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        }
-    }
+    // Haptics for the last five seconds live in RestTimerService, so they fire whichever bubble
+    // is on screen — or neither. Doing them here as well would double-buzz.
 
     GlassSurface(
         modifier = modifier
-            .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
+            .then(
+                if (position == null) Modifier
+                else Modifier.offset { IntOffset(position.x, position.y) }
+            )
+            .pointerInput(onDrag, onDragEnd) {
+                detectDragGestures(
+                    onDragEnd = { onDragEnd?.invoke() },
+                ) { change, dragAmount ->
                     change.consume()
-                    offset += dragAmount
+                    onDrag?.invoke(dragAmount.x, dragAmount.y)
                 }
             },
         shape = RoundedCornerShape(32.dp),

@@ -17,11 +17,14 @@ import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -31,9 +34,11 @@ class RestBubbleOverlay(private val context: Context) {
     private val wm = context.getSystemService(WindowManager::class.java)
     private var view: BubbleView? = null
     private var params: WindowManager.LayoutParams? = null
+    private var hiding = false
 
     fun show(remainingSec: Int, totalSec: Int) {
         if (!canDraw(context)) return
+        RestBubblePosition.ensureLoaded(context)
         val v = view ?: BubbleView(context).also { fresh ->
             val size = (SIZE_DP * context.resources.displayMetrics.density).roundToInt()
             val lp = WindowManager.LayoutParams(
@@ -46,26 +51,78 @@ class RestBubbleOverlay(private val context: Context) {
                     WindowManager.LayoutParams.TYPE_PHONE
                 },
                 // not focusable: the bubble must never steal typing from the app underneath
+                // lay out against the whole display, not just the area below the status bar —
+                // otherwise the same stored position lands ~136 px lower here than in-app
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT,
             ).apply {
+                // wherever the in-app bubble was last left, so leaving the app does not move it
                 gravity = Gravity.TOP or Gravity.START
-                x = (16 * context.resources.displayMetrics.density).roundToInt()
-                y = (160 * context.resources.displayMetrics.density).roundToInt()
+                RestBubblePosition.offset.value?.let { x = it.x; y = it.y }
             }
             params = lp
             fresh.setOnTouchListener(DragTap(lp))
             runCatching { wm.addView(fresh, lp) }
             view = fresh
+            // fading and scaling the bubble in is what sells it as the same object that was
+            // just riding along inside the app, not a new window popping up over your shoulder
+            if (animationsEnabled(context)) {
+                fresh.alpha = 0f
+                fresh.scaleX = ENTER_SCALE
+                fresh.scaleY = ENTER_SCALE
+                fresh.animate()
+                    .alpha(1f).scaleX(1f).scaleY(1f)
+                    .setDuration(ENTER_MS)
+                    .setInterpolator(DecelerateInterpolator(1.6f))
+                    .start()
+            }
+        }
+        if (hiding) {
+            hiding = false
+            v.animate().cancel()
+            v.alpha = 1f
+            v.scaleX = 1f
+            v.scaleY = 1f
+        }
+        // a drag inside the app while we were hidden must land before the window is shown again
+        params?.let { lp ->
+            RestBubblePosition.offset.value?.let { pos ->
+                if (lp.x != pos.x || lp.y != pos.y) {
+                    lp.x = pos.x; lp.y = pos.y
+                    runCatching { wm.updateViewLayout(v, lp) }
+                }
+            }
         }
         v.update(remainingSec, totalSec)
     }
 
+    // mirrors the enter fade so the bubble reads as leaving the screen rather than the app
+    // vanishing out from under it; `hiding` lets a fast re-entry reclaim this same window
+    // instead of racing a second addView while the exit animation is still playing.
     fun hide() {
-        view?.let { runCatching { wm.removeView(it) } }
-        view = null
-        params = null
+        val v = view ?: return
+        if (!animationsEnabled(context)) {
+            runCatching { wm.removeView(v) }
+            view = null
+            params = null
+            hiding = false
+            return
+        }
+        hiding = true
+        v.animate()
+            .alpha(0f).scaleX(EXIT_SCALE).scaleY(EXIT_SCALE)
+            .setDuration(EXIT_MS)
+            .setInterpolator(AccelerateInterpolator(1.4f))
+            .withEndAction {
+                if (!hiding) return@withEndAction   // show() reclaimed it mid-exit
+                runCatching { wm.removeView(v) }
+                view = null
+                params = null
+                hiding = false
+            }
+            .start()
     }
 
     /** Drag to reposition; a tap that never really moved reopens the session. */
@@ -91,8 +148,11 @@ class RestBubbleOverlay(private val context: Context) {
                     lp.x = startX + dx.roundToInt()
                     lp.y = startY + dy.roundToInt()
                     runCatching { wm.updateViewLayout(v, lp) }
+                    RestBubblePosition.set(context, lp.x, lp.y, persist = false)
                 }
-                MotionEvent.ACTION_UP -> if (!moved) {
+                MotionEvent.ACTION_UP -> if (moved) {
+                    RestBubblePosition.set(context, lp.x, lp.y, persist = true)
+                } else {
                     context.packageManager
                         .getLaunchIntentForPackage(context.packageName)
                         ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -148,6 +208,16 @@ class RestBubbleOverlay(private val context: Context) {
             val d = context.resources.displayMetrics.density
             val cx = width / 2f
             val cy = height / 2f
+
+            // The last five seconds pulse, same 0.08 amplitude as the in-app bubble. Redrawn per
+            // frame only during that window; the rest of the time one repaint a second is plenty.
+            val finalWindow = remaining in 1..5
+            if (finalWindow && animationsEnabled(context)) {
+                val phase = (SystemClock.uptimeMillis() % 520L) / 520f
+                val wave = kotlin.math.sin(phase * 2f * Math.PI).toFloat()
+                canvas.scale(1f + 0.08f * wave, 1f + 0.08f * wave, cx, cy)
+                postInvalidateOnAnimation()
+            }
 
             // the glass plate: 64 dp round-rect, matching GlassSurface's 32 dp corner
             val plateR = 32f * d
@@ -235,6 +305,10 @@ class RestBubbleOverlay(private val context: Context) {
         // 52 dp ring + RestTimerBubble's 6 dp padding either side
         private const val SIZE_DP = 64
         private const val TOUCH_SLOP = 12f
+        private const val ENTER_MS = 180L
+        private const val EXIT_MS = 140L
+        private const val ENTER_SCALE = 0.82f
+        private const val EXIT_SCALE = 0.82f
         // v10 tokens, mirrored from ui/theme/Color.kt — this file cannot read the Compose theme
         private val GLASS = Color.parseColor("#E61A1918")    // GlassSurface over an unknown backdrop
         private val OUTLINE = Color.parseColor("#332C2A27")  // OutlineDark, faint
@@ -247,5 +321,13 @@ class RestBubbleOverlay(private val context: Context) {
         /** The overlay permission is a settings toggle, not a runtime dialog. */
         fun canDraw(context: Context): Boolean =
             Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)
+
+        /** Reduce-motion is not a preference we get to override, so the pulse and the
+         *  enter/exit fade both honour it. */
+        private fun animationsEnabled(context: Context): Boolean = runCatching {
+            Settings.Global.getFloat(
+                context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f,
+            ) != 0f
+        }.getOrDefault(true)
     }
 }

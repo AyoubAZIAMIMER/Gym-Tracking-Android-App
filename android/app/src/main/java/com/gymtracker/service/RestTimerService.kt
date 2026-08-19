@@ -14,8 +14,12 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.os.VibratorManager
+import android.os.Vibrator
+import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
 import com.gymtracker.R
+import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.utils.TimeFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +54,18 @@ class RestTimerService : Service() {
     /** The floating bubble. Null-safe no-op unless the overlay permission is granted. */
     private val bubble by lazy { RestBubbleOverlay(this) }
 
+    private val vibrator: Vibrator? by lazy {
+        if (Build.VERSION.SDK_INT >= 31) {
+            getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Vibrator::class.java)
+        }
+    }
+
+    /** Guards against re-buzzing the same second when publish() runs more than once for it. */
+    private var lastBuzzedSecond = -1
+
     private val remaining: Int
         get() = (((deadlineElapsedMs - SystemClock.elapsedRealtime()) + 999) / 1000)
             .coerceAtLeast(0).toInt()
@@ -69,6 +85,7 @@ class RestTimerService : Service() {
             ACTION_START -> startTimer(intent.getIntExtra(EXTRA_SECONDS, DEFAULT_SECONDS))
             ACTION_ADD_15 -> if (ticker != null) {
                 deadlineElapsedMs += 15_000
+                lastBuzzedSecond = -1        // +15s leaves the final-five window
                 total = maxOf(total, remaining)
                 publish()
                 updateNotification()
@@ -90,8 +107,27 @@ class RestTimerService : Service() {
         }
     }
 
+    /**
+     * The last five seconds are felt, not just seen: a tick on each of 5..1 and a firmer buzz at
+     * zero. This lives in the service rather than the Compose bubble so it fires whichever bubble
+     * is on screen — or neither, when only the notification is up. Respects Settings -> Haptics.
+     */
+    private fun buzzFinalSeconds(remainingSec: Int) {
+        if (remainingSec > 5 || remainingSec == lastBuzzedSecond) return
+        lastBuzzedSecond = remainingSec
+        if (!WorkoutRepository.get(this).settings().haptics) return
+        val v = vibrator?.takeIf { it.hasVibrator() } ?: return
+        val effect = if (remainingSec == 0) {
+            VibrationEffect.createOneShot(160, VibrationEffect.DEFAULT_AMPLITUDE)
+        } else {
+            VibrationEffect.createOneShot(28, 90)
+        }
+        runCatching { v.vibrate(effect) }
+    }
+
     private fun startTimer(seconds: Int) {
         total = seconds.coerceAtLeast(1)
+        lastBuzzedSecond = -1
         deadlineElapsedMs = SystemClock.elapsedRealtime() + total * 1_000L
         createChannels()
         startForegroundWithType()
@@ -127,6 +163,7 @@ class RestTimerService : Service() {
         val left = remaining
         _state.value = RestState(left, total)
         syncBubble(left)
+        buzzFinalSeconds(left)
     }
 
     private fun startForegroundWithType() {

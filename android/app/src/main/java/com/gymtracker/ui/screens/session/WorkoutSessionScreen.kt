@@ -97,6 +97,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.domain.Progression
+import com.gymtracker.service.RestBubblePosition
 import com.gymtracker.service.RestTimerService
 import com.gymtracker.ui.components.AlertBody
 import com.gymtracker.ui.components.ForgedAlert
@@ -519,23 +520,30 @@ fun WorkoutSessionScreen(
             )
 
             restState?.let { rest ->
+                // Positioned in absolute screen pixels from the shared store, so this bubble and
+                // the overlay are the same object: drag it here, leave the app, and it is still
+                // where you put it. TopStart because the overlay's window uses the same origin.
+                LaunchedEffect(Unit) { RestBubblePosition.ensureLoaded(context) }
+                val bubblePos by RestBubblePosition.offset.collectAsStateWithLifecycle()
                 RestTimerBubble(
                     remainingSec = rest.remainingSec,
                     totalSec = rest.totalSec,
                     onAdd15 = { RestTimerService.add15(context) },
                     onSkip = { RestTimerService.stop(context) },
                     hazeState = hazeState,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .navigationBarsPadding()
-                        .padding(
-                            start = 16.dp,
-                            // Strike and the Slate both own the bottom of the screen — the bubble
-                            // sat on top of the Slate's note button once a rest started
-                            bottom = if (strikeShowing || slateShowing) {
-                                Dim.sessionBottomBar + 12.dp
-                            } else 24.dp,
-                        ),
+                    position = bubblePos,
+                    onDrag = { dx, dy ->
+                        bubblePos?.let {
+                            RestBubblePosition.set(
+                                context, it.x + dx.roundToInt(), it.y + dy.roundToInt(),
+                                persist = false,
+                            )
+                        }
+                    },
+                    onDragEnd = {
+                        bubblePos?.let { RestBubblePosition.set(context, it.x, it.y, persist = true) }
+                    },
+                    modifier = Modifier.align(Alignment.TopStart),
                 )
             }
 
