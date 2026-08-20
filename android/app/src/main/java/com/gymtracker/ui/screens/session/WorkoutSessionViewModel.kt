@@ -434,15 +434,16 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    fun showFinishSheet(show: Boolean) = _ui.update { it.copy(showFinishSheet = show) }
-
     // The VM is activity-scoped so an in-progress workout survives Back / app-switch;
     // Home shows "Resume workout" while sessionActive is true.
     fun markSessionActive() = _ui.update {
         if (it.sessionActive) it else it.copy(sessionActive = true, startedAtMillis = System.currentTimeMillis())
     }
 
-    fun finishWorkout(comment: String) {
+    // No comment param: the session comment used to gate the old finish sheet ("type how it
+    // went, then Save"). It's now just another editable field on the results screen you land
+    // on — same tap-to-comment path History already had — so finishing itself takes nothing.
+    fun finishWorkout() {
         RestTimerService.stop(getApplication())
         val state = _ui.value
         viewModelScope.launch {
@@ -466,7 +467,7 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                 .filter { it.sets.isNotEmpty() }
             var savedId: String? = null
             if (toSave.isNotEmpty()) {
-                savedId = repo.saveSession(state.workoutName, state.startedAtMillis, comment, toSave)
+                savedId = repo.saveSession(state.workoutName, state.startedAtMillis, "", toSave)
                 // program sessions rotate the active program to its next day
                 if (state.programDayId != null) repo.advanceProgramPointer()
             }
@@ -475,7 +476,6 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             // "Resume · 0 of N sets logged" for a workout that had just been saved.
             _ui.update {
                 it.copy(
-                    showFinishSheet = false,
                     finished = true,
                     sessionActive = false,
                     savedWorkoutId = savedId,

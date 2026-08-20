@@ -33,10 +33,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.service.AppForeground
 import com.gymtracker.service.TrainingReminderWorker
@@ -264,7 +266,12 @@ private fun AppNavHost(
                     onBack = { nav.popBackStack() },
                 )
             }
-            composable("workout/{workoutId}") {
+            composable(
+                "workout/{workoutId}?celebrate={celebrate}",
+                arguments = listOf(
+                    navArgument("celebrate") { type = NavType.BoolType; defaultValue = false },
+                ),
+            ) {
                 WorkoutDetailScreen(
                     onBack = { nav.popBackStack() },
                     onOpenExercise = { id -> nav.navigate("exercise/$id") },
@@ -305,7 +312,7 @@ private fun AppNavHost(
                     // that IS the post-session summary now, no separate screen to keep in sync
                     onFinished = { savedId ->
                         if (savedId != null) {
-                            nav.navigate("workout/$savedId") {
+                            nav.navigate("workout/$savedId?celebrate=true") {
                                 popUpTo("session") { inclusive = true }
                             }
                         } else {

@@ -73,6 +73,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymtracker.ui.components.EffortBars
@@ -108,6 +109,7 @@ data class SetRowUi(
     /** SessionSet.intensity — e1RM ÷ all-time best. Drives the heat-tinted OneRmBadge. */
     val intensity: Float? = null,
     val isPr: Boolean = false,
+    val tag: SetTag? = null,     // set via the Comment sheet — Warmup and friends read here
 )
 
 data class SessionUi(
@@ -501,12 +503,18 @@ private fun SetRow(set: SetRowUi, heatAt: (Float) -> Color, onOpenActiveSet: () 
                 SetStatus.Todo -> scheme.onSurfaceVariant.copy(alpha = 0.55f)
             },
         )
-        Text(
-            "Set ${set.index}",
-            style = type.bodyMedium.copy(fontSize = 15.5.sp),
-            color = if (set.status == SetStatus.Todo) scheme.onSurfaceVariant else scheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
+        Row(
+            Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Set ${set.index}",
+                style = type.bodyMedium.copy(fontSize = 15.5.sp),
+                color = if (set.status == SetStatus.Todo) scheme.onSurfaceVariant else scheme.onSurface,
+            )
+            set.tag?.let { SetTagBadge(it) }
+        }
 
         when (set.status) {
             SetStatus.Active -> Text("NOW", style = type.labelSmall, color = forge.palette.action)
@@ -665,6 +673,27 @@ private fun effortWord(e: Int?): String = when (e) {
 
 private fun trimZeros(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else v.toString().trimEnd('0').trimEnd('.')
+
+/** The Slate's own small badge — same colors as [setTagColor] everywhere else, sized to sit
+ *  inline next to "Set N" in the live list. This is the answer to "did I just warm up?": the
+ *  tag set in the Comment sheet reads right there in the set list, not just on the icon. */
+@Composable
+fun SetTagBadge(tag: SetTag, modifier: Modifier = Modifier) {
+    val color = setTagColor(tag)
+    Box(
+        modifier
+            .clip(MaterialTheme.shapes.extraSmall)
+            .background(color.copy(alpha = 0.16f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = tag.label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            fontWeight = FontWeight.SemiBold,
+            color = color,
+        )
+    }
+}
 
 /** One color per [SetTag] — shared by the Comment sheet's chip grid, the legacy table's
  *  cycling chip, and History's per-set badge, so a tag reads the same hue everywhere. */

@@ -37,6 +37,9 @@ data class WorkoutDetailUiState(
     val deleted: Boolean = false,
     val musclesSplit: List<MuscleShare> = emptyList(),
     val commentDialogOpen: Boolean = false,
+    // true only for the one navigation straight out of finishing a session — drives the
+    // celebratory header. Browsing the same workout later from History never sets this.
+    val justFinished: Boolean = false,
 )
 
 class WorkoutDetailViewModel(
@@ -46,6 +49,7 @@ class WorkoutDetailViewModel(
 
     private val repo = WorkoutRepository.get(app)
     val workoutId: String = savedStateHandle["workoutId"] ?: ""
+    private val celebrate: Boolean = savedStateHandle["celebrate"] ?: false
 
     private val _ui = MutableStateFlow(WorkoutDetailUiState())
     val ui = _ui.asStateFlow()
@@ -95,6 +99,7 @@ class WorkoutDetailViewModel(
             prCount = detail.exercises.sumOf { ex -> ex.sets.count { it.isPr } },
             editing = editing,
             musclesSplit = musclesSplit,
+            justFinished = celebrate,
         )
     }
 

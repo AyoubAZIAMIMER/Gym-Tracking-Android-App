@@ -4,6 +4,7 @@
 // Outputs: onBack, onOpenExercise(exerciseId), onRepeat(workoutId)
 package com.gymtracker.ui.screens.history
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
@@ -46,8 +48,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,13 +61,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.ui.components.AlertBody
+import com.gymtracker.ui.components.ConfettiBurst
 import com.gymtracker.ui.components.ForgedAlert
 import com.gymtracker.ui.components.ForgedBlock
+import com.gymtracker.ui.components.ForgedMark
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
+import com.gymtracker.ui.components.PrBanner
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
+import com.gymtracker.ui.components.emberBloomPulsing
 import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.StampText
 import com.gymtracker.ui.screens.session.SetTag
@@ -69,6 +79,7 @@ import com.gymtracker.ui.screens.session.setTagColor
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
+import com.gymtracker.ui.theme.Motion
 import com.gymtracker.ui.theme.forgedPress
 import com.gymtracker.utils.PlateCalculator
 
@@ -84,6 +95,26 @@ fun WorkoutDetailScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
 
+    // The old finish sheet's reveal, now the top of this same screen: mark strikes in, then
+    // the PR banner, once — LaunchedEffect(Unit) survives the state reloads that editing a set
+    // or saving a comment trigger, so the confetti doesn't replay on every small edit.
+    var celebrateVisible by remember { mutableStateOf(false) }
+    val celebrateT by animateFloatAsState(
+        targetValue = if (celebrateVisible) 1f else 0f,
+        animationSpec = Motion.settle(Motion.STANDARD),
+        label = "celebrateStrike",
+    )
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(state.justFinished) {
+        if (state.justFinished) {
+            celebrateVisible = true
+            haptic.performHapticFeedback(
+                if (state.prCount > 0) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove
+            )
+        }
+    }
+
+    Box(Modifier.fillMaxSize()) {
     GlowBackground(glowAlpha = 0.10f) {
         Column(
             Modifier
@@ -92,6 +123,39 @@ fun WorkoutDetailScreen(
                 .statusBarsPadding(),
         ) {
             ForgedScreenTitle(state.title, trailing = state.dateLine, onBack = onBack)
+
+            if (state.justFinished) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    ForgedMark(
+                        size = 36.dp,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.graphicsLayer {
+                            alpha = celebrateT
+                            scaleX = 0.85f + 0.15f * celebrateT
+                            scaleY = 0.85f + 0.15f * celebrateT
+                        },
+                    )
+                    Text(
+                        text = "forged.",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.graphicsLayer { alpha = celebrateT },
+                    )
+                    if (state.prCount > 0) {
+                        Spacer(Modifier.height(10.dp))
+                        PrBanner(
+                            visible = celebrateVisible,
+                            label = "${state.prCount} new PR${if (state.prCount > 1) "s" else ""}",
+                        )
+                    }
+                }
+            }
 
             // Anton figures lead, the way History and Stats do — no glass tile row
             ForgedBlock(0, entered) {
@@ -116,7 +180,7 @@ fun WorkoutDetailScreen(
                         Stat(state.durationText ?: "—", "duration")
                         Stat("${state.totalSets}", "sets")
                         Stat(state.totalVolume, "kg volume")
-                        if (state.calories > 0) Stat("${state.calories}", "calories")
+                        if (state.calories > 0) Stat("~${state.calories}", "calories")
                         if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
                     }
                     EditToggle(editing = state.editing, onClick = vm::toggleEditing)
@@ -156,8 +220,15 @@ fun WorkoutDetailScreen(
                 }
             }
 
+            if (state.justFinished) {
+                SectionRule()
+                DoneButton(onClick = onBack, modifier = Modifier.padding(Dim.screenPadH))
+            }
+
             Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))
         }
+    }
+        ConfettiBurst(run = celebrateVisible, modifier = Modifier.matchParentSize())
     }
 
     if (confirmDelete) {
@@ -319,6 +390,32 @@ private fun DeleteWorkoutRow(onClick: () -> Unit) {
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.error,
+        )
+    }
+}
+
+/** The one filled CTA on this screen, shown only fresh off a finish — same treatment the old
+ *  finish sheet's "Save workout" pill had. Repeat/Delete above stay flat text rows on purpose:
+ *  Done is the primary action here, everything else is secondary (ui-ux-pro-max `primary-action`). */
+@Composable
+private fun DoneButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val ember = MaterialTheme.colorScheme.primary
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .emberBloomPulsing(ember, 24.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(ember)
+            .forgedPress(interaction)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "Done",
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+            color = MaterialTheme.colorScheme.onPrimary,
         )
     }
 }

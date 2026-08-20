@@ -73,7 +73,6 @@ data class WorkoutSessionUiState(
     val exercises: List<SessionExercise> = emptyList(),
     val activeSetId: Long? = null,          // auto-advance highlight
     val showExercisePicker: Boolean = false,
-    val showFinishSheet: Boolean = false,
     val finished: Boolean = false,
     val savedWorkoutId: String? = null,     // set once finishWorkout() persists — null means
                                              // nothing was actually saved (e.g. zero sets)

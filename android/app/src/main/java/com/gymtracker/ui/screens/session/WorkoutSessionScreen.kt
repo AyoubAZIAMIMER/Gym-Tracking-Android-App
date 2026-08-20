@@ -254,7 +254,7 @@ fun WorkoutSessionScreen(
     LaunchedEffect(allSetsLogged) {
         if (allSetsLogged && !finishOffered && state.completedSets > 0) {
             finishOffered = true
-            vm.showFinishSheet(true)
+            vm.finishWorkout()
         }
     }
 
@@ -415,6 +415,7 @@ fun WorkoutSessionScreen(
                                 reps = set.effectiveReps,
                                 intensity = set.intensity,
                                 isPr = set.isPr,
+                                tag = set.tag,
                             )
                         },
                         restSeconds = restState?.remainingSec,
@@ -567,7 +568,7 @@ fun WorkoutSessionScreen(
                         recoilTick++
                         showDiscardDialog = true
                     } else {
-                        vm.showFinishSheet(true)
+                        vm.finishWorkout()
                     }
                 },
                 onMinimise = onMinimise,
@@ -695,14 +696,6 @@ fun WorkoutSessionScreen(
             dismissLabel = "Keep going",
             destructive = true,
             body = { AlertBody("Discard this session? Nothing will be saved.") },
-        )
-    }
-    if (state.showFinishSheet) {
-        FinishSummarySheet(
-            state = state,
-            elapsedMillis = nowMillis - state.startedAtMillis,
-            onSave = vm::finishWorkout,
-            onDismiss = { vm.showFinishSheet(false) },
         )
     }
     if (restActionsSheetOpen) {
