@@ -59,7 +59,11 @@ fun SettingRow(
                 } else Modifier
             )
             .padding(horizontal = Dim.screenPadH, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        // Top, not CenterVertically: a control centered against a title+2-line-helper column
+        // floats below the title instead of reading level with it (Action colour's wrapped
+        // caption was the case that showed it). Top holds for every row regardless of how
+        // many lines the helper wraps to.
+        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Column(Modifier.weight(1f)) {

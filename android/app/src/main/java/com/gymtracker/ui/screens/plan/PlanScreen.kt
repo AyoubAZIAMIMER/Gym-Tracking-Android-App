@@ -66,6 +66,7 @@ import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
 import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.emberBloom
+import com.gymtracker.ui.components.fadeEdgeEnd
 import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.theme.Anton
 import com.gymtracker.ui.theme.Dim
@@ -179,7 +180,8 @@ fun PlanScreen(
             Row(
                 Modifier
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = Dim.screenPadH),
+                    .padding(horizontal = Dim.screenPadH)
+                    .fadeEdgeEnd(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 state.templates.forEach { template ->

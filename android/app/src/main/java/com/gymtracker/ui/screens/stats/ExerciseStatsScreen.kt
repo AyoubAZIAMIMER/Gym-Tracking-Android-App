@@ -126,7 +126,9 @@ fun ExerciseStatsScreen(
             ) {
                 SectionRule()
                 Text(
-                    text = "No logged sets for this exercise yet.",
+                    // matches Plan's empty-state voice ("No active program — add one below")
+                    // rather than a dead-end statement
+                    text = "No logged sets for this exercise yet — log it in a session and it shows up here.",
                     fontSize = 14.sp,
                     color = GymTheme.colors.hint,
                     modifier = Modifier.padding(horizontal = Dim.screenPadH, vertical = 18.dp),

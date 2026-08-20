@@ -24,11 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gymtracker.ui.theme.Dim
@@ -56,6 +58,27 @@ fun Modifier.forgeGround(): Modifier {
                 size = Size(size.width, size.height),
             )
         }
+}
+
+/**
+ * Fades a horizontally-scrolling row's trailing edge into the page background, so content cut
+ * off at the screen edge reads as "more to scroll" instead of looking like the row just stops.
+ * Uses [Dim.scrollFade] — spec'd for exactly this, previously unused anywhere.
+ */
+@Composable
+fun Modifier.fadeEdgeEnd(width: Dp = Dim.scrollFade): Modifier {
+    val bg = MaterialTheme.colorScheme.background
+    return this.drawWithContent {
+        drawContent()
+        val fadePx = width.toPx()
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(Color.Transparent, bg),
+                startX = size.width - fadePx,
+                endX = size.width,
+            ),
+        )
+    }
 }
 
 /**

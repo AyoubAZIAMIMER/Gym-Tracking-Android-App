@@ -232,6 +232,14 @@ fun WeeklyBarChart(
                     size = Size(barW, h),
                     cornerRadius = CornerRadius(barW * 0.35f),
                 )
+            } else if (barT > 0f) {
+                // a week with 0 volume is still a week — a bare baseline dot says "quiet",
+                // not "missing data" (an empty slot with nothing else on the axis read as broken)
+                drawCircle(
+                    color = onSurface.copy(alpha = 0.14f),
+                    radius = barW * 0.14f,
+                    center = Offset(insetH + slot * i + slot / 2f, insetTop + chartH),
+                )
             }
         }
 

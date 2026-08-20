@@ -77,6 +77,7 @@ import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
 import com.gymtracker.ui.components.SheetTitle
+import com.gymtracker.ui.components.fadeEdgeEnd
 import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.ForgedScreenTitle
@@ -179,7 +180,8 @@ fun ExerciseLibraryScreen(
                 Row(
                     Modifier
                         .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = Dim.screenPadH),
+                        .padding(horizontal = Dim.screenPadH)
+                        .fadeEdgeEnd(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     // README §9: active filter is an accent underline, not a filled pill

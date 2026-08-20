@@ -37,6 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +54,7 @@ import com.gymtracker.ui.components.ForgeHairline
 import com.gymtracker.ui.components.ForgeSectionHeader
 import com.gymtracker.ui.components.ForgedMark
 import com.gymtracker.ui.components.ForgedWordmark
+import com.gymtracker.ui.components.fadeEdgeEnd
 import com.gymtracker.ui.components.forgeGround
 import com.gymtracker.ui.components.forgeHero
 import androidx.compose.ui.text.TextStyle
@@ -249,6 +251,7 @@ fun HomeHubScreen(
             // the link says Recovery, so it must go to Recovery — it called onOpenPlan before
             RailHeader("Ready to train", "Recovery ›", onOpenRecovery)
             LazyRow(
+                modifier = Modifier.fadeEdgeEnd(),
                 contentPadding = PaddingValues(horizontal = Dim.screenPadH),
                 horizontalArrangement = Arrangement.spacedBy(Dim.railGap),
             ) {
@@ -266,7 +269,17 @@ fun HomeHubScreen(
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(tint.copy(alpha = 0.22f)))
+                        Box(
+                            Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(tint.copy(alpha = 0.22f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Rounded.FitnessCenter,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp),
+                                tint = tint,
+                            )
+                        }
                         Text(card.muscle, style = type.titleMedium, color = scheme.onSurface)
                         Text(card.caption, style = type.bodySmall, color = tint)
                     }
@@ -279,6 +292,7 @@ fun HomeHubScreen(
             if (ui.jumpBackIn.isNotEmpty()) {
             RailHeader("Jump back in", "All history ›", onOpenHistory)
             LazyRow(
+                modifier = Modifier.fadeEdgeEnd(),
                 contentPadding = PaddingValues(horizontal = Dim.screenPadH),
                 horizontalArrangement = Arrangement.spacedBy(Dim.railGap),
             ) {
