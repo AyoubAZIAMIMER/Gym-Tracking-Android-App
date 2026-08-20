@@ -77,6 +77,7 @@ fun HomeScreen(
             },
             jumpBackIn = state.recent.map { r ->
                 RecentSessionUi(
+                    id = r.id,
                     name = r.name,
                     caption = r.dayLabel + (r.durationMin?.let { " · $it min" } ?: ""),
                     volume = "${Formats.volumeKg(r.volumeKg)} kg",

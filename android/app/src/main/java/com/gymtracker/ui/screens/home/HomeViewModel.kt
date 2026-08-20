@@ -28,7 +28,13 @@ data class PlanRow(val name: String, val muscle: String, val detail: String, val
 data class UpcomingRow(val name: String, val muscles: String, val dayLabel: String)
 
 // Home's "RECENT" row: the most recently logged workout
-data class RecentRow(val name: String, val dayLabel: String, val durationMin: Int?, val volumeKg: Double)
+data class RecentRow(
+    val id: String,
+    val name: String,
+    val dayLabel: String,
+    val durationMin: Int?,
+    val volumeKg: Double,
+)
 
 data class HomeUiState(
     val hasData: Boolean = false,
@@ -146,6 +152,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val recentRows = if (stats.hasData) {
             repo.recentWorkouts().map { r ->
                 RecentRow(
+                    id = r.id,
                     name = r.name,
                     dayLabel = LocalDate.ofInstant(Instant.ofEpochMilli(r.startedAtMillis), ZoneId.systemDefault())
                         .format(DateTimeFormatter.ofPattern("EEE", Locale.ENGLISH)),

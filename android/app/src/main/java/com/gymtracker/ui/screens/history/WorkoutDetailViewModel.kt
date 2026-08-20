@@ -71,9 +71,11 @@ class WorkoutDetailViewModel(
         val durationMillis = detail.workout.endedAt
             ?.let { it - detail.workout.startedAt }
             ?.takeIf { it > 0 }
-        val tagLetters = detail.exercises.flatMap { ex -> ex.sets.map { it.tag } }
+        val setSamples = detail.exercises.flatMap { ex ->
+            ex.sets.map { CalorieEstimator.SetSample(ex.equipment, it.tag) }
+        }
         val calories = CalorieEstimator.estimate(
-            tagLetters = tagLetters,
+            sets = setSamples,
             durationSeconds = (durationMillis ?: 0L) / 1000,
             bodyWeightKg = repo.profile().bodyWeightKg,
         )

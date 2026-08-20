@@ -439,6 +439,7 @@ class WorkoutRepository(
     }
 
     data class RecentWorkout(
+        val id: String,
         val name: String,
         val startedAtMillis: Long,
         val durationMin: Int?,
@@ -456,6 +457,7 @@ class WorkoutRepository(
             if (sets.isEmpty()) return@mapNotNull null
             val working = sets.filter { it.tag != "W" }
             RecentWorkout(
+                id = workout.id,
                 name = workout.name.ifBlank { "Workout" },
                 startedAtMillis = workout.startedAt,
                 durationMin = workout.endedAt?.let { ((it - workout.startedAt) / 60_000L).toInt() },
@@ -582,6 +584,7 @@ class WorkoutRepository(
         val exerciseId: String,
         val name: String,
         val muscles: String,
+        val equipment: String,
         val sets: List<DetailSet>,
     )
 
@@ -611,6 +614,7 @@ class WorkoutRepository(
                 exerciseId = exId,
                 name = names[exId]?.name ?: "Unknown exercise",
                 muscles = names[exId]?.muscles.orEmpty(),
+                equipment = names[exId]?.equipment.orEmpty(),
                 sets = exSets.sortedBy { it.orderInWorkout }.map { s ->
                     val e1rm = if (s.tag != "W" && s.weightKg != null && s.reps != null && s.reps > 0) {
                         OneRM.estimate(s.weightKg, s.reps)

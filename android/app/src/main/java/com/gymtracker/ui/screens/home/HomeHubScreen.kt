@@ -88,7 +88,7 @@ data class HeroUi(
 
 data class MuscleCardUi(val muscle: String, val freshness: Float, val caption: String)
 
-data class RecentSessionUi(val name: String, val caption: String, val volume: String)
+data class RecentSessionUi(val id: String, val name: String, val caption: String, val volume: String)
 
 @Composable
 fun HomeHubScreen(
@@ -296,8 +296,7 @@ fun HomeHubScreen(
                 contentPadding = PaddingValues(horizontal = Dim.screenPadH),
                 horizontalArrangement = Arrangement.spacedBy(Dim.railGap),
             ) {
-                // name+caption is the only stable identity a rail card has (no id in HomeUi)
-                items(ui.jumpBackIn, key = { "${it.name}|${it.caption}" }) { s ->
+                items(ui.jumpBackIn, key = { it.id }) { s ->
                     val source = remember { MutableInteractionSource() }
                     Column(
                         Modifier
