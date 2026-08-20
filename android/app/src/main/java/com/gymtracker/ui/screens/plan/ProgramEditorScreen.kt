@@ -26,6 +26,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +59,7 @@ import com.gymtracker.ui.components.EditProgramExerciseSheet
 import com.gymtracker.ui.components.ExerciseOverflowMenu
 import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.ForgedAlert
+import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.components.ForgedBlock
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
@@ -85,18 +89,49 @@ fun ProgramEditorScreen(
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding(),
         ) {
-            ForgedScreenTitle(state.detail?.program?.name ?: "Program", onBack = onBack)
+            ForgedScreenTitle("Program", onBack = onBack)
 
+            // THE hero: this program's identity, size, and its active/inactive state folded
+            // into one surface — was a bare title + a flat "Active program" row, nothing that
+            // read as the one thing this whole screen is about.
             ForgedBlock(0, entered) {
-            SectionRule()
-            // Active is a state, not a button — it reads as a row you can flip
-            ActionRow(
-                label = if (state.isActive) "Active program" else "Set as active program",
-                tint = if (state.isActive) GymTheme.colors.success
-                else MaterialTheme.colorScheme.primary,
-                trailing = if (state.isActive) "✓" else null,
-                onClick = vm::toggleActive,
-            )
+            val days = state.detail?.days.orEmpty()
+            val totalExercises = days.sumOf { it.exercises.size }
+            val totalSets = days.sumOf { day -> day.exercises.sumOf { it.row.targetSets } }
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dim.screenPadH)
+                    .forgeHero()
+            ) {
+                Column(Modifier.padding(vertical = 18.dp)) {
+                    Column(Modifier.padding(horizontal = Dim.screenPadH)) {
+                        Text(
+                            text = state.detail?.program?.name ?: "Program",
+                            style = MaterialTheme.typography.displaySmall.copy(fontSize = 26.sp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (days.isEmpty()) "No days yet — add one below"
+                            else "${days.size} day${if (days.size == 1) "" else "s"} · " +
+                                "$totalExercises exercise${if (totalExercises == 1) "" else "s"} · $totalSets sets/week",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    RowRule()
+                    // Active is a state, not a button — it reads as a row you can flip
+                    ActionRow(
+                        label = if (state.isActive) "Active program" else "Set as active program",
+                        tint = if (state.isActive) GymTheme.colors.success
+                        else MaterialTheme.colorScheme.primary,
+                        trailing = if (state.isActive) "✓" else null,
+                        onClick = vm::toggleActive,
+                    )
+                }
+            }
             }
 
             state.detail?.days?.forEachIndexed { dayIndex, day ->
@@ -129,10 +164,14 @@ fun ProgramEditorScreen(
                         ),
                     )
                 }
-                day.exercises.forEach { pe ->
+                day.exercises.forEachIndexed { exIndex, pe ->
                     RowRule()
                     ProgramExerciseRow(
                         pe = pe,
+                        canMoveUp = exIndex > 0,
+                        canMoveDown = exIndex < day.exercises.lastIndex,
+                        onMoveUp = { vm.moveExercise(pe.row.id, -1) },
+                        onMoveDown = { vm.moveExercise(pe.row.id, 1) },
                         onToggleSuperset = { vm.toggleSuperset(pe.row.id) },
                         onEdit = { vm.openEditTarget(pe.row.id) },
                         onReplace = { vm.openReplace(pe.row.id) },
@@ -220,11 +259,15 @@ fun ProgramEditorScreen(
     }
 }
 
-/** One program exercise: dot/superset-bracket, name + target, ⋮ → the shared
- *  Superset/Edit/Replace/Remove menu — same vocabulary the live session uses. */
+/** One program exercise: tinted icon/superset-bracket, name + target, reorder chevrons,
+ *  ⋮ → the shared Superset/Edit/Replace/Remove menu — same vocabulary the live session uses. */
 @Composable
 private fun ProgramExerciseRow(
     pe: WorkoutRepository.ProgramExerciseDetail,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
     onToggleSuperset: () -> Unit,
     onEdit: () -> Unit,
     onReplace: () -> Unit,
@@ -245,15 +288,23 @@ private fun ProgramExerciseRow(
                     )
                 } else Modifier
             )
-            .padding(start = Dim.screenPadH, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            .padding(start = Dim.screenPadH, end = 4.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
-                .size(6.dp)
-                .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-        )
+                .size(28.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.FitnessCenter,
+                contentDescription = null,
+                modifier = Modifier.size(15.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -278,6 +329,30 @@ private fun ProgramExerciseRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp),
             )
+        }
+        Column {
+            IconButton(
+                onClick = onMoveUp,
+                enabled = canMoveUp,
+                modifier = Modifier.size(28.dp),
+            ) {
+                Icon(
+                    Icons.Rounded.KeyboardArrowUp,
+                    contentDescription = "Move ${pe.exercise?.name ?: "exercise"} up",
+                    tint = if (canMoveUp) GymTheme.colors.hint else GymTheme.colors.hint.copy(alpha = 0.3f),
+                )
+            }
+            IconButton(
+                onClick = onMoveDown,
+                enabled = canMoveDown,
+                modifier = Modifier.size(28.dp),
+            ) {
+                Icon(
+                    Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = "Move ${pe.exercise?.name ?: "exercise"} down",
+                    tint = if (canMoveDown) GymTheme.colors.hint else GymTheme.colors.hint.copy(alpha = 0.3f),
+                )
+            }
         }
         Box {
             var menuOpen by remember { mutableStateOf(false) }

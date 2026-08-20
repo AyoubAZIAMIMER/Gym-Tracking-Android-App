@@ -93,23 +93,39 @@ fun PlanScreen(
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding(),
         ) {
-            ForgedScreenTitle("Plan", trailing = state.activeProgramName)
+            ForgedScreenTitle("Plan")
 
-            // THIS WEEK — same strip as Home, so the two tabs agree at a glance
+            // THE hero: program identity + week progress, the two things this tab is actually
+            // about, folded into one surface instead of a bare "THIS WEEK" section header —
+            // every sibling tab has exactly one hero; Plan had none.
             ForgedBlock(0, entered) {
-            SectionRule()
-            ForgedSectionHeader(
-                label = "THIS WEEK",
-                bottomPadding = 12.dp,
-                trailing = {
-                    Text(
-                        text = "${state.workoutsThisWeek} / ${state.weeklyGoal}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontSize = 15.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-            )
-            ForgedWeekStrip(state.doneWeekdays)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dim.screenPadH)
+                    .forgeHero()
+            ) {
+                Column(Modifier.padding(top = 18.dp, bottom = 6.dp)) {
+                    Column(Modifier.padding(horizontal = Dim.screenPadH)) {
+                        Text(
+                            text = state.activeProgramName ?: "No active program",
+                            style = MaterialTheme.typography.displaySmall.copy(fontSize = 26.sp),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (state.activeProgramName != null) {
+                                "${state.sessions.size} session${if (state.sessions.size == 1) "" else "s"} · " +
+                                    "${state.workoutsThisWeek}/${state.weeklyGoal} this week"
+                            } else "Add one below to drive your Home plan",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    ForgedWeekStrip(state.doneWeekdays)
+                }
+            }
 
             // SESSIONS — the active program's days, each startable
             SectionRule()

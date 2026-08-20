@@ -89,6 +89,9 @@ interface ProgramDao {
 
     @Query("UPDATE program_exercises SET supersetGroup = :group WHERE id = :id")
     suspend fun setProgramSupersetGroup(id: String, group: Int?)
+
+    @Query("UPDATE program_exercises SET orderIdx = :order WHERE id = :id")
+    suspend fun setProgramExerciseOrder(id: String, order: Int)
 }
 
 @Dao

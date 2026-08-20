@@ -92,6 +92,12 @@ class ProgramEditorViewModel(
         refresh()
     }
 
+    fun moveExercise(programExerciseId: String, delta: Int) = viewModelScope.launch {
+        val dayId = dayIdOf(programExerciseId) ?: return@launch
+        repo.moveProgramExercise(dayId, programExerciseId, delta)
+        refresh()
+    }
+
     fun openEditTarget(programExerciseId: String) =
         _ui.update { it.copy(editingExerciseId = programExerciseId) }
 

@@ -856,6 +856,8 @@ class WorkoutRepository(
     suspend fun createProgram(name: String): String {
         val id = UUID.randomUUID().toString()
         db.programDao().upsertPrograms(listOf(ProgramEntity(id, name.trim(), System.currentTimeMillis())))
+        // land in the editor with something to build on, not a blank shell
+        addDay(id, "Day 1")
         return id
     }
 
@@ -959,6 +961,18 @@ class WorkoutRepository(
             else -> emptyList()
         }
         updates.forEach { (id, group) -> db.programDao().setProgramSupersetGroup(id, group) }
+    }
+
+    /** Swap this row's position with its neighbour at index+delta (±1). No-op at the day's
+     *  boundaries — the row/edge buttons that call this are disabled there, this is the
+     *  belt-and-braces backend guard. */
+    suspend fun moveProgramExercise(dayId: String, id: String, delta: Int) {
+        val list = db.programDao().dayExercises(dayId)
+        val i = list.indexOfFirst { it.id == id }
+        val j = i + delta
+        if (i == -1 || j !in list.indices) return
+        db.programDao().setProgramExerciseOrder(list[i].id, list[j].orderIdx)
+        db.programDao().setProgramExerciseOrder(list[j].id, list[i].orderIdx)
     }
 
     fun activeProgramId(): String? = prefs.getString(KEY_ACTIVE_PROGRAM, null)
