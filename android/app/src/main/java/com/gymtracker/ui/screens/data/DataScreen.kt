@@ -308,6 +308,14 @@ fun DataScreen(
                 onClick = { if (!state.busy) csvNamesLauncher.launch(arrayOf("*/*")) },
                 chevron = true,
             )
+            Text(
+                text = "Progression's built-in exercises are referenced by number only in the backup, " +
+                    "so they arrive as \"Exercise #N\" placeholders. Renaming them lands with " +
+                    "custom-exercise editing.",
+                modifier = Modifier.padding(horizontal = Dim.screenPadH, vertical = 8.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = GymTheme.colors.hint,
+            )
             RowRule()
             ForgedListRow(
                 title = "Export JSON",
@@ -406,14 +414,6 @@ fun DataScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
-            Text(
-                text = "Progression's built-in exercises are referenced by number only in the backup, " +
-                    "so they arrive as \"Exercise #N\" placeholders. Renaming them lands with " +
-                    "custom-exercise editing.",
-                style = MaterialTheme.typography.labelMedium,
-                color = GymTheme.colors.hint,
-            )
 
             Spacer(
                 Modifier

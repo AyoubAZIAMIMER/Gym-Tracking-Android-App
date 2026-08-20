@@ -85,7 +85,9 @@ class RecoveryViewModel(app: Application) : AndroidViewModel(app) {
                 readiness >= 35 -> "Half-recovered. Keep the volume honest today."
                 else -> "Still glowing. A rest day is the training."
             },
-            callTitle = freshest?.let { "${it.muscle.replaceFirstChar(Char::uppercase)} are prime" },
+            // dash, not a verb: "Chest are prime" reads wrong, "Biceps is prime" reads wrong —
+            // singular/plural splits across muscle names, so the copy sidesteps agreement
+            callTitle = freshest?.let { "${it.muscle.replaceFirstChar(Char::uppercase)} — prime to train" },
             callBody = buildString {
                 next?.let { append("Train ${it.day.name} today") } ?: append("Train what's cooled")
                 sorest?.takeIf { it.freshnessPercent < 60 }?.let {

@@ -294,7 +294,11 @@ fun RecoveryScreen(
                 }
             }
 
-            Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))
+            // Dim.listBottomSpacer (112dp) measured tighter here than on Stats at the same
+            // value — this screen's last element is a filled primaryContainer band with less
+            // of its own trailing padding than a FlatRow, so it needs real extra clearance
+            // above the floating nav rather than the shared token.
+            Spacer(Modifier.navigationBarsPadding().height(140.dp))
         }
     }
 }
