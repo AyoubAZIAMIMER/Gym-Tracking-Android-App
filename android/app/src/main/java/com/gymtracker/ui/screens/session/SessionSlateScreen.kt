@@ -23,7 +23,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -112,6 +118,7 @@ data class SessionUi(
     val setsLabel: String,               // "1 / 4"
     val sets: List<SetRowUi>,
     val restSeconds: Int? = null,        // null = not resting; negative = over the target
+    val restTotalSec: Int = 1,           // the armed duration — drives the header ring's fill
     val draftWeight: Double,
     val draftReps: Int,
     val effort: Int? = null,             // 1..5, optional
@@ -209,13 +216,20 @@ fun SessionSlateScreen(
                 }
             }
             // Rest + stopwatch together, reached here whether or not either is running — the
-            // dedicated way to start one manually (see RestActionsSheet).
+            // dedicated way to start one manually (see RestActionsSheet). While resting, the
+            // static clock becomes a live countdown ring — the same information the pill above
+            // already gives in words, given a second, glanceable form right where you'd reach
+            // to open the rest sheet anyway.
             IconButton(onClick = onOpenRestActions, modifier = Modifier.size(38.dp)) {
-                Icon(
-                    Icons.Rounded.Timer,
-                    contentDescription = "Rest and stopwatch",
-                    tint = scheme.onSurfaceVariant,
-                )
+                if (ui.restSeconds != null) {
+                    RestMiniRing(remainingSec = ui.restSeconds, totalSec = ui.restTotalSec)
+                } else {
+                    Icon(
+                        Icons.Rounded.Timer,
+                        contentDescription = "Rest and stopwatch",
+                        tint = scheme.onSurfaceVariant,
+                    )
+                }
             }
             // exercise paging — the multi-exercise table used to provide this by scrolling
             Icon(
@@ -387,6 +401,33 @@ fun SessionSlateScreen(
                 }
             }
         }
+    }
+}
+
+/** The header clock, live: a shrinking ring instead of a static glyph while resting. Same
+ *  colour law as [RestActionsSheet]'s full-size ring (heat.spent → heat.hot → heat.ready as the
+ *  rest cools), just at icon scale — one countdown, two sizes, not two different indicators. */
+@Composable
+private fun RestMiniRing(remainingSec: Int, totalSec: Int) {
+    val heat = GymTheme.colors.heat
+    val track = MaterialTheme.colorScheme.outlineVariant
+    val overtime = remainingSec < 0
+    val fraction = if (overtime) 1f else (remainingSec / totalSec.toFloat()).coerceIn(0f, 1f)
+    val ringColor = when {
+        overtime -> heat.spent
+        fraction > 0.5f -> lerp(heat.hot, heat.ready, (fraction - 0.5f) / 0.5f)
+        else -> lerp(heat.spent, heat.hot, (fraction / 0.5f).coerceIn(0f, 1f))
+    }
+    Canvas(Modifier.size(22.dp)) {
+        val stroke = 2.5.dp.toPx()
+        val d = size.minDimension - stroke
+        val topLeft = Offset((size.width - d) / 2f, (size.height - d) / 2f)
+        val arcSize = Size(d, d)
+        drawArc(track, -90f, 360f, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+        drawArc(
+            ringColor, -90f, -360f * fraction, false,
+            topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round),
+        )
     }
 }
 

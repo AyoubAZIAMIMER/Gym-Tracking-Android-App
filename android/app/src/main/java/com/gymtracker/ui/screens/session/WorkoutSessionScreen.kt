@@ -413,6 +413,7 @@ fun WorkoutSessionScreen(
                             )
                         },
                         restSeconds = restState?.remainingSec,
+                        restTotalSec = restState?.totalSec ?: 1,
                         draftWeight = slateDraftSet?.effectiveWeightKg ?: 0.0,
                         draftReps = slateDraftSet?.effectiveReps ?: 0,
                         effort = slateDraftSet?.rpe?.let { it - 5 },
