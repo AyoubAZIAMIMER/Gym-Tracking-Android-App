@@ -132,7 +132,9 @@ private val CheckColWidth = 34.dp
 
 @Composable
 fun WorkoutSessionScreen(
-    onFinished: () -> Unit,
+    // savedWorkoutId — null when the finish had zero completed sets to save, in which case
+    // there's nowhere new to navigate
+    onFinished: (savedWorkoutId: String?) -> Unit,
     /** Leave the session on screen but go back to the app. The workout keeps running. */
     onMinimise: () -> Unit = {},
     vm: WorkoutSessionViewModel = viewModel(),
@@ -154,7 +156,7 @@ fun WorkoutSessionScreen(
 
     LaunchedEffect(state.finished) {
         if (state.finished) {
-            onFinished()
+            onFinished(state.savedWorkoutId)
             vm.consumeFinished()
         }
     }
@@ -420,7 +422,8 @@ fun WorkoutSessionScreen(
                         draftWeight = slateDraftSet?.effectiveWeightKg ?: 0.0,
                         draftReps = slateDraftSet?.effectiveReps ?: 0,
                         effort = slateDraftSet?.rpe?.let { it - 5 },
-                        hasComment = slateDraftSet?.comment?.isNotBlank() == true,
+                        hasComment = slateDraftSet?.comment?.isNotBlank() == true ||
+                            slateDraftSet?.tag != null,
                     ),
                     heatAt = { heat.at(it) },
                     // The table is the base now — its chevron leaves the session (it keeps
@@ -653,28 +656,14 @@ fun WorkoutSessionScreen(
     }
 
     if (slateCommentDialog && slateExercise != null && slateDraftSet != null) {
-        var text by remember(slateDraftSet.id) { mutableStateOf(slateDraftSet.comment) }
-        ForgedAlert(
-            title = "Set comment",
-            onDismissRequest = { slateCommentDialog = false },
-            confirmLabel = "Save",
-            onConfirm = {
-                vm.setComment(slateExercise.id, slateDraftSet.id, text)
-                slateCommentDialog = false
-            },
-            dismissLabel = "Cancel",
-            body = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AlertBody("Pinned to this one set — how it felt, what changed, anything worth remembering.")
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { text = it.take(140) },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        placeholder = { Text("Left knee twinge on the last rep") },
-                        shape = MaterialTheme.shapes.medium,
-                    )
-                }
+        SetCommentSheet(
+            exerciseName = slateExercise.name,
+            initialComment = slateDraftSet.comment,
+            initialTag = slateDraftSet.tag,
+            onDismiss = { slateCommentDialog = false },
+            onDone = { comment, tag ->
+                vm.setComment(slateExercise.id, slateDraftSet.id, comment)
+                vm.setTag(slateExercise.id, slateDraftSet.id, tag)
             },
         )
     }
@@ -1262,14 +1251,7 @@ private fun OneRmBadge(oneRm: Double, isPr: Boolean = false, intensity: Float? =
 
 @Composable
 private fun SetTagChip(tag: SetTag?, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val color = when (tag) {
-        SetTag.WARMUP -> GymTheme.colors.tagWarmup
-        SetTag.DROPSET -> GymTheme.colors.tagDropset
-        SetTag.NEGATIVE -> GymTheme.colors.tagNegative
-        SetTag.TEMPO -> GymTheme.colors.tagTempo
-        SetTag.FAILURE -> GymTheme.colors.tagFailure
-        null -> GymTheme.colors.hint
-    }
+    val color = tag?.let { setTagColor(it) } ?: GymTheme.colors.hint
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Box(
             Modifier

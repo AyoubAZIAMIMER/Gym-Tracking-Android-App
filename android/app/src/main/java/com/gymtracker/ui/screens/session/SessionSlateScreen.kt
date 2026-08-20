@@ -665,3 +665,17 @@ private fun effortWord(e: Int?): String = when (e) {
 
 private fun trimZeros(v: Double): String =
     if (v % 1.0 == 0.0) v.toInt().toString() else v.toString().trimEnd('0').trimEnd('.')
+
+/** One color per [SetTag] — shared by the Comment sheet's chip grid, the legacy table's
+ *  cycling chip, and History's per-set badge, so a tag reads the same hue everywhere. */
+@Composable
+fun setTagColor(tag: SetTag): Color = when (tag) {
+    SetTag.WARMUP -> GymTheme.colors.tagWarmup
+    SetTag.FAILURE -> GymTheme.colors.tagFailure
+    SetTag.FORCED -> GymTheme.colors.tagForced
+    SetTag.NEGATIVE -> GymTheme.colors.tagNegative
+    SetTag.PAUSED -> GymTheme.colors.tagPaused
+    SetTag.PARTIAL -> GymTheme.colors.tagPartial
+    SetTag.EXPLOSIVE -> GymTheme.colors.tagExplosive
+    SetTag.DROPSET -> GymTheme.colors.tagDropset
+}

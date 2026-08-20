@@ -301,7 +301,17 @@ private fun AppNavHost(
             }
             composable("session") {
                 WorkoutSessionScreen(
-                    onFinished = { nav.popBackStack() },
+                    // land on the rich, just-saved detail screen instead of just closing —
+                    // that IS the post-session summary now, no separate screen to keep in sync
+                    onFinished = { savedId ->
+                        if (savedId != null) {
+                            nav.navigate("workout/$savedId") {
+                                popUpTo("session") { inclusive = true }
+                            }
+                        } else {
+                            nav.popBackStack()
+                        }
+                    },
                     // minimise != finish: the workout stays live and Home offers Resume
                     onMinimise = { nav.popBackStack() },
                     vm = sessionVm,

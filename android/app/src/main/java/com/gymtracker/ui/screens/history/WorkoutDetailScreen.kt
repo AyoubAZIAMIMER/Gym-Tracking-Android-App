@@ -4,12 +4,15 @@
 // Outputs: onBack, onOpenExercise(exerciseId), onRepeat(workoutId)
 package com.gymtracker.ui.screens.history
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,9 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
@@ -59,6 +64,8 @@ import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
 import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.StampText
+import com.gymtracker.ui.screens.session.SetTag
+import com.gymtracker.ui.screens.session.setTagColor
 import com.gymtracker.ui.theme.Dim
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
@@ -98,30 +105,26 @@ fun WorkoutDetailScreen(
                             top = 18.dp,
                             bottom = 20.dp,
                         ),
-                    horizontalArrangement = Arrangement.spacedBy(26.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Stat(state.durationText ?: "—", "duration")
-                    Stat("${state.totalSets}", "sets")
-                    Stat(state.totalVolume, "kg volume")
-                    if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
-                    Spacer(Modifier.weight(1f))
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(26.dp),
+                    ) {
+                        Stat(state.durationText ?: "—", "duration")
+                        Stat("${state.totalSets}", "sets")
+                        Stat(state.totalVolume, "kg volume")
+                        if (state.calories > 0) Stat("${state.calories}", "calories")
+                        if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
+                    }
                     EditToggle(editing = state.editing, onClick = vm::toggleEditing)
                 }
             }
 
-            if (state.comment.isNotBlank()) {
-                SectionRule()
-                ForgedSectionHeader("NOTE", bottomPadding = 6.dp)
-                Text(
-                    text = state.comment,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(
-                        start = Dim.screenPadH, end = Dim.screenPadH, bottom = 16.dp,
-                    ),
-                )
-            }
+            SectionRule()
+            CommentRow(comment = state.comment, onClick = vm::openCommentDialog)
 
             SectionRule()
             state.exercises.forEachIndexed { i, ex ->
@@ -137,7 +140,14 @@ fun WorkoutDetailScreen(
                 }
             }
 
-            ForgedBlock(state.exercises.size + 1, entered) {
+            if (state.musclesSplit.size > 1) {
+                ForgedBlock(state.exercises.size + 1, entered) {
+                    SectionRule()
+                    MuscleSplitSection(state.musclesSplit, state.totalSets)
+                }
+            }
+
+            ForgedBlock(state.exercises.size + 2, entered) {
                 SectionRule()
                 RepeatRow(onClick = { onRepeat(vm.workoutId) })
                 if (state.editing) {
@@ -160,6 +170,116 @@ fun WorkoutDetailScreen(
             destructive = true,
             body = { AlertBody("\"${state.title}\" and everything logged in it will be removed. This can't be undone.") },
         )
+    }
+
+    if (state.commentDialogOpen) {
+        var text by remember(state.comment) { mutableStateOf(state.comment) }
+        ForgedAlert(
+            title = "Session comment",
+            onDismissRequest = vm::closeCommentDialog,
+            confirmLabel = "Save",
+            onConfirm = { vm.updateComment(text) },
+            dismissLabel = "Cancel",
+            body = {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(280) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    placeholder = { Text("How did the session go?") },
+                    shape = MaterialTheme.shapes.medium,
+                )
+            },
+        )
+    }
+}
+
+/** Blank → a low-emphasis prompt ("Tap to comment your workout!" — the reference's own copy).
+ *  Present → the note itself, still tappable to revise. Either way, one row, one behaviour. */
+@Composable
+private fun CommentRow(comment: String, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = Dim.screenPadH, vertical = 14.dp),
+    ) {
+        if (comment.isBlank()) {
+            Text(
+                text = "Tap to comment your workout",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            ForgedSectionHeader("NOTE", bottomPadding = 6.dp)
+            Text(
+                text = comment,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Set-count share per primary muscle group — a segmented bar, not a pie: the flat/hairline
+ *  language the rest of this screen already speaks, same information the reference's donut
+ *  chart carries. */
+@Composable
+private fun MuscleSplitSection(split: List<MuscleShare>, totalSets: Int) {
+    ForgedSectionHeader("SPLIT", trailing = { Text("$totalSets sets", fontSize = 13.sp, color = GymTheme.colors.hint) })
+    val colors = listOf(
+        MaterialTheme.colorScheme.primary,
+        GymTheme.colors.tagPaused,
+        GymTheme.colors.tagDropset,
+        GymTheme.colors.tagForced,
+        GymTheme.colors.tagPartial,
+        GymTheme.colors.tagNegative,
+    )
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dim.screenPadH)
+            .height(10.dp)
+            .clip(MaterialTheme.shapes.small),
+    ) {
+        split.forEachIndexed { i, share ->
+            Box(
+                Modifier
+                    .weight(share.fraction.coerceAtLeast(0.01f))
+                    .fillMaxHeight()
+                    .background(colors[i % colors.size]),
+            )
+        }
+    }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dim.screenPadH, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        split.forEachIndexed { i, share ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(MaterialTheme.shapes.extraSmall)
+                        .background(colors[i % colors.size]),
+                )
+                Text(
+                    text = share.muscle,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = 8.dp).weight(1f),
+                )
+                Text(
+                    text = "${share.sets}",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -268,7 +388,6 @@ private fun ExerciseBlock(
                         text = buildString {
                             append(set.weightKg?.let { "${PlateCalculator.fmt(it)} kg" } ?: "BW")
                             set.reps?.let { append(" × $it") }
-                            set.tag?.takeIf { it != "W" }?.let { append("  ·  $it") }
                         },
                         fontSize = 15.sp,
                         fontWeight = if (warmup) FontWeight.Normal else FontWeight.SemiBold,
@@ -276,6 +395,20 @@ private fun ExerciseBlock(
                         else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
                     )
+                    SetTag.fromLetter(set.tag)?.takeIf { it != SetTag.WARMUP }?.let { tag ->
+                        val tagColor = setTagColor(tag)
+                        Text(
+                            text = tag.label,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = tagColor,
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .clip(MaterialTheme.shapes.extraSmall)
+                                .background(tagColor.copy(alpha = 0.14f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
                     if (set.isPr) {
                         Icon(
                             Icons.Rounded.Star,

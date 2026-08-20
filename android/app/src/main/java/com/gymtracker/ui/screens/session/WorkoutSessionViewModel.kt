@@ -182,6 +182,11 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     fun setComment(exerciseId: Long, setId: Long, text: String) =
         updateSet(exerciseId, setId) { it.copy(comment = text.take(140)) }
 
+    /** Direct set (not cycle) — the Comment sheet's chips are tap-to-select/tap-to-clear,
+     *  distinct from the legacy table's [cycleTag] which steps through the list on each tap. */
+    fun setTag(exerciseId: Long, setId: Long, tag: SetTag?) =
+        updateSet(exerciseId, setId) { it.copy(tag = tag) }
+
     /**
      * Step size comes from Settings → Weight step (1.25 / 2.5 / 5). It used to be hardcoded to
      * 2.5 here AND at the Slate call site, so the setting silently did nothing. The steppers are
@@ -459,8 +464,9 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
                 .filter { it.sets.isNotEmpty() }
+            var savedId: String? = null
             if (toSave.isNotEmpty()) {
-                repo.saveSession(state.workoutName, state.startedAtMillis, comment, toSave)
+                savedId = repo.saveSession(state.workoutName, state.startedAtMillis, comment, toSave)
                 // program sessions rotate the active program to its next day
                 if (state.programDayId != null) repo.advanceProgramPointer()
             }
@@ -468,7 +474,12 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
             // fresh session and carries sessionActive across, so leaving it true made Home offer
             // "Resume · 0 of N sets logged" for a workout that had just been saved.
             _ui.update {
-                it.copy(showFinishSheet = false, finished = true, sessionActive = false)
+                it.copy(
+                    showFinishSheet = false,
+                    finished = true,
+                    sessionActive = false,
+                    savedWorkoutId = savedId,
+                )
             }
         }
     }

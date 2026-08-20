@@ -52,12 +52,17 @@ val SuccessDim = Color(0xFF262B12)
 val PrGold = Color(0xFFFFC93C)         // molten gold — PRs only, never decoration
 val ErrorRed = ActivityPink
 
-// Set-tag letter chips (W/D/N/T/F)
+// Set-tag chips (W/F/R/N/P/L/X/D) — Paused reuses the quenched-steel Cyan (time-flavoured
+// already). Explosive gets its own amber, deliberately short of the ember hue: the Slate's
+// three-places-only rule for AccentPrimary stays intact even though this is a data signal too.
 val TagWarmup = Color(0xFFFFC93C)
 val TagDropset = Color(0xFFC9A2E8)
 val TagNegative = Color(0xFFFF8A6B)
-val TagTempo = Color(0xFF9FB6C2)
 val TagFailure = Color(0xFFFF4B36)
+val TagForced = Color(0xFFB9C0CC)
+val TagPartial = Color(0xFF7C93E0)
+val TagPaused = Cyan
+val TagExplosive = Color(0xFFE8952E)
 
 // Rank medals (subtle gamification, v8 — unrelated to the ember/indigo axis, kept as-is).
 // Gold rank reuses PrGold; Olympian uses chalk (onSurface).
@@ -139,3 +144,5 @@ val SuccessLight = Color(0xFF5F7A2A)
 val SuccessDimLight = Color(0xFFE9EFD3)
 val PrGoldLight = Color(0xFFB07E0C)
 val ErrorLight = Color(0xFFC02D14)
+val TagForcedLight = Color(0xFF6C7482)
+val TagPartialLight = Color(0xFF4C5FAE)

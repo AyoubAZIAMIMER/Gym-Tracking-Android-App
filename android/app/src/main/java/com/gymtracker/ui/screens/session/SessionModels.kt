@@ -6,14 +6,22 @@ package com.gymtracker.ui.screens.session
 import com.gymtracker.domain.Progression
 
 enum class SetTag(val letter: String, val label: String) {
-    WARMUP("W", "Warm-up"),
-    DROPSET("D", "Drop set"),
+    WARMUP("W", "Warmup"),
+    FAILURE("F", "Failure"),
+    FORCED("R", "Forced"),
     NEGATIVE("N", "Negative"),
-    TEMPO("T", "Tempo"),
-    FAILURE("F", "Failure");
+    PAUSED("P", "Paused"),
+    PARTIAL("L", "Partial"),
+    EXPLOSIVE("X", "Explosive"),
+    DROPSET("D", "Dropset");
 
-    // Tap cycles W → D → N → T → F → (none); null re-enters at WARMUP
+    // Legacy table view cycles W → F → R → ... → D → (none); null re-enters at WARMUP.
+    // The live session's Comment sheet sets a tag directly instead (tap to select/clear).
     fun next(): SetTag? = entries.getOrNull(ordinal + 1)
+
+    companion object {
+        fun fromLetter(letter: String?): SetTag? = entries.firstOrNull { it.letter == letter }
+    }
 }
 
 // Optional effort rating, RPE 6-10 scale. Tap cycles (none) → 6 → 7 → 8 → 9 → 10 → (none).
@@ -67,6 +75,8 @@ data class WorkoutSessionUiState(
     val showExercisePicker: Boolean = false,
     val showFinishSheet: Boolean = false,
     val finished: Boolean = false,
+    val savedWorkoutId: String? = null,     // set once finishWorkout() persists — null means
+                                             // nothing was actually saved (e.g. zero sets)
     val sessionActive: Boolean = false,     // true once the session screen was opened; survives Back
     val barKg: Double = 20.0,               // from imported Progression prefs (plate calculator)
     val pickerItems: List<PickerItem> = emptyList(),

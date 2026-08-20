@@ -330,7 +330,7 @@ class WorkoutRepository(
         startedAt: Long,
         comment: String,
         exercises: List<SaveExercise>,
-    ) {
+    ): String {
         val existing = db.exerciseDao().getAll()
         val byId = existing.associateBy { it.id }
         val byName = existing.associateBy { it.name.lowercase() }
@@ -369,6 +369,7 @@ class WorkoutRepository(
         db.setDao().upsertAll(rows)
         // launcher widget shows streak/days-since — refresh the moment they change
         ForgeWidgetProvider.requestUpdate(appContext)
+        return workoutId
     }
 
     // --- home stats ----------------------------------------------------------------
@@ -645,6 +646,11 @@ class WorkoutRepository(
 
     suspend fun updateSet(setId: String, weightKg: Double?, reps: Int?) =
         db.setDao().updateSet(setId, weightKg, reps)
+
+    suspend fun updateWorkoutComment(workoutId: String, comment: String) {
+        val workout = db.workoutDao().byId(workoutId) ?: return
+        db.workoutDao().upsertAll(listOf(workout.copy(comment = comment)))
+    }
 
     // --- export --------------------------------------------------------------------
 

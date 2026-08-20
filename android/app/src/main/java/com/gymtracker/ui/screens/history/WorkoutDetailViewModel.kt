@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.gymtracker.data.WorkoutRepository
+import com.gymtracker.domain.CalorieEstimator
 import com.gymtracker.utils.Formats
 import com.gymtracker.utils.TimeFormat
 import java.time.Instant
@@ -19,6 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+data class MuscleShare(val muscle: String, val sets: Int, val fraction: Float)
+
 data class WorkoutDetailUiState(
     val title: String = "Workout",
     val dateLine: String = "",
@@ -26,11 +29,14 @@ data class WorkoutDetailUiState(
     val totalSets: Int = 0,
     val totalVolume: String = "",
     val exerciseCount: Int = 0,
+    val calories: Int = 0,
     val comment: String = "",
     val exercises: List<WorkoutRepository.DetailExercise> = emptyList(),
     val prCount: Int = 0,
     val editing: Boolean = false,
     val deleted: Boolean = false,
+    val musclesSplit: List<MuscleShare> = emptyList(),
+    val commentDialogOpen: Boolean = false,
 )
 
 class WorkoutDetailViewModel(
@@ -58,26 +64,50 @@ class WorkoutDetailViewModel(
         val zone = ZoneId.systemDefault()
         val started = Instant.ofEpochMilli(detail.workout.startedAt).atZone(zone)
         val editing = _ui.value.editing
+        val durationMillis = detail.workout.endedAt
+            ?.let { it - detail.workout.startedAt }
+            ?.takeIf { it > 0 }
+        val tagLetters = detail.exercises.flatMap { ex -> ex.sets.map { it.tag } }
+        val calories = CalorieEstimator.estimate(
+            tagLetters = tagLetters,
+            durationSeconds = (durationMillis ?: 0L) / 1000,
+            bodyWeightKg = repo.profile().bodyWeightKg,
+        )
+        val totalSets = detail.totalSets.takeIf { it > 0 } ?: 1
+        val musclesSplit = detail.exercises
+            .flatMap { ex -> List(ex.sets.size) { ex.muscles.substringBefore("·").trim().ifEmpty { "Other" } } }
+            .groupingBy { it }
+            .eachCount()
+            .entries.sortedByDescending { it.value }
+            .map { (muscle, count) -> MuscleShare(muscle, count, count / totalSets.toFloat()) }
         _ui.value = WorkoutDetailUiState(
             title = detail.workout.name.ifBlank { "Workout" },
             dateLine = started.format(
                 DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy · HH:mm", Locale.getDefault())
             ),
-            durationText = detail.workout.endedAt
-                ?.let { it - detail.workout.startedAt }
-                ?.takeIf { it > 0 }
-                ?.let(TimeFormat::clock),
+            durationText = durationMillis?.let(TimeFormat::clock),
             totalSets = detail.totalSets,
             totalVolume = Formats.volumeKg(detail.totalVolumeKg),
             exerciseCount = detail.exercises.size,
+            calories = calories,
             comment = detail.workout.comment,
             exercises = detail.exercises,
             prCount = detail.exercises.sumOf { ex -> ex.sets.count { it.isPr } },
             editing = editing,
+            musclesSplit = musclesSplit,
         )
     }
 
     fun toggleEditing() = _ui.update { it.copy(editing = !it.editing) }
+
+    fun openCommentDialog() = _ui.update { it.copy(commentDialogOpen = true) }
+    fun closeCommentDialog() = _ui.update { it.copy(commentDialogOpen = false) }
+
+    fun updateComment(text: String) = viewModelScope.launch {
+        repo.updateWorkoutComment(workoutId, text)
+        _ui.update { it.copy(commentDialogOpen = false) }
+        load()
+    }
 
     fun updateSet(setId: String, weightKg: Double?, reps: Int?) = viewModelScope.launch {
         repo.updateSet(setId, weightKg, reps)
