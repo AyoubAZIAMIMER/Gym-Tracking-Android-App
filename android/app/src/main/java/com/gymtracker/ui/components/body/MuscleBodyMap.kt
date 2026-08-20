@@ -1,6 +1,9 @@
 // Purpose: Recovery body map — front / back silhouettes with per-muscle heat tint.
 //          Path data lives in MuscleBodyPaths.kt (generated). Heat is data: a muscle's colour
-//          comes ONLY from GymTheme.colors.heat.at(freshness), never a hand-picked hex.
+//          comes ONLY from GymTheme.colors.heat.at(freshness), never a hand-picked hex — but
+//          the raw stop is chalk-muted before it fills a ~35-region body (2026-08-21): the same
+//          hex that's correct on a small text badge reads as a saturated anatomy-poster fill at
+//          this size, which fights the app's restrained chrome. See `mutedFill` below.
 //          Per IDENTITY_V5 §2: no % pills on the body — the numbers live in the BY MUSCLE list.
 // Inputs: freshness map (slug -> 0f just worked .. 1f fully recovered)
 // Outputs: MuscleBodyMap()
@@ -34,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -155,7 +159,7 @@ fun MuscleBodyMap(
                     val fill = when {
                         !isMuscle -> silhouette
                         f == null -> silhouette
-                        else -> heatAt(f)
+                        else -> mutedFill(heatAt(f), silhouette)
                     }
                     // staggered reveal: group i starts 45 ms after group i-1
                     val stagger = (index * 0.045f)
@@ -170,13 +174,28 @@ fun MuscleBodyMap(
                     if (alpha <= 0.01f) return@forEachIndexed
                     paths.forEach { p ->
                         drawPath(p, color = fill, alpha = alpha)
-                        drawPath(p, color = outline, style = Stroke(width = 1.2f), alpha = alpha)
+                        // the silhouette's own boundary pieces still want a crisp cut; the ~35
+                        // muscle regions inside it don't — a full-strength line on every fibre
+                        // seam is what made this read as a dissected anatomy plate rather than
+                        // a heat field on a body
+                        val strokeWidth = if (isMuscle) 0.9f else 1.2f
+                        val strokeAlpha = if (isMuscle) alpha * 0.4f else alpha
+                        drawPath(p, color = outline, style = Stroke(width = strokeWidth), alpha = strokeAlpha)
                     }
                 }
             }
         }
     }
 }
+
+/**
+ * Grounds a raw heat stop in the figure's own silhouette tone before it fills a muscle region.
+ * `heat.at()` is tuned to read correctly as a small badge or a thin bar (Stats, Home, the
+ * readiness segments on this same screen) — at ~35-region body-fill size the same hex reads as
+ * a saturated anatomy-poster color instead of the app's muted iron/chalk chrome. Blending toward
+ * the silhouette keeps every stop's hue and relative heat legible while taming the brightness.
+ */
+private fun mutedFill(raw: Color, silhouette: Color): Color = lerp(raw, silhouette, 0.32f)
 
 // --- tiny local helpers so the file has no extra dependencies -------------------------------
 
