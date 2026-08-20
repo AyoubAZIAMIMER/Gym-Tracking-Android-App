@@ -265,6 +265,9 @@ fun WorkoutSessionScreen(
     // the Slate's note dialog (its exercise-options menu now lives inside SessionSlateScreen
     // itself, next to the ⋮ button it anchors to — the legacy table keeps its own inside ExerciseCard)
     var slateNoteDialog by rememberSaveable { mutableStateOf(false) }
+    // per-set comment — distinct from the note above: pinned to the one active set, not the
+    // whole exercise, and cleared with it once the set is logged and a new one becomes active
+    var slateCommentDialog by rememberSaveable { mutableStateOf(false) }
 
     // drag-to-reorder state; heights tracked per exercise so swaps stay under the finger
     var draggedId by remember { mutableStateOf<Long?>(null) }
@@ -417,6 +420,7 @@ fun WorkoutSessionScreen(
                         draftWeight = slateDraftSet?.effectiveWeightKg ?: 0.0,
                         draftReps = slateDraftSet?.effectiveReps ?: 0,
                         effort = slateDraftSet?.rpe?.let { it - 5 },
+                        hasComment = slateDraftSet?.comment?.isNotBlank() == true,
                     ),
                     heatAt = { heat.at(it) },
                     // The table is the base now — its chevron leaves the session (it keeps
@@ -447,6 +451,7 @@ fun WorkoutSessionScreen(
                         }
                     },
                     onEditNote = { slateNoteDialog = true },
+                    onEditComment = { slateCommentDialog = true },
                     inSuperset = slateExercise.supersetGroup != null,
                     supersetEnabled = slateIndex < state.exercises.lastIndex,
                     onToggleSuperset = { vm.toggleSupersetWithNext(slateExercise.id) },
@@ -640,6 +645,33 @@ fun WorkoutSessionScreen(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         placeholder = { Text("Seat 4 · pin 12 · narrow grip") },
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                }
+            },
+        )
+    }
+
+    if (slateCommentDialog && slateExercise != null && slateDraftSet != null) {
+        var text by remember(slateDraftSet.id) { mutableStateOf(slateDraftSet.comment) }
+        ForgedAlert(
+            title = "Set comment",
+            onDismissRequest = { slateCommentDialog = false },
+            confirmLabel = "Save",
+            onConfirm = {
+                vm.setComment(slateExercise.id, slateDraftSet.id, text)
+                slateCommentDialog = false
+            },
+            dismissLabel = "Cancel",
+            body = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AlertBody("Pinned to this one set — how it felt, what changed, anything worth remembering.")
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.take(140) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        placeholder = { Text("Left knee twinge on the last rep") },
                         shape = MaterialTheme.shapes.medium,
                     )
                 }

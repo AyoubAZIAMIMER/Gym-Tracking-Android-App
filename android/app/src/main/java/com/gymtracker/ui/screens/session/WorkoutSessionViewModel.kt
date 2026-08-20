@@ -179,6 +179,9 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     fun setRepsText(exerciseId: Long, setId: Long, text: String) =
         updateSet(exerciseId, setId) { it.copy(repsText = text.filter(Char::isDigit).take(3)) }
 
+    fun setComment(exerciseId: Long, setId: Long, text: String) =
+        updateSet(exerciseId, setId) { it.copy(comment = text.take(140)) }
+
     /**
      * Step size comes from Settings → Weight step (1.25 / 2.5 / 5). It used to be hardcoded to
      * 2.5 here AND at the Slate call site, so the setting silently did nothing. The steppers are
@@ -450,6 +453,7 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                                 reps = s.effectiveReps,
                                 tagLetter = s.tag?.letter,
                                 rpe = s.rpe?.toFloat(),
+                                comment = s.comment,
                             )
                         },
                     )

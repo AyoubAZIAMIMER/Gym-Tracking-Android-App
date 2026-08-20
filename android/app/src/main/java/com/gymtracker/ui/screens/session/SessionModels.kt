@@ -35,6 +35,7 @@ data class SessionSet(
     val repsText: String = "",
     val tag: SetTag? = null,
     val rpe: Int? = null,            // optional effort rating, RPE 6-10
+    val comment: String = "",        // free-text note on this one set
     val completed: Boolean = false,
     val isPr: Boolean = false,      // beat the all-time e1RM at the moment of logging
     val intensity: Float? = null,   // e1RM ÷ all-time best at logging (heat badge, Identity v5)

@@ -39,6 +39,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
+import androidx.compose.material.icons.automirrored.rounded.Comment
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Timer
@@ -122,6 +124,7 @@ data class SessionUi(
     val draftWeight: Double,
     val draftReps: Int,
     val effort: Int? = null,             // 1..5, optional
+    val hasComment: Boolean = false,     // active set already carries a comment — fills the icon
 )
 
 @Composable
@@ -140,6 +143,7 @@ fun SessionSlateScreen(
     onRepsDelta: (Int) -> Unit,
     onEffort: (Int) -> Unit,
     onEditNote: () -> Unit = {},
+    onEditComment: () -> Unit = {},
     inSuperset: Boolean = false,
     supersetEnabled: Boolean = true,
     onToggleSuperset: () -> Unit = {},
@@ -374,6 +378,35 @@ fun SessionSlateScreen(
                         Icons.AutoMirrored.Rounded.StickyNote2,
                         contentDescription = "Exercise note",
                         tint = scheme.onSurfaceVariant,
+                    )
+                }
+
+                val commentSource = remember { MutableInteractionSource() }
+                Box(
+                    Modifier
+                        .size(56.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .border(
+                            1.dp,
+                            if (ui.hasComment) forge.palette.action else scheme.outline,
+                            MaterialTheme.shapes.medium,
+                        )
+                        .forgedPress(commentSource)
+                        .clickable(
+                            interactionSource = commentSource,
+                            indication = null,
+                            onClick = onEditComment,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (ui.hasComment) {
+                            Icons.AutoMirrored.Rounded.Comment
+                        } else {
+                            Icons.Rounded.ChatBubbleOutline
+                        },
+                        contentDescription = if (ui.hasComment) "Edit set comment" else "Add set comment",
+                        tint = if (ui.hasComment) forge.palette.action else scheme.onSurfaceVariant,
                     )
                 }
 

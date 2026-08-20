@@ -311,7 +311,13 @@ class WorkoutRepository(
 
     // --- persist a finished session ----------------------------------------------
 
-    data class SaveSet(val weightKg: Double?, val reps: Int?, val tagLetter: String?, val rpe: Float? = null)
+    data class SaveSet(
+        val weightKg: Double?,
+        val reps: Int?,
+        val tagLetter: String?,
+        val rpe: Float? = null,
+        val comment: String = "",
+    )
     data class SaveExercise(
         val dbExerciseId: String?,
         val name: String,
@@ -352,6 +358,7 @@ class WorkoutRepository(
                     tag = s.tagLetter,
                     orderInWorkout = order++,
                     rpe = s.rpe,
+                    comment = s.comment,
                 )
             }
         }
@@ -567,6 +574,7 @@ class WorkoutRepository(
         val reps: Int?,
         val tag: String?,
         val isPr: Boolean,
+        val comment: String = "",
     )
 
     data class DetailExercise(
@@ -608,7 +616,7 @@ class WorkoutRepository(
                     } else null
                     val isPr = e1rm != null && best != null && e1rm > best!!
                     if (e1rm != null) best = maxOf(best ?: e1rm, e1rm)
-                    DetailSet(s.id, s.weightKg, s.reps, s.tag, isPr)
+                    DetailSet(s.id, s.weightKg, s.reps, s.tag, isPr, s.comment)
                 },
             )
         }

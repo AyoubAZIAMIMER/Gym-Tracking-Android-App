@@ -253,36 +253,44 @@ private fun ExerciseBlock(
                 onRemove = { onRemoveSet(set.id) },
             )
         } else {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dim.screenPadH, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 44dp mono index column, same grid as the History session rows
-                StampText(
-                    text = if (warmup) "W" else "$workingIdx",
-                    color = GymTheme.colors.hint,
-                    modifier = Modifier.width(44.dp),
-                )
-                Text(
-                    text = buildString {
-                        append(set.weightKg?.let { "${PlateCalculator.fmt(it)} kg" } ?: "BW")
-                        set.reps?.let { append(" × $it") }
-                        set.tag?.takeIf { it != "W" }?.let { append("  ·  $it") }
-                    },
-                    fontSize = 15.sp,
-                    fontWeight = if (warmup) FontWeight.Normal else FontWeight.SemiBold,
-                    color = if (warmup) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                if (set.isPr) {
-                    Icon(
-                        Icons.Rounded.Star,
-                        contentDescription = "Personal record",
-                        modifier = Modifier.size(16.dp),
-                        tint = GymTheme.colors.prGold,
+            Column(Modifier.padding(horizontal = Dim.screenPadH, vertical = 10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 44dp mono index column, same grid as the History session rows
+                    StampText(
+                        text = if (warmup) "W" else "$workingIdx",
+                        color = GymTheme.colors.hint,
+                        modifier = Modifier.width(44.dp),
+                    )
+                    Text(
+                        text = buildString {
+                            append(set.weightKg?.let { "${PlateCalculator.fmt(it)} kg" } ?: "BW")
+                            set.reps?.let { append(" × $it") }
+                            set.tag?.takeIf { it != "W" }?.let { append("  ·  $it") }
+                        },
+                        fontSize = 15.sp,
+                        fontWeight = if (warmup) FontWeight.Normal else FontWeight.SemiBold,
+                        color = if (warmup) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (set.isPr) {
+                        Icon(
+                            Icons.Rounded.Star,
+                            contentDescription = "Personal record",
+                            modifier = Modifier.size(16.dp),
+                            tint = GymTheme.colors.prGold,
+                        )
+                    }
+                }
+                if (set.comment.isNotBlank()) {
+                    Text(
+                        text = set.comment,
+                        fontSize = 12.sp,
+                        color = GymTheme.colors.hint,
+                        modifier = Modifier.padding(start = 44.dp, top = 2.dp),
                     )
                 }
             }
