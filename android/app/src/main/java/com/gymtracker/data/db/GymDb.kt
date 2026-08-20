@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProgramDayEntity::class,
         ProgramExerciseEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class GymDb : RoomDatabase() {
@@ -66,6 +66,14 @@ abstract class GymDb : RoomDatabase() {
             }
         }
 
+        // v4 → v5: persisted program-level superset pairing, so a program remembers
+        // grouping instead of it being redone live every session
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE program_exercises ADD COLUMN supersetGroup INTEGER")
+            }
+        }
+
         @Volatile private var instance: GymDb? = null
 
         fun get(context: Context): GymDb =
@@ -75,7 +83,7 @@ abstract class GymDb : RoomDatabase() {
                     GymDb::class.java,
                     "repforge.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

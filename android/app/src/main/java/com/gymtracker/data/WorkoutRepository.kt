@@ -276,6 +276,7 @@ class WorkoutRepository(
         val sets: List<TemplateSet>,
         val note: String = "",                       // sticky machine note (v3)
         val plan: Progression.Plan? = null,          // double-progression call (program days)
+        val supersetGroup: Int? = null,              // carried from the program day, if any (v5)
     )
     data class SessionTemplate(val name: String, val exercises: List<TemplateExercise>)
 
@@ -561,6 +562,7 @@ class WorkoutRepository(
             .mapValues { (_, sets) -> sets.maxOf { OneRM.estimate(it.weightKg!!, it.reps!!) } }
 
     data class DetailSet(
+        val id: String,
         val weightKg: Double?,
         val reps: Int?,
         val tag: String?,
@@ -606,7 +608,7 @@ class WorkoutRepository(
                     } else null
                     val isPr = e1rm != null && best != null && e1rm > best!!
                     if (e1rm != null) best = maxOf(best ?: e1rm, e1rm)
-                    DetailSet(s.weightKg, s.reps, s.tag, isPr)
+                    DetailSet(s.id, s.weightKg, s.reps, s.tag, isPr)
                 },
             )
         }
@@ -618,6 +620,23 @@ class WorkoutRepository(
                 .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) },
         )
     }
+
+    // --- History edit/delete ---------------------------------------------------------
+    // No isPr bookkeeping to undo anywhere here: PR status is always derived live from
+    // whatever sets currently exist (see baseline/best above), never stored on a row.
+
+    suspend fun deleteWorkout(workoutId: String) {
+        db.setDao().deleteSetsOf(workoutId)
+        db.workoutDao().deleteWorkout(workoutId)
+    }
+
+    suspend fun deleteSet(setId: String) = db.setDao().deleteSet(setId)
+
+    suspend fun removeExerciseFromWorkout(workoutId: String, exerciseId: String) =
+        db.setDao().deleteSetsOfExercise(workoutId, exerciseId)
+
+    suspend fun updateSet(setId: String, weightKg: Double?, reps: Int?) =
+        db.setDao().updateSet(setId, weightKg, reps)
 
     // --- export --------------------------------------------------------------------
 
@@ -907,6 +926,41 @@ class WorkoutRepository(
 
     suspend fun removeProgramExercise(id: String) = db.programDao().deleteProgramExercise(id)
 
+    suspend fun replaceProgramExercise(id: String, newExerciseId: String) =
+        db.programDao().replaceProgramExercise(id, newExerciseId)
+
+    suspend fun updateProgramExerciseTarget(id: String, sets: Int, repMin: Int, repMax: Int) =
+        db.programDao().updateProgramExerciseTarget(id, sets.coerceAtLeast(1), repMin.coerceAtLeast(1), repMax.coerceAtLeast(repMin))
+
+    /** Adjacent-pair grouping, same rule as the live session's toggleSupersetWithNext:
+     *  leaving a group dissolves it once only one member would remain; joining takes the
+     *  next exercise's group or opens a fresh one for the pair. */
+    suspend fun toggleProgramSuperset(dayId: String, programExerciseId: String) {
+        val list = db.programDao().dayExercises(dayId)
+        val i = list.indexOfFirst { it.id == programExerciseId }
+        if (i == -1) return
+        val row = list[i]
+        val updates: List<Pair<String, Int?>> = when {
+            row.supersetGroup != null -> {
+                val othersInGroup = list.count { it.id != row.id && it.supersetGroup == row.supersetGroup }
+                list.mapNotNull {
+                    when {
+                        it.id == row.id -> it.id to null
+                        othersInGroup <= 1 && it.supersetGroup == row.supersetGroup -> it.id to null
+                        else -> null
+                    }
+                }
+            }
+            i < list.lastIndex -> {
+                val group = list[i + 1].supersetGroup
+                    ?: (list.mapNotNull { it.supersetGroup }.maxOrNull() ?: 0) + 1
+                listOf(list[i].id to group, list[i + 1].id to group)
+            }
+            else -> emptyList()
+        }
+        updates.forEach { (id, group) -> db.programDao().setProgramSupersetGroup(id, group) }
+    }
+
     fun activeProgramId(): String? = prefs.getString(KEY_ACTIVE_PROGRAM, null)
 
     fun setActiveProgram(programId: String?) {
@@ -987,6 +1041,7 @@ class WorkoutRepository(
                         last = history.map { it.weightKg to it.reps },
                         previous = older.map { it.weightKg to it.reps },
                     ),
+                    supersetGroup = row.supersetGroup,
                 )
             },
         )

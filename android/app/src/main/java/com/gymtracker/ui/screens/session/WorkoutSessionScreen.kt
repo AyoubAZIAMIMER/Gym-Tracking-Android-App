@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +99,7 @@ import com.gymtracker.service.RestTimerService
 import com.gymtracker.ui.components.AlertBody
 import com.gymtracker.ui.components.ForgedAlert
 import com.gymtracker.ui.components.DragNumberField
+import com.gymtracker.ui.components.ExerciseOverflowMenu
 import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
@@ -260,9 +262,9 @@ fun WorkoutSessionScreen(
     BackHandler {
         if (strikeShowing) strikeMode = false else onMinimise()
     }
-    // the Slate's note + overflow affordances (the legacy table keeps its own inside ExerciseCard)
+    // the Slate's note dialog (its exercise-options menu now lives inside SessionSlateScreen
+    // itself, next to the ⋮ button it anchors to — the legacy table keeps its own inside ExerciseCard)
     var slateNoteDialog by rememberSaveable { mutableStateOf(false) }
-    var slateMenu by rememberSaveable { mutableStateOf(false) }
 
     // drag-to-reorder state; heights tracked per exercise so swaps stay under the finger
     var draggedId by remember { mutableStateOf<Long?>(null) }
@@ -444,7 +446,13 @@ fun WorkoutSessionScreen(
                         }
                     },
                     onEditNote = { slateNoteDialog = true },
-                    onExerciseMenu = { slateMenu = true },
+                    inSuperset = slateExercise.supersetGroup != null,
+                    supersetEnabled = slateIndex < state.exercises.lastIndex,
+                    onToggleSuperset = { vm.toggleSupersetWithNext(slateExercise.id) },
+                    onReplace = if (slateExercise.sets.any { it.completed }) null
+                        else ({ vm.startReplace(slateExercise.id) }),
+                    onRemove = { vm.removeExercise(slateExercise.id) },
+                    onAddExercise = { vm.showExercisePicker(true) },
                     onPrevExercise = if (slateIndex > 0) {
                         { slateExerciseId = state.exercises[slateIndex - 1].id }
                     } else null,
@@ -524,6 +532,8 @@ fun WorkoutSessionScreen(
                         onAddSet = { vm.addSet(exercise.id) },
                         onGenerateWarmup = { vm.generateWarmupSets(exercise.id) },
                         onToggleSuperset = { vm.toggleSupersetWithNext(exercise.id) },
+                        onReplace = if (exercise.sets.any { s -> s.completed }) null
+                            else ({ vm.startReplace(exercise.id) }),
                         onRemove = { vm.removeExercise(exercise.id) },
                         onSaveNote = { vm.setExerciseNote(exercise.id, it) },
                         modifier = Modifier
@@ -635,28 +645,20 @@ fun WorkoutSessionScreen(
             },
         )
     }
-    if (slateMenu) {
-        ForgedAlert(
-            title = "Exercise",
-            onDismissRequest = { slateMenu = false },
-            confirmLabel = "Add exercise",
-            onConfirm = {
-                slateMenu = false
-                vm.showExercisePicker(true)
-            },
-            dismissLabel = "Edit note",
-            onDismissAction = {
-                slateMenu = false
-                slateNoteDialog = true
-            },
-            body = { AlertBody("Add another exercise to this session, or edit this one's note.") },
-        )
-    }
     if (state.showExercisePicker) {
         ExercisePickerSheet(
             items = state.pickerItems,
             onPick = vm::addExercise,
             onDismiss = { vm.showExercisePicker(false) },
+        )
+    }
+    if (state.replacingExerciseId != null) {
+        ExercisePickerSheet(
+            items = state.pickerItems,
+            onPick = vm::confirmReplace,
+            onDismiss = vm::cancelReplace,
+            title = "Replace exercise",
+            subtitle = "Swap in a different movement — no sets logged yet, so nothing is lost.",
         )
     }
     if (showDiscardDialog) {
@@ -836,6 +838,7 @@ private fun ExerciseCard(
     onAddSet: () -> Unit,
     onGenerateWarmup: () -> Unit,
     onToggleSuperset: () -> Unit,
+    onReplace: (() -> Unit)?,
     onRemove: () -> Unit,
     onSaveNote: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -902,45 +905,33 @@ private fun ExerciseCard(
                         }
                     }
                 }
-                IconButton(onClick = onToggleSuperset, enabled = inSuperset || !isLast) {
-                    Icon(
-                        Icons.Rounded.Link,
-                        contentDescription = "Superset with next exercise",
-                        tint = if (inSuperset) supersetColor else GymTheme.colors.hint,
-                    )
-                }
                 Box {
                     var menuOpen by remember { mutableStateOf(false) }
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(
                             Icons.Rounded.MoreVert,
-                            contentDescription = "More options",
+                            contentDescription = "More options for ${exercise.name}",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Add warm-up ramp") },
-                            onClick = {
-                                menuOpen = false
-                                onGenerateWarmup()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(if (exercise.note.isBlank()) "Add machine note" else "Edit machine note") },
-                            onClick = {
-                                menuOpen = false
-                                noteDialog = true
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Remove exercise") },
-                            onClick = {
-                                menuOpen = false
-                                onRemove()
-                            },
-                        )
-                    }
+                    ExerciseOverflowMenu(
+                        expanded = menuOpen,
+                        onDismiss = { menuOpen = false },
+                        inSuperset = inSuperset,
+                        onToggleSuperset = onToggleSuperset,
+                        supersetEnabled = !isLast,
+                        editLabel = if (exercise.note.isBlank()) "Add machine note" else "Edit machine note",
+                        onEdit = { noteDialog = true },
+                        onReplace = onReplace,
+                        onRemove = onRemove,
+                        extraItems = {
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Add warm-up ramp") },
+                                onClick = { menuOpen = false; onGenerateWarmup() },
+                            )
+                        },
+                    )
                 }
             }
 

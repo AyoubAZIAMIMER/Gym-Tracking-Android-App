@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class WorkoutDetailUiState(
@@ -28,6 +29,8 @@ data class WorkoutDetailUiState(
     val comment: String = "",
     val exercises: List<WorkoutRepository.DetailExercise> = emptyList(),
     val prCount: Int = 0,
+    val editing: Boolean = false,
+    val deleted: Boolean = false,
 )
 
 class WorkoutDetailViewModel(
@@ -46,9 +49,15 @@ class WorkoutDetailViewModel(
     }
 
     private suspend fun load() {
-        val detail = repo.workoutDetail(workoutId) ?: return
+        val detail = repo.workoutDetail(workoutId) ?: run {
+            // the workout this screen was showing no longer exists (deleted) — leave, don't
+            // reset to a blank "Workout" title first
+            _ui.update { it.copy(deleted = true) }
+            return
+        }
         val zone = ZoneId.systemDefault()
         val started = Instant.ofEpochMilli(detail.workout.startedAt).atZone(zone)
+        val editing = _ui.value.editing
         _ui.value = WorkoutDetailUiState(
             title = detail.workout.name.ifBlank { "Workout" },
             dateLine = started.format(
@@ -64,6 +73,29 @@ class WorkoutDetailViewModel(
             comment = detail.workout.comment,
             exercises = detail.exercises,
             prCount = detail.exercises.sumOf { ex -> ex.sets.count { it.isPr } },
+            editing = editing,
         )
+    }
+
+    fun toggleEditing() = _ui.update { it.copy(editing = !it.editing) }
+
+    fun updateSet(setId: String, weightKg: Double?, reps: Int?) = viewModelScope.launch {
+        repo.updateSet(setId, weightKg, reps)
+        load()
+    }
+
+    fun removeSet(setId: String) = viewModelScope.launch {
+        repo.deleteSet(setId)
+        load()
+    }
+
+    fun removeExercise(exerciseId: String) = viewModelScope.launch {
+        repo.removeExerciseFromWorkout(workoutId, exerciseId)
+        load()
+    }
+
+    fun deleteWorkout() = viewModelScope.launch {
+        repo.deleteWorkout(workoutId)
+        _ui.update { it.copy(deleted = true) }
     }
 }

@@ -25,8 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,12 +41,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.ui.components.AlertBody
+import com.gymtracker.ui.components.EditProgramExerciseSheet
+import com.gymtracker.ui.components.ExerciseOverflowMenu
 import com.gymtracker.ui.components.ExercisePickerSheet
 import com.gymtracker.ui.components.ForgedAlert
 import com.gymtracker.ui.components.ForgedBlock
@@ -124,43 +131,13 @@ fun ProgramEditorScreen(
                 }
                 day.exercises.forEach { pe ->
                     RowRule()
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = Dim.screenPadH, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            Modifier
-                                .size(6.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
-                            Text(
-                                text = pe.exercise?.name ?: "Unknown exercise",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                text = "${pe.row.targetSets} × " +
-                                    Formats.repRange(pe.row.repMin, pe.row.repMax),
-                                fontSize = 12.5.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
-                        }
-                        IconButton(onClick = { vm.removeExercise(pe.row.id) }) {
-                            Icon(
-                                Icons.Rounded.Close,
-                                contentDescription = "Remove ${pe.exercise?.name ?: "exercise"}",
-                                modifier = Modifier.size(16.dp),
-                                tint = GymTheme.colors.hint,
-                            )
-                        }
-                    }
+                    ProgramExerciseRow(
+                        pe = pe,
+                        onToggleSuperset = { vm.toggleSuperset(pe.row.id) },
+                        onEdit = { vm.openEditTarget(pe.row.id) },
+                        onReplace = { vm.openReplace(pe.row.id) },
+                        onRemove = { vm.removeExercise(pe.row.id) },
+                    )
                 }
                 RowRule()
                 ActionRow(
@@ -198,6 +175,32 @@ fun ProgramEditorScreen(
         )
     }
 
+    if (state.replacingExerciseId != null) {
+        ExercisePickerSheet(
+            items = state.pickerItems,
+            onPick = vm::confirmReplace,
+            onDismiss = vm::closeReplace,
+            title = "Replace exercise",
+            subtitle = "Pick a replacement — sets and rep range carry over.",
+        )
+    }
+
+    state.editingExerciseId?.let { editingId ->
+        val pe = state.detail?.days
+            ?.flatMap { it.exercises }
+            ?.firstOrNull { it.row.id == editingId }
+        if (pe != null) {
+            EditProgramExerciseSheet(
+                exerciseName = pe.exercise?.name ?: "Exercise",
+                initialSets = pe.row.targetSets,
+                initialRepMin = pe.row.repMin,
+                initialRepMax = pe.row.repMax,
+                onSave = vm::saveEditTarget,
+                onDismiss = vm::closeEditTarget,
+            )
+        }
+    }
+
     if (confirmDelete) {
         // Deleting a program throws away its days and exercise rows — confirm first
         ForgedAlert(
@@ -214,6 +217,88 @@ fun ProgramEditorScreen(
                 )
             },
         )
+    }
+}
+
+/** One program exercise: dot/superset-bracket, name + target, ⋮ → the shared
+ *  Superset/Edit/Replace/Remove menu — same vocabulary the live session uses. */
+@Composable
+private fun ProgramExerciseRow(
+    pe: WorkoutRepository.ProgramExerciseDetail,
+    onToggleSuperset: () -> Unit,
+    onEdit: () -> Unit,
+    onReplace: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val inSuperset = pe.row.supersetGroup != null
+    val supersetColor = MaterialTheme.colorScheme.primary
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(
+                if (inSuperset) Modifier.drawBehind {
+                    drawRoundRect(
+                        color = supersetColor,
+                        topLeft = Offset(0f, 8.dp.toPx()),
+                        size = Size(3.dp.toPx(), size.height - 16.dp.toPx()),
+                        cornerRadius = CornerRadius(2.dp.toPx()),
+                    )
+                } else Modifier
+            )
+            .padding(start = Dim.screenPadH, end = 8.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(6.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = pe.exercise?.name ?: "Unknown exercise",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (inSuperset) {
+                    Text(
+                        text = "  SUPERSET",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = supersetColor,
+                    )
+                }
+            }
+            Text(
+                text = "${pe.row.targetSets} × " + Formats.repRange(pe.row.repMin, pe.row.repMax),
+                fontSize = 12.5.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        Box {
+            var menuOpen by remember { mutableStateOf(false) }
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(
+                    Icons.Rounded.MoreVert,
+                    contentDescription = "More options for ${pe.exercise?.name ?: "exercise"}",
+                    tint = GymTheme.colors.hint,
+                )
+            }
+            ExerciseOverflowMenu(
+                expanded = menuOpen,
+                onDismiss = { menuOpen = false },
+                inSuperset = inSuperset,
+                onToggleSuperset = onToggleSuperset,
+                editLabel = "Edit target",
+                onEdit = onEdit,
+                onReplace = onReplace,
+                onRemove = onRemove,
+            )
+        }
     }
 }
 

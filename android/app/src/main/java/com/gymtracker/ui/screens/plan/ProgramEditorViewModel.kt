@@ -20,6 +20,10 @@ data class ProgramEditorUiState(
     val pickerForDayId: String? = null,
     val pickerItems: List<PickerItem> = emptyList(),
     val deleted: Boolean = false,
+    // non-null while a row's picker is open in "swap this one" mode, not "add a new one"
+    val replacingExerciseId: String? = null,
+    // non-null while the Edit-target sheet is open for this program-exercise row id
+    val editingExerciseId: String? = null,
 )
 
 class ProgramEditorViewModel(
@@ -81,6 +85,44 @@ class ProgramEditorViewModel(
         repo.removeProgramExercise(programExerciseId)
         refresh()
     }
+
+    fun toggleSuperset(programExerciseId: String) = viewModelScope.launch {
+        val dayId = dayIdOf(programExerciseId) ?: return@launch
+        repo.toggleProgramSuperset(dayId, programExerciseId)
+        refresh()
+    }
+
+    fun openEditTarget(programExerciseId: String) =
+        _ui.update { it.copy(editingExerciseId = programExerciseId) }
+
+    fun closeEditTarget() = _ui.update { it.copy(editingExerciseId = null) }
+
+    fun saveEditTarget(sets: Int, repMin: Int, repMax: Int) = viewModelScope.launch {
+        val id = _ui.value.editingExerciseId ?: return@launch
+        repo.updateProgramExerciseTarget(id, sets, repMin, repMax)
+        _ui.update { it.copy(editingExerciseId = null) }
+        refresh()
+    }
+
+    fun openReplace(programExerciseId: String) = viewModelScope.launch {
+        val items = repo.exercisesSnapshot().map { PickerItem(it.id, it.name, it.muscles) }
+        _ui.update { it.copy(replacingExerciseId = programExerciseId, pickerItems = items) }
+    }
+
+    fun closeReplace() = _ui.update { it.copy(replacingExerciseId = null) }
+
+    fun confirmReplace(item: PickerItem) = viewModelScope.launch {
+        val id = _ui.value.replacingExerciseId ?: return@launch
+        val newExerciseId = item.dbExerciseId ?: return@launch
+        repo.replaceProgramExercise(id, newExerciseId)
+        _ui.update { it.copy(replacingExerciseId = null) }
+        refresh()
+    }
+
+    private fun dayIdOf(programExerciseId: String): String? =
+        _ui.value.detail?.days
+            ?.firstOrNull { day -> day.exercises.any { it.row.id == programExerciseId } }
+            ?.day?.id
 
     fun deleteProgram() = viewModelScope.launch {
         repo.deleteProgram(programId)

@@ -78,6 +78,17 @@ interface ProgramDao {
     // keeps program day lists intact when a placeholder is merged into a named exercise
     @Query("UPDATE program_exercises SET exerciseId = :toId WHERE exerciseId = :fromId")
     suspend fun reassignExercise(fromId: String, toId: String)
+
+    // one row's exercise, from the editor's own Replace action — distinct from
+    // reassignExercise above, which rewrites every row sharing the old exercise
+    @Query("UPDATE program_exercises SET exerciseId = :toId WHERE id = :id")
+    suspend fun replaceProgramExercise(id: String, toId: String)
+
+    @Query("UPDATE program_exercises SET targetSets = :sets, repMin = :repMin, repMax = :repMax WHERE id = :id")
+    suspend fun updateProgramExerciseTarget(id: String, sets: Int, repMin: Int, repMax: Int)
+
+    @Query("UPDATE program_exercises SET supersetGroup = :group WHERE id = :id")
+    suspend fun setProgramSupersetGroup(id: String, group: Int?)
 }
 
 @Dao
@@ -118,6 +129,9 @@ interface WorkoutDao {
 
     @Query("SELECT COUNT(*) FROM workouts")
     fun observeCount(): Flow<Int>
+
+    @Query("DELETE FROM workouts WHERE id = :id")
+    suspend fun deleteWorkout(id: String)
 }
 
 @Dao
@@ -157,4 +171,16 @@ interface SetDao {
 
     @Query("SELECT COUNT(*) FROM sets")
     fun observeCount(): Flow<Int>
+
+    @Query("DELETE FROM sets WHERE workoutId = :workoutId")
+    suspend fun deleteSetsOf(workoutId: String)
+
+    @Query("DELETE FROM sets WHERE id = :id")
+    suspend fun deleteSet(id: String)
+
+    @Query("DELETE FROM sets WHERE workoutId = :workoutId AND exerciseId = :exerciseId")
+    suspend fun deleteSetsOfExercise(workoutId: String, exerciseId: String)
+
+    @Query("UPDATE sets SET weightKg = :weightKg, reps = :reps WHERE id = :id")
+    suspend fun updateSet(id: String, weightKg: Double?, reps: Int?)
 }

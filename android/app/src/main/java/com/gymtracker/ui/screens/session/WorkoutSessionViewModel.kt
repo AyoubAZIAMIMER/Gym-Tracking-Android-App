@@ -142,6 +142,9 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                 }.ifEmpty { List(3) { SessionSet(id = nextId++) } },
                 note = ex.note,
                 plan = ex.plan,
+                // carried straight through: two exercises sharing the same group value read
+                // as paired regardless of where the value came from, same as a live toggle
+                supersetGroup = ex.supersetGroup,
             )
         }
         return WorkoutSessionUiState(
@@ -394,6 +397,34 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     // --- sheets & finish --------------------------------------------------------
 
     fun showExercisePicker(show: Boolean) = _ui.update { it.copy(showExercisePicker = show) }
+
+    /** Only reachable while the exercise has zero completed sets — swapping identity after
+     *  you've logged against it is out of scope (real ambiguity about what happens to the
+     *  sets already on the books), so it's disallowed here too, not just hidden in the UI. */
+    fun startReplace(exerciseId: Long) {
+        val ex = _ui.value.exercises.firstOrNull { it.id == exerciseId } ?: return
+        if (ex.sets.any { it.completed }) return
+        _ui.update { it.copy(replacingExerciseId = exerciseId) }
+    }
+
+    fun cancelReplace() = _ui.update { it.copy(replacingExerciseId = null) }
+
+    fun confirmReplace(item: PickerItem) = _ui.update { st ->
+        val targetId = st.replacingExerciseId ?: return@update st
+        st.copy(
+            replacingExerciseId = null,
+            exercises = st.exercises.map { ex ->
+                if (ex.id != targetId || ex.sets.any { it.completed }) ex
+                else ex.copy(
+                    name = item.name,
+                    muscleGroup = item.muscleGroup,
+                    dbExerciseId = item.dbExerciseId,
+                    sets = List(3) { SessionSet(id = nextId++) },
+                    plan = null,
+                )
+            },
+        )
+    }
 
     fun showFinishSheet(show: Boolean) = _ui.update { it.copy(showFinishSheet = show) }
 

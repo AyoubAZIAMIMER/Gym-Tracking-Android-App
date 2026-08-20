@@ -70,6 +70,8 @@ data class WorkoutSessionUiState(
     val barKg: Double = 20.0,               // from imported Progression prefs (plate calculator)
     val pickerItems: List<PickerItem> = emptyList(),
     val programDayId: String? = null,       // set when the session came from a program day
+    // non-null while the picker is open in "swap this one" mode from the exercise menu
+    val replacingExerciseId: Long? = null,
 ) {
     val completedSets: Int get() = exercises.sumOf { ex -> ex.sets.count { it.completed } }
     val totalSets: Int get() = exercises.sumOf { it.sets.size }

@@ -40,6 +40,9 @@ fun ExercisePickerSheet(
     items: List<PickerItem>,
     onPick: (PickerItem) -> Unit,
     onDismiss: () -> Unit,
+    // the same sheet doubles as the Replace picker — only the copy changes
+    title: String = "Add exercise",
+    subtitle: String = "Pick from your library.",
 ) {
     var query by remember { mutableStateOf("") }
 
@@ -49,7 +52,7 @@ fun ExercisePickerSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(Modifier.padding(bottom = 24.dp)) {
-            SheetTitle("Add exercise", "Pick from your library.")
+            SheetTitle(title, subtitle)
 
             OutlinedTextField(
                 value = query,

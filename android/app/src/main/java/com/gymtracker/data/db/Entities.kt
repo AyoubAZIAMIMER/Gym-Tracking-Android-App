@@ -70,4 +70,7 @@ data class ProgramExerciseEntity(
     val targetSets: Int,
     val repMin: Int,
     val repMax: Int,
+    // exercises sharing a non-null id superset together — same model as the live
+    // session's SessionExercise.supersetGroup, so a program remembers its pairing
+    val supersetGroup: Int? = null,
 )

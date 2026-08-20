@@ -39,10 +39,13 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.gymtracker.ui.components.ExerciseOverflowMenu
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.Composable
@@ -130,7 +133,12 @@ fun SessionSlateScreen(
     onRepsDelta: (Int) -> Unit,
     onEffort: (Int) -> Unit,
     onEditNote: () -> Unit = {},
-    onExerciseMenu: () -> Unit = {},
+    inSuperset: Boolean = false,
+    supersetEnabled: Boolean = true,
+    onToggleSuperset: () -> Unit = {},
+    onReplace: (() -> Unit)? = null,
+    onRemove: () -> Unit = {},
+    onAddExercise: () -> Unit = {},
     onPrevExercise: (() -> Unit)? = null,
     onNextExercise: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -258,11 +266,32 @@ fun SessionSlateScreen(
                 }
                 Text(ui.muscleCaption, style = type.bodyMedium, color = scheme.onSurfaceVariant)
             }
-            IconButton(onClick = onExerciseMenu) {
-                Icon(
-                    Icons.Rounded.MoreVert,
-                    contentDescription = "Exercise options",
-                    tint = scheme.onSurfaceVariant,
+            Box {
+                var menuOpen by remember { mutableStateOf(false) }
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = "Exercise options",
+                        tint = scheme.onSurfaceVariant,
+                    )
+                }
+                ExerciseOverflowMenu(
+                    expanded = menuOpen,
+                    onDismiss = { menuOpen = false },
+                    inSuperset = inSuperset,
+                    onToggleSuperset = onToggleSuperset,
+                    supersetEnabled = supersetEnabled,
+                    editLabel = "Edit note",
+                    onEdit = onEditNote,
+                    onReplace = onReplace,
+                    onRemove = onRemove,
+                    extraItems = {
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Add exercise") },
+                            onClick = { menuOpen = false; onAddExercise() },
+                        )
+                    },
                 )
             }
         }
