@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,10 +49,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.ui.components.CalendarHeatmap
 import com.gymtracker.ui.components.ForgedListRow
 import com.gymtracker.ui.components.RowRule
-import com.gymtracker.ui.components.GlassSurface
 import com.gymtracker.ui.components.GlowBackground
 import com.gymtracker.ui.components.LineChart
 import com.gymtracker.ui.components.WeeklyBarChart
+import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.domain.Rank
 import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
@@ -104,11 +103,13 @@ fun StatsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                VolumeHeadline(state)
-                RankVolumeCard(state, Modifier.forgedEntrance(0, entered))
+                // ui-ux-pro-max pass, 2026-08-21: one hero per screen, matching every sibling
+                // tab (Home's Start card, Plan's Up Next, Recovery's body map) — the headline
+                // number and the all-time rank used to split across a flat block plus a
+                // separate glass card, two elevated surfaces competing for the same "hero" job.
+                StatsHero(state, Modifier.padding(top = 4.dp).forgedEntrance(0, entered))
 
-                // README §7 renders Stats flat — the volume block is the hero, not a card
-                Column(Modifier.fillMaxWidth().forgedEntrance(0, entered)) {
+                Column(Modifier.fillMaxWidth().forgedEntrance(1, entered)) {
                     SectionRule()
                     ForgedSectionHeader(
                         label = "WEEKLY VOLUME · 8 WKS",
@@ -134,7 +135,7 @@ fun StatsScreen(
                 ChartCard(
                     title = "Training calendar",
                     subtitle = "20 wks",
-                    modifier = Modifier.forgedEntrance(1, entered),
+                    modifier = Modifier.forgedEntrance(2, entered),
                 ) {
                     CalendarHeatmap(state.calendar)
                 }
@@ -143,7 +144,7 @@ fun StatsScreen(
                     ChartCard(
                         title = "Session duration",
                         subtitle = "last 30",
-                        modifier = Modifier.forgedEntrance(2, entered),
+                        modifier = Modifier.forgedEntrance(3, entered),
                     ) {
                         LineChart(state.durations)
                     }
@@ -151,7 +152,7 @@ fun StatsScreen(
 
                 // supporting lists render flat — the charts above stay the hero surfaces
                 if (state.prs.isNotEmpty()) {
-                    Column(Modifier.forgedEntrance(3, entered)) {
+                    Column(Modifier.forgedEntrance(4, entered)) {
                         SectionRule()
                         ForgedSectionHeader("RECENT PRS", bottomPadding = 4.dp)
                         state.prs.forEach { pr ->
@@ -181,7 +182,7 @@ fun StatsScreen(
                 }
 
                 if (state.top.isNotEmpty()) {
-                    Column(Modifier.forgedEntrance(4, entered)) {
+                    Column(Modifier.forgedEntrance(5, entered)) {
                         SectionRule()
                         ForgedSectionHeader("MOST TRAINED · 30 DAYS", bottomPadding = 4.dp)
                         state.top.forEach { t ->
@@ -213,95 +214,6 @@ fun StatsScreen(
                     .navigationBarsPadding()
                     .height(112.dp)
             )
-        }
-    }
-}
-
-/**
- * Blue Hour rank header: the Movo "Total Weight" tile made real, with a SUBTLE rank cue
- * (Wood → Olympian by lifetime tonnage) — one quiet medal pill and a "N to next" line, no
- * badges or level-up theatre.
- */
-@Composable
-private fun RankVolumeCard(state: StatsUiState, modifier: Modifier = Modifier) {
-    val standing = remember(state.totalVolumeKg) { Rank.standing(state.totalVolumeKg) }
-    val medal = rankColor(standing.rank)
-    GlassSurface(modifier = modifier) {
-        Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.FitnessCenter,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = "Total volume moved",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = Formats.volumeKg(state.totalVolumeKg),
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontFeatureSettings = FONT_FEATURE_TABULAR
-                            ),
-                        )
-                        Text(
-                            text = " kg",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 3.dp),
-                        )
-                    }
-                }
-                RankPill(standing.rank, medal)
-            }
-            val progress = standing.progress
-            if (progress != null && standing.next != null && standing.toNextKg != null) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)),
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(progress)
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(medal),
-                        )
-                    }
-                    Text(
-                        text = "${Formats.volumeKg(standing.toNextKg)} kg to ${standing.next.label}",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontFeatureSettings = FONT_FEATURE_TABULAR
-                        ),
-                        color = GymTheme.colors.hint,
-                    )
-                }
-            } else {
-                Text(
-                    text = "Top rank — ${state.totalWorkouts} sessions logged",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = medal,
-                )
-            }
         }
     }
 }
@@ -363,53 +275,139 @@ private fun ChartCard(
 }
 
 /**
- * The prototype's Stats hero: this week's tonnage as one big Anton numeral with its delta,
- * over a trio of supporting figures (PRs carry the gold — the earned, per Identity law).
+ * Stats' one hero (forgeHero — matches Home's Start card, Plan's Up Next, Recovery's body map):
+ * this period's tonnage as one big Anton numeral with its delta and session/PR/hours trio, a
+ * hairline, then all-time rank standing — previously two competing elevated surfaces (a flat
+ * headline block plus a separate glass card), now one.
  */
 @Composable
-private fun VolumeHeadline(state: StatsUiState) {
+private fun StatsHero(state: StatsUiState, modifier: Modifier = Modifier) {
+    val standing = remember(state.totalVolumeKg) { Rank.standing(state.totalVolumeKg) }
+    val medal = rankColor(standing.rank)
     val hours = state.periodHours
-    SectionRule()
-    ForgedSectionHeader("VOLUME THIS ${state.period.label.uppercase()}", bottomPadding = 8.dp)
-    Row(
-        Modifier.padding(horizontal = Dim.screenPadH),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
+    Column(
+        modifier
+            .fillMaxWidth()
+            .forgeHero()
+            .padding(18.dp),
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = Formats.volumeKg(rollUpValue(state.periodVolumeKg.toFloat()).toDouble()),
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 42.sp,
-                    lineHeight = 42.sp,
-                    fontFeatureSettings = FONT_FEATURE_TABULAR,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
+        Text(
+            text = "VOLUME THIS ${state.period.label.uppercase()}",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 1.6.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            Modifier.padding(top = 10.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = Formats.volumeKg(rollUpValue(state.periodVolumeKg.toFloat()).toDouble()),
+                    style = MaterialTheme.typography.displayLarge.copy(
+                        fontSize = 38.sp,
+                        lineHeight = 38.sp,
+                        fontFeatureSettings = FONT_FEATURE_TABULAR,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "kg",
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 15.sp),
+                    color = GymTheme.colors.hint,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
+                )
+            }
+            state.weekDeltaPct?.let { d ->
+                Text(
+                    text = if (d >= 0) "▲$d%" else "▼${-d}%",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (d >= 0) GymTheme.colors.success else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+        }
+        Row(
+            Modifier.padding(top = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(26.dp),
+        ) {
+            StatFigure("${state.periodSessions}", "sessions", MaterialTheme.colorScheme.onSurface)
+            // gold means earned (PRs, ranks) — a zero count is not an achievement to celebrate
+            StatFigure(
+                "${state.periodPrs}",
+                "PRs",
+                if (state.periodPrs > 0) GymTheme.colors.prGold else MaterialTheme.colorScheme.onSurface,
             )
+            StatFigure(String.format(Locale.ENGLISH, "%.1f", hours), "hours", MaterialTheme.colorScheme.onSurface)
+        }
+
+        Box(
+            Modifier
+                .padding(vertical = 18.dp)
+                .fillMaxWidth()
+                .height(Dim.hairline)
+                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+        )
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = "Total volume moved",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = Formats.volumeKg(state.totalVolumeKg),
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFeatureSettings = FONT_FEATURE_TABULAR
+                        ),
+                    )
+                    Text(
+                        text = " kg",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 3.dp),
+                    )
+                }
+            }
+            RankPill(standing.rank, medal)
+        }
+        val progress = standing.progress
+        if (progress != null && standing.next != null && standing.toNextKg != null) {
+            Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(progress)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(medal),
+                    )
+                }
+                Text(
+                    text = "${Formats.volumeKg(standing.toNextKg)} kg to ${standing.next.label}",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontFeatureSettings = FONT_FEATURE_TABULAR
+                    ),
+                    color = GymTheme.colors.hint,
+                )
+            }
+        } else {
             Text(
-                text = "kg",
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 15.sp),
-                color = GymTheme.colors.hint,
-                modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
+                text = "Top rank — ${state.totalWorkouts} sessions logged",
+                style = MaterialTheme.typography.labelMedium,
+                color = medal,
+                modifier = Modifier.padding(top = 10.dp),
             )
         }
-        state.weekDeltaPct?.let { d ->
-            Text(
-                text = if (d >= 0) "▲$d%" else "▼${-d}%",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (d >= 0) GymTheme.colors.success else MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
-        }
-    }
-    Row(
-        Modifier.padding(start = Dim.screenPadH, end = Dim.screenPadH, top = 16.dp, bottom = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(26.dp),
-    ) {
-        StatFigure("${state.periodSessions}", "sessions", MaterialTheme.colorScheme.onSurface)
-        StatFigure("${state.periodPrs}", "PRs", GymTheme.colors.prGold)
-        StatFigure(String.format(Locale.ENGLISH, "%.1f", hours), "hours", MaterialTheme.colorScheme.onSurface)
     }
 }
 

@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -72,6 +72,7 @@ import com.gymtracker.ui.components.PrBanner
 import com.gymtracker.ui.components.RowRule
 import com.gymtracker.ui.components.SectionRule
 import com.gymtracker.ui.components.emberBloomPulsing
+import com.gymtracker.ui.components.forgeHero
 import com.gymtracker.ui.components.rememberEntered
 import com.gymtracker.ui.components.StampText
 import com.gymtracker.ui.screens.session.SetTag
@@ -124,58 +125,65 @@ fun WorkoutDetailScreen(
         ) {
             ForgedScreenTitle(state.title, trailing = state.dateLine, onBack = onBack)
 
-            if (state.justFinished) {
+            // ui-ux-pro-max pass, 2026-08-21: this screen is the app's one biggest emotional
+            // payoff (finishing a session) and previously had no hero at all — the celebratory
+            // mark floated over bare background, then a *separate* flat stat row forced 5 figures
+            // into a horizontal scroll (an anti-pattern: content-priority, no horizontal-scroll).
+            // Now: one forgeHero surface — matching every sibling tab's one-hero rule — holds the
+            // reveal AND the stats together, wrapping onto a second line instead of scrolling.
+            ForgedBlock(0, entered) {
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .padding(horizontal = Dim.screenPadH, vertical = 14.dp)
+                        .forgeHero()
+                        .padding(18.dp),
                 ) {
-                    ForgedMark(
-                        size = 36.dp,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.graphicsLayer {
-                            alpha = celebrateT
-                            scaleX = 0.85f + 0.15f * celebrateT
-                            scaleY = 0.85f + 0.15f * celebrateT
-                        },
-                    )
-                    Text(
-                        text = "forged.",
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.graphicsLayer { alpha = celebrateT },
-                    )
-                    if (state.prCount > 0) {
-                        Spacer(Modifier.height(10.dp))
-                        PrBanner(
-                            visible = celebrateVisible,
-                            label = "${state.prCount} new PR${if (state.prCount > 1) "s" else ""}",
-                        )
+                    if (state.justFinished) {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 18.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            ForgedMark(
+                                size = 36.dp,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.graphicsLayer {
+                                    alpha = celebrateT
+                                    scaleX = 0.85f + 0.15f * celebrateT
+                                    scaleY = 0.85f + 0.15f * celebrateT
+                                },
+                            )
+                            Text(
+                                text = "forged.",
+                                style = MaterialTheme.typography.displayLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.graphicsLayer { alpha = celebrateT },
+                            )
+                            if (state.prCount > 0) {
+                                Spacer(Modifier.height(10.dp))
+                                PrBanner(
+                                    visible = celebrateVisible,
+                                    label = "${state.prCount} new PR${if (state.prCount > 1) "s" else ""}",
+                                )
+                            }
+                        }
                     }
-                }
-            }
-
-            // Anton figures lead, the way History and Stats do — no glass tile row
-            ForgedBlock(0, entered) {
-                SectionRule()
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            start = Dim.screenPadH,
-                            end = Dim.screenPadH,
-                            top = 18.dp,
-                            bottom = 20.dp,
-                        ),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        Modifier
-                            .weight(1f)
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(26.dp),
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "SUMMARY",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, letterSpacing = 1.6.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        EditToggle(editing = state.editing, onClick = vm::toggleEditing)
+                    }
+                    FlowRow(
+                        modifier = Modifier.padding(top = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(28.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Stat(state.durationText ?: "—", "duration")
                         Stat("${state.totalSets}", "sets")
@@ -183,7 +191,6 @@ fun WorkoutDetailScreen(
                         if (state.calories > 0) Stat("~${state.calories}", "calories")
                         if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
                     }
-                    EditToggle(editing = state.editing, onClick = vm::toggleEditing)
                 }
             }
 
