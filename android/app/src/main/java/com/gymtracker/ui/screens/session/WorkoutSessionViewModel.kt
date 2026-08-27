@@ -6,6 +6,7 @@ package com.gymtracker.ui.screens.session
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.service.RestTimerService
 import com.gymtracker.utils.PlateCalculator
@@ -19,11 +20,12 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = WorkoutRepository.get(app)
     private var nextId = 1_000L
+    private val gson = Gson()
 
     // live-PR baseline (exerciseId → all-time best e1RM), loaded once per session build
     private var bestE1rm: MutableMap<String, Double> = mutableMapOf()
 
-    private val _ui = MutableStateFlow(sampleSession())
+    private val _ui = MutableStateFlow(restoreActiveSession() ?: sampleSession())
     val ui = _ui.asStateFlow()
 
     init {
@@ -31,6 +33,16 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
         // Lock-screen "Log set" action: identical to tapping the active row in-app.
         viewModelScope.launch {
             RestTimerService.logSetRequests.collect { logActiveSetFromNotification() }
+        }
+        // A process kill mid-workout must not lose the session — the lock-screen rest-timer
+        // notification's "Log set" action needs somewhere to log into even if the app was
+        // never reopened. finishWorkout()/discardSession() both flip sessionActive false,
+        // so the same collector clears the blob on the way out.
+        viewModelScope.launch {
+            ui.collect { state ->
+                if (state.sessionActive) repo.saveActiveSessionJson(gson.toJson(state))
+                else repo.clearActiveSession()
+            }
         }
     }
 
@@ -222,28 +234,44 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
         var completedNow = false
         _ui.update { st ->
             val exercises = st.exercises.map { ex ->
-                if (ex.id != exerciseId) ex else ex.copy(sets = ex.sets.map { s ->
-                    if (s.id != setId) s else if (!s.completed) {
-                        completedNow = true
-                        // materialize accepted hints so the logged values are explicit
-                        val done = s.copy(
-                            completed = true,
-                            weightText = s.weightText.ifEmpty {
-                                (s.suggestedWeightKg ?: s.prevWeightKg)?.let(PlateCalculator::fmt) ?: ""
-                            },
-                            repsText = s.repsText.ifEmpty {
-                                (s.suggestedReps ?: s.prevReps)?.toString() ?: ""
-                            },
-                        )
-                        // Forged Moment (rung 4): a working set that beats the all-time e1RM.
-                        // First-ever lifts have no baseline and are no PR (same rule as analytics).
-                        // isPr first: a PR raises the baseline, so its own intensity reads 1.0
-                        val pr = isPr(ex.dbExerciseId, done)
-                        done.copy(isPr = pr, intensity = intensityOf(ex.dbExerciseId, done))
-                    } else {
-                        s.copy(completed = false, isPr = false, intensity = null)
+                if (ex.id != exerciseId) ex else {
+                    val sets = ex.sets.map { s ->
+                        if (s.id != setId) s else if (!s.completed) {
+                            completedNow = true
+                            // materialize accepted hints so the logged values are explicit
+                            val done = s.copy(
+                                completed = true,
+                                weightText = s.weightText.ifEmpty {
+                                    (s.suggestedWeightKg ?: s.prevWeightKg)?.let(PlateCalculator::fmt) ?: ""
+                                },
+                                repsText = s.repsText.ifEmpty {
+                                    (s.suggestedReps ?: s.prevReps)?.toString() ?: ""
+                                },
+                            )
+                            // Forged Moment (rung 4): a working set that beats the all-time e1RM.
+                            // First-ever lifts have no baseline and are no PR (same rule as analytics).
+                            // isPr first: a PR raises the baseline, so its own intensity reads 1.0
+                            val pr = isPr(ex.dbExerciseId, done)
+                            done.copy(isPr = pr, intensity = intensityOf(ex.dbExerciseId, done))
+                        } else {
+                            s.copy(completed = false, isPr = false, intensity = null)
+                        }
                     }
-                })
+                    // Carry the just-logged weight into the next set as its hint — on a
+                    // first-ever exercise (no history, no plan suggestion) every set otherwise
+                    // starts blank/0, forcing the stepper to be built up from zero rep after rep
+                    // instead of starting from what was just lifted.
+                    if (!completedNow) ex.copy(sets = sets) else {
+                        val doneIndex = sets.indexOfFirst { it.id == setId }
+                        val done = sets[doneIndex]
+                        ex.copy(sets = sets.mapIndexed { i, s ->
+                            if (i != doneIndex + 1) s else s.copy(
+                                prevWeightKg = s.prevWeightKg ?: s.suggestedWeightKg ?: done.effectiveWeightKg,
+                                prevReps = s.prevReps ?: s.suggestedReps ?: done.effectiveReps,
+                            )
+                        })
+                    }
+                }
             }
             st.copy(
                 exercises = exercises,
@@ -505,6 +533,23 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
         // keep at most one decimal point
         return if (firstDot == -1) filtered
         else filtered.substring(0, firstDot + 1) + filtered.substring(firstDot + 1).replace(".", "")
+    }
+
+    /** Synchronous, deliberately — see the `_ui` initializer for why this can't be a suspend
+     *  function tucked into `init {}`. A corrupt or stale blob just falls back to null: the
+     *  worst case is the session that was already lost, not a crash. */
+    private fun restoreActiveSession(): WorkoutSessionUiState? {
+        val json = repo.loadActiveSessionJson() ?: return null
+        val state = runCatching { gson.fromJson(json, WorkoutSessionUiState::class.java) }.getOrNull()
+            ?.takeIf { it.sessionActive } ?: return null
+        val maxId = state.exercises.flatMap { ex -> listOf(ex.id) + ex.sets.map { it.id } }.maxOrNull() ?: 0L
+        nextId = maxId + 1
+        return state.copy(
+            showExercisePicker = false,
+            replacingExerciseId = null,
+            finished = false,
+            savedWorkoutId = null,
+        )
     }
 
     // Sample "Push Day" with fake last-session hints until the Room data layer exists

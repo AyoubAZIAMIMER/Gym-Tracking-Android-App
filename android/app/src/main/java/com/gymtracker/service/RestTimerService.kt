@@ -20,6 +20,7 @@ import android.os.VibratorManager
 import android.os.Vibrator
 import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
+import com.gymtracker.MainActivity
 import com.gymtracker.R
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.utils.TimeFormat
@@ -235,9 +236,15 @@ class RestTimerService : Service() {
     }
 
     private fun buildNotification(): Notification {
-        val openApp = packageManager.getLaunchIntentForPackage(packageName)?.let {
-            PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE)
-        }
+        // one gesture in (UX v6): tapping the notification fires the app straight into the
+        // session, same as the widget and the training reminder — not a bare launcher open.
+        val openApp = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_FIRE_UP, true),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
         val diffMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
         val overtime = diffMs < 0
         // Reference: lock-screen live timer — "Squat (Barbell) · set 2 of 4" as the line under

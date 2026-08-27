@@ -1,6 +1,6 @@
 // Purpose: Home's stateful shell — collects HomeViewModel, maps it onto the stateless
-//          HomeHubScreen the handoff ships (BUILD_ORDER step 6), and owns the first-run
-//          profile sheet. All Home layout lives in HomeHubScreen.kt; nothing draws here.
+//          HomeSlateScreen (the flat, hairline-ruled layout), and owns the first-run
+//          profile sheet. All Home layout lives in HomeSlateScreen.kt; nothing draws here.
 // Inputs: HomeViewModel (real Room stats after import/logging; sample fallback), session state
 // Outputs: onStartWorkout / onOpenData / onOpenPlan / onOpenHistory navigation events
 package com.gymtracker.ui.screens.home
@@ -8,13 +8,9 @@ package com.gymtracker.ui.screens.home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gymtracker.ui.components.ProfileSheet
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.utils.Formats
 import java.time.LocalDate
@@ -40,23 +36,36 @@ fun HomeScreen(
     onOpenPlan: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenRecovery: () -> Unit = {},
+    onOpenWorkout: (String) -> Unit = {},
+    onNeedsOnboarding: () -> Unit = {},
     vm: HomeViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { vm.refresh() }   // active program may have changed on the Plan tab
+    // active program may have changed on the Plan tab. Awaited (not fire-and-forget refresh())
+    // so the onboarding redirect below reads a state that's actually current — a HomeViewModel
+    // retained from before onboarding started still holds needsProfile=true until this
+    // completes, and checking the stale value raced this refresh, bouncing straight back into
+    // a blank onboarding after it had just been finished.
+    LaunchedEffect(Unit) {
+        vm.awaitRefresh()
+        if (vm.ui.value.needsProfile) onNeedsOnboarding()
+    }
 
     val heat = GymTheme.colors.heat
     // rebuilt only when the state or the live session actually changes — this runs on every
     // Home recomposition otherwise, and it allocates three lists
     val hub = remember(state, liveSession) {
         HomeUi(
-            greeting = if (state.userName.isNotBlank()) "Hi, ${state.userName}" else "Hi",
             dateCaption = LocalDate.now().format(dateCaptionFmt),
             weekProgress = if (state.weeklyGoal > 0) {
                 (state.workoutsThisWeek / state.weeklyGoal.toFloat()).coerceIn(0f, 1f)
             } else 0f,
+            weekDone = state.workoutsThisWeek,
+            weekGoal = state.weeklyGoal,
+            doneWeekdays = state.doneWeekdays,
             hero = HeroUi(
-                readinessTag = state.readinessLabel?.lowercase() ?: "ready",
+                // the Slate's TODAY stamp wants "QUADS WORN", not "quads worn"
+                readinessTag = state.readinessLabel?.uppercase() ?: "READY",
                 readinessFreshness = state.readinessFreshness ?: 1f,
                 sessionName = liveSession?.name ?: state.planTitle,
                 ctaLabel = if (liveSession != null) "Resume" else "Start",
@@ -68,14 +77,8 @@ fun HomeScreen(
                     state.estimatedMinutes?.let { append(" · about $it min") }
                 },
             ),
-            readyToTrain = state.readyToTrain.map { m ->
-                MuscleCardUi(
-                    muscle = m.muscle.replaceFirstChar(Char::uppercase),
-                    freshness = m.freshnessPercent / 100f,
-                    caption = "${m.freshnessPercent}% · ${m.lastTrainedDaysAgo}d ago",
-                )
-            },
-            jumpBackIn = state.recent.map { r ->
+            upcoming = state.upcoming.map { UpcomingRowUi(it.name, it.muscles, it.dayLabel) },
+            recent = state.recent.map { r ->
                 RecentSessionUi(
                     id = r.id,
                     name = r.name,
@@ -87,7 +90,7 @@ fun HomeScreen(
         )
     }
 
-    HomeHubScreen(
+    HomeSlateScreen(
         ui = hub,
         heatAt = { heat.at(it) },
         // mid-session the hero becomes Resume; otherwise it starts today's programmed day
@@ -95,17 +98,7 @@ fun HomeScreen(
         onOpenSettings = onOpenData,
         onOpenPlan = onOpenPlan,
         onOpenHistory = onOpenHistory,
-        onOpenRecovery = onOpenRecovery,
+        onOpenWorkout = onOpenWorkout,
     )
 
-    // first run: introduce yourself (dismissible; also editable later from Data → Profile)
-    var profileSkipped by rememberSaveable { mutableStateOf(false) }
-    if (state.needsProfile && !profileSkipped) {
-        ProfileSheet(
-            onSave = { name, weightKg, heightCm, weeklyGoal ->
-                vm.saveProfile(name, weightKg, heightCm, weeklyGoal)
-            },
-            onDismiss = { profileSkipped = true },
-        )
-    }
 }

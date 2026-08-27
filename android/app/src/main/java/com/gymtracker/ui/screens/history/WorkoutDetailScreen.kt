@@ -5,6 +5,7 @@
 package com.gymtracker.ui.screens.history
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,23 +49,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.ui.components.AlertBody
-import com.gymtracker.ui.components.ConfettiBurst
 import com.gymtracker.ui.components.ForgedAlert
 import com.gymtracker.ui.components.ForgedBlock
-import com.gymtracker.ui.components.ForgedMark
 import com.gymtracker.ui.components.ForgedScreenTitle
 import com.gymtracker.ui.components.ForgedSectionHeader
 import com.gymtracker.ui.components.GlowBackground
@@ -82,7 +88,10 @@ import com.gymtracker.ui.theme.FONT_FEATURE_TABULAR
 import com.gymtracker.ui.theme.GymTheme
 import com.gymtracker.ui.theme.Motion
 import com.gymtracker.ui.theme.forgedPress
+import com.gymtracker.ui.theme.rollUpValue
+import com.gymtracker.utils.Formats
 import com.gymtracker.utils.PlateCalculator
+import kotlin.math.roundToInt
 
 @Composable
 fun WorkoutDetailScreen(
@@ -115,7 +124,6 @@ fun WorkoutDetailScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize()) {
     GlowBackground(glowAlpha = 0.10f) {
         Column(
             Modifier
@@ -146,15 +154,7 @@ fun WorkoutDetailScreen(
                                 .padding(bottom = 18.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            ForgedMark(
-                                size = 36.dp,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.graphicsLayer {
-                                    alpha = celebrateT
-                                    scaleX = 0.85f + 0.15f * celebrateT
-                                    scaleY = 0.85f + 0.15f * celebrateT
-                                },
-                            )
+                            CompletionRing(entered = celebrateVisible, modifier = Modifier.padding(bottom = 4.dp))
                             Text(
                                 text = "forged.",
                                 style = MaterialTheme.typography.displayLarge,
@@ -180,16 +180,47 @@ fun WorkoutDetailScreen(
                         )
                         EditToggle(editing = state.editing, onClick = vm::toggleEditing)
                     }
+                    val setsRolled = rollUpValue(state.totalSets.toFloat())
+                    val volumeRolled = rollUpValue(state.totalVolumeNumeric.toFloat())
+                    val caloriesRolled = rollUpValue(state.calories.toFloat())
+                    val prRolled = rollUpValue(state.prCount.toFloat())
+                    val deltaRolled = state.volumeDeltaPercent?.let { rollUpValue(it.toFloat()) }
                     FlowRow(
                         modifier = Modifier.padding(top = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(28.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Stat(state.durationText ?: "—", "duration")
-                        Stat("${state.totalSets}", "sets")
-                        Stat(state.totalVolume, "kg volume")
-                        if (state.calories > 0) Stat("~${state.calories}", "calories")
-                        if (state.prCount > 0) Stat("${state.prCount}", "PRs", gold = true)
+                        Stat("${setsRolled.roundToInt()}", "sets")
+                        Stat(Formats.volumeKg(volumeRolled.toDouble()), "kg volume")
+                        if (state.calories > 0) Stat("~${caloriesRolled.roundToInt()}", "calories")
+                        if (state.prCount > 0) Stat("${prRolled.roundToInt()}", "PRs", gold = true)
+                        deltaRolled?.let { d ->
+                            val positive = d >= 0
+                            Stat(
+                                value = "${if (positive) "▲" else "▼"}${kotlin.math.abs(d.roundToInt())}%",
+                                label = "vs last",
+                                gold = false,
+                                valueColor = if (positive) GymTheme.colors.success else MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (state.prRows.isNotEmpty()) {
+                ForgedBlock(0, entered) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Dim.screenPadH, vertical = 4.dp)
+                            .forgeHero()
+                            .padding(horizontal = 18.dp, vertical = 6.dp),
+                    ) {
+                        state.prRows.forEachIndexed { i, row ->
+                            if (i > 0) RowRule()
+                            PrLedgerRow(row)
+                        }
                     }
                 }
             }
@@ -234,8 +265,6 @@ fun WorkoutDetailScreen(
 
             Spacer(Modifier.navigationBarsPadding().height(Dim.listBottomSpacer))
         }
-    }
-        ConfettiBurst(run = celebrateVisible, modifier = Modifier.matchParentSize())
     }
 
     if (confirmDelete) {
@@ -621,7 +650,7 @@ private fun RepeatRow(onClick: () -> Unit) {
 
 /** Anton figure over a muted caption — the shared stat pair (History §HeadlineStat). */
 @Composable
-private fun Stat(value: String, label: String, gold: Boolean = false) {
+private fun Stat(value: String, label: String, gold: Boolean = false, valueColor: Color? = null) {
     Column {
         Text(
             text = value,
@@ -631,13 +660,110 @@ private fun Stat(value: String, label: String, gold: Boolean = false) {
             ),
             maxLines = 1,
             overflow = TextOverflow.Clip,
-            color = if (gold) GymTheme.colors.prGold else MaterialTheme.colorScheme.onSurface,
+            color = valueColor ?: if (gold) GymTheme.colors.prGold else MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = label,
             fontSize = 11.5.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 1.dp),
+        )
+    }
+}
+
+/**
+ * The workout-complete reveal: a ring closes over `Motion.FORGE` (900 ms), then a checkmark
+ * draws inside it once the ring is most of the way shut. Replaces the old scale-fade mark —
+ * per design/MOTION.md §8 rung 3 ("strike → single settle → count → cool") and the redesign
+ * board's explicit "no confetti, no particles" rule: the ring closing IS the celebration.
+ */
+@Composable
+private fun CompletionRing(entered: Boolean, modifier: Modifier = Modifier, ringSize: Dp = 72.dp) {
+    val progress by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = Motion.settle(Motion.FORGE),
+        label = "completionRing",
+    )
+    val ringColor = MaterialTheme.colorScheme.primary
+    val trackColor = MaterialTheme.colorScheme.outlineVariant
+    Box(modifier.size(ringSize), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.matchParentSize()) {
+            val stroke = size.minDimension * 0.08f
+            drawArc(
+                color = trackColor,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            drawArc(
+                color = ringColor,
+                startAngle = -90f,
+                sweepAngle = 360f * progress.coerceIn(0f, 0.999f),
+                useCenter = false,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            // checkmark draws only once the ring is mostly closed — a spark-line arcing off
+            // the strike, per MOTION.md's rung-3 grammar
+            val checkT = ((progress - 0.6f) / 0.4f).coerceIn(0f, 1f)
+            if (checkT > 0f) {
+                val w = size.width
+                val h = size.height
+                val start = Offset(w * 0.28f, h * 0.52f)
+                val mid = Offset(w * 0.44f, h * 0.68f)
+                val end = Offset(w * 0.74f, h * 0.34f)
+                val checkStroke = stroke * 0.85f
+                if (checkT <= 0.5f) {
+                    val t = checkT / 0.5f
+                    drawLine(ringColor, start, lerp(start, mid, t), strokeWidth = checkStroke, cap = StrokeCap.Round)
+                } else {
+                    drawLine(ringColor, start, mid, strokeWidth = checkStroke, cap = StrokeCap.Round)
+                    val t = (checkT - 0.5f) / 0.5f
+                    drawLine(ringColor, mid, lerp(mid, end, t), strokeWidth = checkStroke, cap = StrokeCap.Round)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrLedgerRow(row: PrRowUi) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(24.dp).clip(MaterialTheme.shapes.extraSmall)
+                .background(GymTheme.colors.prGold.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Star,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp),
+                tint = GymTheme.colors.prGold,
+            )
+        }
+        Text(
+            text = row.exerciseName,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(start = 11.dp).weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = "${row.oldValue} kg",
+            fontSize = 12.5.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textDecoration = TextDecoration.LineThrough,
+        )
+        Text("→", fontSize = 11.sp, color = GymTheme.colors.hint, modifier = Modifier.padding(horizontal = 6.dp))
+        Text(
+            text = "${row.newValue} kg",
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 16.sp),
+            color = GymTheme.colors.prGold,
         )
     }
 }

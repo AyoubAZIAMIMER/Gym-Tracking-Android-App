@@ -55,6 +55,20 @@ class WorkoutRepository(
     fun restSeconds(): Int = prefs.getInt(KEY_REST_SECONDS, 120)
     fun barWeightKg(): Double = prefs.getFloat(KEY_BAR_KG, 20f).toDouble()
 
+    /** Raw JSON blob for the in-progress session, so a process kill mid-workout doesn't lose
+     *  it — the lock-screen rest-timer notification's "Log set" action needs a session to log
+     *  into even if the app was never reopened after being killed. The schema lives entirely
+     *  in `ui/screens/session/SessionModels.kt`; this layer just stores a string. */
+    fun saveActiveSessionJson(json: String) {
+        prefs.edit().putString(KEY_ACTIVE_SESSION, json).apply()
+    }
+
+    fun loadActiveSessionJson(): String? = prefs.getString(KEY_ACTIVE_SESSION, null)
+
+    fun clearActiveSession() {
+        prefs.edit().remove(KEY_ACTIVE_SESSION).apply()
+    }
+
     // --- profile (first-run: name, body weight, height, weekly goal) --------------
 
     data class Profile(
@@ -578,6 +592,7 @@ class WorkoutRepository(
         val tag: String?,
         val isPr: Boolean,
         val comment: String = "",
+        val e1rm: Double? = null,
     )
 
     data class DetailExercise(
@@ -588,11 +603,14 @@ class WorkoutRepository(
         val sets: List<DetailSet>,
     )
 
+    data class PrRow(val exerciseName: String, val oldE1rm: Double, val newE1rm: Double)
+
     data class WorkoutDetail(
         val workout: WorkoutEntity,
         val exercises: List<DetailExercise>,
         val totalSets: Int,
         val totalVolumeKg: Double,
+        val prRows: List<PrRow> = emptyList(),
     )
 
     suspend fun workoutDetail(workoutId: String): WorkoutDetail? {
@@ -621,17 +639,36 @@ class WorkoutRepository(
                     } else null
                     val isPr = e1rm != null && best != null && e1rm > best!!
                     if (e1rm != null) best = maxOf(best ?: e1rm, e1rm)
-                    DetailSet(s.id, s.weightKg, s.reps, s.tag, isPr, s.comment)
+                    DetailSet(s.id, s.weightKg, s.reps, s.tag, isPr, s.comment, e1rm = e1rm)
                 },
             )
+        }
+        val prRows = exercises.mapNotNull { ex ->
+            val prSets = ex.sets.filter { it.isPr }
+            if (prSets.isEmpty()) return@mapNotNull null
+            val oldBest = baseline[ex.exerciseId] ?: return@mapNotNull null
+            val newBest = prSets.mapNotNull { it.e1rm }.maxOrNull() ?: return@mapNotNull null
+            PrRow(ex.name, oldBest, newBest)
         }
         return WorkoutDetail(
             workout = workout,
             exercises = exercises,
-            totalSets = sets.size,
+            totalSets = sets.count { it.tag != "W" },
             totalVolumeKg = sets.filter { it.tag != "W" }
                 .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) },
+            prRows = prRows,
         )
+    }
+
+    /** Working-set volume vs. the previous workout with the same name, as a signed percentage.
+     *  Null when there is no earlier same-named workout, or its volume was zero. */
+    suspend fun volumeDeltaVsLastSameNamed(workoutId: String, name: String, currentVolumeKg: Double): Int? {
+        val previous = db.workoutDao().latestNamed(name, 2).firstOrNull { it.id != workoutId } ?: return null
+        val prevVolume = db.setDao().forWorkout(previous.id)
+            .filter { it.tag != "W" }
+            .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
+        if (prevVolume <= 0.0) return null
+        return (((currentVolumeKg - prevVolume) / prevVolume) * 100).roundToInt()
     }
 
     // --- History edit/delete ---------------------------------------------------------
@@ -879,6 +916,46 @@ class WorkoutRepository(
         return id
     }
 
+    data class TemplateMuscleLoad(val muscle: String, val percent: Int)
+
+    data class TemplatePreview(
+        val template: ProgramTemplates.Template,
+        val dayCount: Int,
+        val estimatedMinutes: Int,
+        val muscleLoad: List<TemplateMuscleLoad>,
+    )
+
+    /** Per-muscle set share and an honest time estimate for a not-yet-created program template,
+     *  for the first-run picker. `estimatedMinutes` is sets × (rest + work) averaged per day —
+     *  `estimatedMinutesFor` can't be used here, it only knows the user's own past runs, and a
+     *  template the user hasn't picked yet has none. Muscle share uses each exercise's
+     *  first-listed muscle only — `ExerciseEntity.muscles` carries no primary/secondary
+     *  weighting to lean on, and templates reference exercises by name, so resolution goes
+     *  through the same case-insensitive name lookup `createFromTemplate` uses. */
+    suspend fun previewTemplate(template: ProgramTemplates.Template): TemplatePreview {
+        val byName = db.exerciseDao().getAll().associateBy { it.name.lowercase() }
+        val restSec = restSeconds()
+        var totalSeconds = 0
+        val muscleSets = mutableMapOf<String, Int>()
+        template.days.forEach { day ->
+            day.exercises.forEach { ex ->
+                totalSeconds += ex.sets * (restSec + WORK_SECONDS_PER_SET)
+                val entity = byName[ex.exerciseName.lowercase()]
+                val muscle = entity?.muscles?.substringBefore("·")?.trim()
+                    ?.let { ProgressionImporter.canonicalMuscle(it) }
+                if (muscle != null) muscleSets[muscle] = (muscleSets[muscle] ?: 0) + ex.sets
+            }
+        }
+        val top = muscleSets.entries.sortedByDescending { it.value }.take(4)
+        val topTotal = top.sumOf { it.value }.coerceAtLeast(1)
+        return TemplatePreview(
+            template = template,
+            dayCount = template.days.size,
+            estimatedMinutes = (totalSeconds / template.days.size.coerceAtLeast(1) / 60).coerceAtLeast(1),
+            muscleLoad = top.map { (m, c) -> TemplateMuscleLoad(m, c * 100 / topTotal) },
+        )
+    }
+
     suspend fun createFromTemplate(template: ProgramTemplates.Template): String {
         val byName = db.exerciseDao().getAll().associateBy { it.name.lowercase() }
         val programId = UUID.randomUUID().toString()
@@ -1097,6 +1174,7 @@ class WorkoutRepository(
     companion object {
         private const val KEY_REST_SECONDS = "rest_seconds"
         private const val KEY_BAR_KG = "bar_kg"
+        private const val KEY_ACTIVE_SESSION = "active_session_json"
         private const val KEY_CATALOG_VERSION = "catalog_version"
         private const val KEY_ALIASES = "exercise_aliases"
         private const val KEY_ACTIVE_PROGRAM = "active_program_id"
@@ -1116,6 +1194,9 @@ class WorkoutRepository(
         private const val KEY_THEME = "theme"
         private const val KEY_HAPTICS = "haptics"
         private const val CATALOG_VERSION = 1
+        // seconds of working time credited per set on top of rest, for previewTemplate's
+        // estimate — same order of magnitude as CalorieEstimator's per-set assumptions
+        private const val WORK_SECONDS_PER_SET = 40
 
         @Volatile private var instance: WorkoutRepository? = null
 

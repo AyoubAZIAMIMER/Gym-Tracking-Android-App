@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.gymtracker.data.WorkoutRepository
 import com.gymtracker.domain.CalorieEstimator
 import com.gymtracker.utils.Formats
+import com.gymtracker.utils.PlateCalculator
 import com.gymtracker.utils.TimeFormat
 import java.time.Instant
 import java.time.ZoneId
@@ -22,12 +23,15 @@ import kotlinx.coroutines.launch
 
 data class MuscleShare(val muscle: String, val sets: Int, val fraction: Float)
 
+data class PrRowUi(val exerciseName: String, val oldValue: String, val newValue: String)
+
 data class WorkoutDetailUiState(
     val title: String = "Workout",
     val dateLine: String = "",
     val durationText: String? = null,
     val totalSets: Int = 0,
     val totalVolume: String = "",
+    val totalVolumeNumeric: Double = 0.0,
     val exerciseCount: Int = 0,
     val calories: Int = 0,
     val comment: String = "",
@@ -40,6 +44,8 @@ data class WorkoutDetailUiState(
     // true only for the one navigation straight out of finishing a session — drives the
     // celebratory header. Browsing the same workout later from History never sets this.
     val justFinished: Boolean = false,
+    val prRows: List<PrRowUi> = emptyList(),
+    val volumeDeltaPercent: Int? = null,
 )
 
 class WorkoutDetailViewModel(
@@ -86,6 +92,18 @@ class WorkoutDetailViewModel(
             .eachCount()
             .entries.sortedByDescending { it.value }
             .map { (muscle, count) -> MuscleShare(muscle, count, count / totalSets.toFloat()) }
+        val prRows = detail.prRows.map { row ->
+            PrRowUi(
+                exerciseName = row.exerciseName,
+                oldValue = PlateCalculator.fmt(row.oldE1rm),
+                newValue = PlateCalculator.fmt(row.newE1rm),
+            )
+        }
+        val volumeDeltaPercent = repo.volumeDeltaVsLastSameNamed(
+            workoutId = workoutId,
+            name = detail.workout.name,
+            currentVolumeKg = detail.totalVolumeKg,
+        )
         _ui.value = WorkoutDetailUiState(
             title = detail.workout.name.ifBlank { "Workout" },
             dateLine = started.format(
@@ -94,6 +112,7 @@ class WorkoutDetailViewModel(
             durationText = durationMillis?.let(TimeFormat::clock),
             totalSets = detail.totalSets,
             totalVolume = Formats.volumeKg(detail.totalVolumeKg),
+            totalVolumeNumeric = detail.totalVolumeKg,
             exerciseCount = detail.exercises.size,
             calories = calories,
             comment = detail.workout.comment,
@@ -102,6 +121,8 @@ class WorkoutDetailViewModel(
             editing = editing,
             musclesSplit = musclesSplit,
             justFinished = celebrate,
+            prRows = prRows,
+            volumeDeltaPercent = volumeDeltaPercent,
         )
     }
 

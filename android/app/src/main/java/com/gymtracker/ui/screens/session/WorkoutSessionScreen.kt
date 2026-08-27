@@ -112,7 +112,6 @@ import com.gymtracker.ui.theme.GymTheme
 import androidx.compose.ui.text.TextStyle
 import com.gymtracker.ui.theme.Anton
 import com.gymtracker.ui.theme.Motion
-import com.gymtracker.ui.components.ConfettiBurst
 import com.gymtracker.ui.components.PrBanner
 import com.gymtracker.utils.OneRM
 import com.gymtracker.utils.PlateCalculator
@@ -358,10 +357,7 @@ fun WorkoutSessionScreen(
                 .fillMaxSize()
                 .imePadding()
         ) {
-            // PR celebration floats above everything (confetti + trophy banner)
-            if (prVisible) {
-                ConfettiBurst(run = true, modifier = Modifier.matchParentSize().zIndex(4f))
-            }
+            // PR celebration floats above everything — the trophy banner
             Box(
                 Modifier
                     .align(Alignment.TopCenter)

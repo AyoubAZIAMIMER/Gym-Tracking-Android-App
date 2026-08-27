@@ -50,6 +50,7 @@ import com.gymtracker.ui.screens.history.WorkoutDetailScreen
 import com.gymtracker.ui.screens.home.HomeScreen
 import com.gymtracker.ui.screens.home.LiveSessionInfo
 import com.gymtracker.ui.screens.library.ExerciseLibraryScreen
+import com.gymtracker.ui.screens.onboarding.OnboardingScreen
 import com.gymtracker.ui.screens.plan.PlanScreen
 import com.gymtracker.ui.screens.plan.ProgramEditorScreen
 import com.gymtracker.ui.screens.recovery.RecoveryScreen
@@ -258,7 +259,12 @@ private fun AppNavHost(
                     onOpenPlan = { nav.navigate("plan") },
                     onOpenHistory = { nav.navigate("history") },
                     onOpenRecovery = { nav.navigate("recovery") },
+                    onOpenWorkout = { id -> nav.navigate("workout/$id") },
+                    onNeedsOnboarding = { nav.navigate("onboarding") { launchSingleTop = true } },
                 )
+            }
+            composable("onboarding") {
+                OnboardingScreen(onDone = { nav.popBackStack() })
             }
             composable("history") {
                 HistoryScreen(
@@ -335,7 +341,7 @@ private fun AppNavHost(
         // session is full-focus; data/exercise/program pages are subpages: no bottom nav
         // (a subpage in the tab back stack would get saved/restored by tab switches)
         val isSubpage = route == "session" || route == "data" ||
-            route == "history" || route == "library" ||
+            route == "history" || route == "library" || route == "onboarding" ||
             route?.startsWith("exercise/") == true || route?.startsWith("program/") == true ||
             route?.startsWith("workout/") == true
         if (!isSubpage) {

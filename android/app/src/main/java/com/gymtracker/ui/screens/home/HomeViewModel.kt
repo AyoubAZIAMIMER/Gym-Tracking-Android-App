@@ -80,6 +80,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { reload() }
     }
 
+    /** Same as [refresh], but awaitable — callers that must read [ui]'s value immediately
+     *  afterward (the onboarding redirect) need the reload to have actually landed first. */
+    suspend fun awaitRefresh() = reload()
+
     fun saveProfile(name: String, weightKg: Double?, heightCm: Int?, weeklyGoal: Int) {
         repo.saveProfile(name, weightKg, heightCm, weeklyGoal)
         refresh()
@@ -251,6 +255,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 doneWeekdays = stats.doneWeekdays,
             )
         } else {
-            HomeUiState()
+            // A confirmed "nothing logged yet" is real information, not a loading placeholder —
+            // it must not read as the sample week (Wed done, 1/3) to a genuinely fresh account.
+            HomeUiState(workoutsThisWeek = 0, doneWeekdays = emptySet())
         }
 }

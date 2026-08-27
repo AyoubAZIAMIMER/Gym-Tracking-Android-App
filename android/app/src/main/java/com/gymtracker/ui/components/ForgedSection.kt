@@ -261,8 +261,7 @@ fun ForgedSectionHeader(
         Spacer(Modifier.weight(1f))
         when {
             trailing != null -> trailing()
-            // trailing "›" matches HomeHubScreen's rail headers — a plain label here read as
-            // static text, not a control, next to those
+            // trailing "›" marks this as a control, not static text, next to a plain label
             linkLabel != null && onClickLink != null -> Text(
                 text = "$linkLabel ›",
                 fontSize = 12.sp,
