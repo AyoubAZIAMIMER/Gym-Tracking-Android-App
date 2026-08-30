@@ -2,7 +2,7 @@
 
 **A personal, offline-first gym tracker — every Progression Pro feature, no paywall.**
 
-Forged is a precision workout logging app for Android with a molten-forge design language, local analytics, and a planned cloud + AI coaching layer. Built for one lifter, free forever.
+Forged is a precision workout logging app for Android with a chalk-and-iron design language, local analytics, and a planned cloud + AI coaching layer. Built for one lifter, free forever.
 
 <p align="center">
   <a href="https://github.com/AyoubAZIAMIMER/Gym-Tracking-Android-App/stargazers">
@@ -72,11 +72,14 @@ Forged is a precision workout logging app for Android with a molten-forge design
 
 | Area | Highlights |
 |------|------------|
-| **Workout session** | Pre-filled sets, drag-adjust weight/reps, set tags, supersets, rest timer bubble + notification, plate calculator, live PR detection |
-| **Library** | 100+ exercises, muscle-target figures, demo photos, custom exercise CRUD, Progression import |
+| **Onboarding** | First-run profile + pick-your-split picker with per-muscle load bars and honest time estimates |
+| **Home (the Slate)** | Live session card while training, today's plan, week strip, next up, recent — state-first, not a dashboard |
+| **Workout session** | Full-screen Strike Mode, scrub-to-adjust weight/reps, set tags, supersets, in-app rest timer + live notification with "Log set", plate calculator, live PR detection with an on-screen flash |
+| **Finish** | Celebration ladder (closing ring + checkmark, no confetti), rolled-up stats, PR ledger, volume-vs-last delta |
+| **Library** | 108 exercises, muscle-target figures, demo photos, custom exercise CRUD, Progression import |
 | **History** | Calendar heatmap, workout log, PR stars, repeat workout |
 | **Stats** | e1RM trends, weekly volume, plateau detection, PR timeline, training calendar |
-| **Recovery** | Per-muscle freshness map with body figures |
+| **Body** | Per-muscle readiness map (COOLED → GLOWING) with anatomical front/back figures |
 | **Programs** | PPL / Upper-Lower / Bro Split templates, multi-day program editor |
 | **Data** | Progression `.pgnbkp` import, JSON + CSV export, profile setup |
 
@@ -84,14 +87,24 @@ Forged is a precision workout logging app for Android with a molten-forge design
 
 ---
 
+## In motion
+
+<p align="center">
+  <img src="screenshots/tour.gif" width="220" alt="Tour of Home, Plan, Body and Stats" />
+  <img src="screenshots/session-flow.gif" width="220" alt="Starting a session, logging a set, live PR flash" />
+</p>
+
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/home.png" width="200" alt="Home screen" />
-  <img src="screenshots/history.png" width="200" alt="History screen" />
+  <img src="screenshots/home.png" width="200" alt="Home — the Slate" />
+  <img src="screenshots/session.png" width="200" alt="Workout session with rest timer" />
+  <img src="screenshots/session_complete.png" width="200" alt="Finish screen — celebration ladder" />
   <img src="screenshots/plan.png" width="200" alt="Plan screen" />
   <img src="screenshots/library.png" width="200" alt="Exercise library" />
-  <img src="screenshots/recovery.png" width="200" alt="Recovery muscle map" />
+  <img src="screenshots/exercise.png" width="200" alt="Exercise detail with demo photo and muscle figure" />
+  <img src="screenshots/history.png" width="200" alt="History screen" />
+  <img src="screenshots/body.png" width="200" alt="Body readiness map" />
   <img src="screenshots/stats.png" width="200" alt="Stats charts" />
 </p>
 
@@ -131,7 +144,7 @@ Gym-Tracking-Android-App/
 ├── backend/                 # FastAPI scaffold (Phase 3)
 ├── design/                  # Motion design system (MOTION.md) + UI references
 ├── exercises_db/            # Exercise catalog assets
-├── screenshots/             # App screenshots used in this README
+├── screenshots/             # App screenshots + GIFs used in this README
 ├── licenses/                # Third-party license texts (font, exercise data)
 ├── docs/                    # Project history / original build prompt
 ├── docker-compose.yml       # Postgres + API (Phase 3)
@@ -157,10 +170,10 @@ cd android
 ./gradlew assembleDebug
 ```
 
-Install the APK on a device or emulator:
+Install the APK on a device or emulator (the build output lands under the Gradle project cache, not `android/app/build`):
 
 ```bash
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install ~/.gradle-build/forged/GymTracker/app/outputs/apk/debug/app-debug.apk
 ```
 
 > After large dependency bumps, run `./gradlew clean` first — incremental dexing can mix Compose versions and crash at launch.
@@ -212,7 +225,7 @@ flowchart LR
 
 ## Design
 
-Forged uses the **Molten Forge** identity — ember orange on charcoal iron, Anton display type, liquid-glass surfaces (Haze blur), and a motion system built around steel-like physics (see `design/MOTION.md`).
+Forged uses the **Chalk & Iron** identity — chalk-white chrome (numerals, primary actions, the F-cut wordmark) on deep charcoal, with warm color spent strictly as data: olive for completed work, blue for a fresh muscle, red for spent/PR badges, gold for a personal record. Home and the tab screens are flat, hairline-ruled sections rather than glass cards; Anton carries the big numerals and the wordmark. A motion system built around steel-like physics still governs every transition (see `design/MOTION.md`), and the finish screen closes each session with a drawn checkmark ring instead of confetti.
 
 ---
 
@@ -223,6 +236,6 @@ This is a personal project built for a single owner. Issues and ideas are welcom
 ---
 
 <p align="center">
-  <strong>The forge is hot.</strong><br/>
+  <strong>Chalk on. Iron waits.</strong><br/>
   <sub>Package: <code>com.gymtracker</code> · Display name: <strong>Forged</strong> · v0.1.0</sub>
 </p>
