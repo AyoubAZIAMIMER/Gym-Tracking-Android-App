@@ -291,9 +291,11 @@ private fun HeadlineStat(value: String, unit: String?, caption: String) {
  */
 private fun weekBucketLabel(dayOfMonth: Int, monthLabel: String): String {
     val today = LocalDate.now()
-    val sameMonth = monthLabel.startsWith(
-        today.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.ENGLISH)
-    )
+    // monthLabel is "MMMM yyyy" — compare the full label, not just the month name, or a
+    // month a year (or any multiple of 12) back wrongly reads as "this month" every time
+    // its name recurs.
+    val sameMonth = monthLabel ==
+        today.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH))
     if (!sameMonth) return "SESSIONS"
     val weeksBack = ((today.dayOfMonth - dayOfMonth) / 7)
     return when {

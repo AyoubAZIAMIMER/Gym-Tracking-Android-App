@@ -240,10 +240,13 @@ class RestTimerService : Service() {
         // session, same as the widget and the training reminder — not a bare launcher open.
         val openApp = PendingIntent.getActivity(
             this,
-            0,
+            // Distinct request code from the training-reminder notification (code 0) and the
+            // widget (code 2) — PendingIntent identity ignores extras, so sharing a code here
+            // let the reminder's fire-up-less intent silently clobber this one's EXTRA_FIRE_UP.
+            3,
             Intent(this, MainActivity::class.java)
                 .putExtra(MainActivity.EXTRA_FIRE_UP, true),
-            PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val diffMs = deadlineElapsedMs - SystemClock.elapsedRealtime()
         val overtime = diffMs < 0

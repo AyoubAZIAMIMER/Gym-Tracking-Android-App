@@ -398,6 +398,14 @@ fun WorkoutSessionScreen(
                         exerciseIndexLabel = "${slateIndex + 1}",
                         exerciseName = slateExercise.name,
                         muscleCaption = slateExercise.muscleGroup,
+                        supersetTag = slateExercise.supersetGroup?.let { group ->
+                            val groupIds = state.exercises.mapNotNull { it.supersetGroup }.distinct()
+                            val letter = 'A' + groupIds.indexOf(group).coerceIn(0, 25)
+                            val position = state.exercises
+                                .filter { it.supersetGroup == group }
+                                .indexOfFirst { it.id == slateExercise.id } + 1
+                            "$letter$position"
+                        },
                         setsLabel = "${slateExercise.sets.count { it.completed }} / ${slateExercise.sets.size}",
                         sets = slateExercise.sets.mapIndexed { i, set ->
                             SetRowUi(
@@ -459,6 +467,16 @@ fun WorkoutSessionScreen(
                         else ({ vm.startReplace(slateExercise.id) }),
                     onRemove = { vm.removeExercise(slateExercise.id) },
                     onAddExercise = { vm.showExercisePicker(true) },
+                    // Same rule as the top bar's own Finish (which the Slate hides): 0 sets
+                    // logged recoils into the discard dialog, otherwise finish for real.
+                    onFinish = {
+                        if (state.completedSets == 0) {
+                            recoilTick++
+                            showDiscardDialog = true
+                        } else {
+                            vm.finishWorkout()
+                        }
+                    },
                     onPrevExercise = if (slateIndex > 0) {
                         { slateExerciseId = state.exercises[slateIndex - 1].id }
                     } else null,

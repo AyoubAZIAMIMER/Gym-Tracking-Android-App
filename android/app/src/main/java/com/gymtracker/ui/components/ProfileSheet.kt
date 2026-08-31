@@ -81,7 +81,11 @@ fun ProfileSheet(
                     OutlinedTextField(
                         value = weight,
                         onValueChange = { t ->
-                            weight = t.filter { it.isDigit() || it == '.' }.take(6)
+                            val filtered = t.filter { it.isDigit() || it == '.' }
+                            val firstDot = filtered.indexOf('.')
+                            weight = if (firstDot == -1) filtered else {
+                                filtered.take(firstDot + 1) + filtered.substring(firstDot + 1).filter { it != '.' }
+                            }.take(6)
                         },
                         modifier = Modifier.weight(1f),
                         label = { Text("Body weight (kg)") },

@@ -224,7 +224,10 @@ fun DataScreen(
                 SettingStepper(
                     value = TimeFormat.clock(settings.restSeconds * 1000L),
                     onDelta = { step ->
-                        vm.saveSettings(settings.copy(restSeconds = settings.restSeconds + step * 15))
+                        // Same 15s..600s bounds as the in-session rest sheet's own +15/-15 chips
+                        // (RestActionsSheet.kt) — this stepper had no floor at all before.
+                        val next = (settings.restSeconds + step * 15).coerceIn(15, 600)
+                        vm.saveSettings(settings.copy(restSeconds = next))
                     },
                 )
             }

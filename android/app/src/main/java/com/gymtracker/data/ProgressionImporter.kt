@@ -123,12 +123,19 @@ object ProgressionImporter {
                         val plans = m.getAsJsonArray("plans")
                         var repMin = 0
                         var repMax = 0
+                        // explicit flag, not "repMax == 0", so a legitimately-zero first ranged
+                        // plan (min present but max absent, min itself 0) can't be mistaken for
+                        // "no plan picked yet" and get silently overwritten by a later plan —
+                        // the rule is "take the first ranged plan," full stop.
+                        var rangePicked = false
                         plans?.forEach planLoop@{ planEl ->
+                            if (rangePicked) return@planLoop
                             val range = planEl.asJsonObject.obj("repetitionRange") ?: return@planLoop
                             val min = range.long("min")?.toInt()
-                            if (min != null && repMax == 0) {
+                            if (min != null) {
                                 repMin = min
                                 repMax = range.long("max")?.toInt() ?: min
+                                rangePicked = true
                             }
                         }
                         movements += ImportedProgramExercise(

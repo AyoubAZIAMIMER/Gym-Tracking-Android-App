@@ -63,8 +63,14 @@ class LibraryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Returns via callback whether the exercise was deleted (true) or archived (false). */
-    fun deleteOrArchive(id: String, onDone: (Boolean) -> Unit) = viewModelScope.launch {
-        onDone(repo.deleteOrArchiveExercise(id))
+    fun deleteOrArchive(id: String, onDone: (archived: Boolean) -> Unit) = viewModelScope.launch {
+        // repo.deleteOrArchiveExercise returns `!used` — true means it was hard-deleted, the
+        // opposite of what onDone's callers (and its own `archived` param name) expect. Found
+        // live: after fixing the archive-vs-delete decision itself (WorkoutRepository.kt) to
+        // also cover program references, archiving a program-referenced exercise correctly
+        // kept its row and the program's reference — but the toast still said "deleted"
+        // because this passed the un-inverted boolean straight through.
+        onDone(!repo.deleteOrArchiveExercise(id))
     }
 
     fun merge(fromId: String, toId: String) = viewModelScope.launch {

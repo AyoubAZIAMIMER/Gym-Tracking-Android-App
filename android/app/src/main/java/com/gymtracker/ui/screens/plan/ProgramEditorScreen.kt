@@ -79,6 +79,9 @@ fun ProgramEditorScreen(
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
+    // A day with a built-out exercise list is just as irreversible to lose as the whole
+    // program, which already confirms — this held the id of the day pending confirmation.
+    var confirmDeleteDayId by remember { mutableStateOf<String?>(null) }
     val entered = rememberEntered()
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
 
@@ -142,7 +145,7 @@ fun ProgramEditorScreen(
                     bottomPadding = 4.dp,
                     trailing = {
                         IconButton(
-                            onClick = { vm.deleteDay(day.day.id) },
+                            onClick = { confirmDeleteDayId = day.day.id },
                             modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
@@ -237,6 +240,11 @@ fun ProgramEditorScreen(
                 onSave = vm::saveEditTarget,
                 onDismiss = vm::closeEditTarget,
             )
+        } else {
+            // The row being edited vanished from state (removed via another path while this
+            // sheet's target was live) — without this, editingExerciseId is never cleared and
+            // the sheet is permanently, silently un-openable until the ViewModel is recreated.
+            LaunchedEffect(editingId) { vm.closeEditTarget() }
         }
     }
 
@@ -255,6 +263,19 @@ fun ProgramEditorScreen(
                         "removed. Logged workouts are kept."
                 )
             },
+        )
+    }
+
+    confirmDeleteDayId?.let { dayId ->
+        val dayName = state.detail?.days?.firstOrNull { it.day.id == dayId }?.day?.name ?: "This day"
+        ForgedAlert(
+            title = "Delete $dayName?",
+            onDismissRequest = { confirmDeleteDayId = null },
+            confirmLabel = "Delete",
+            onConfirm = { confirmDeleteDayId = null; vm.deleteDay(dayId) },
+            dismissLabel = "Cancel",
+            destructive = true,
+            body = { AlertBody("Its exercises and targets will be removed. Logged workouts are kept.") },
         )
     }
 }

@@ -194,6 +194,7 @@ private fun RestRing(remainingSec: Int?, totalSec: Int, armedSeconds: Int) {
     val fraction = when {
         remainingSec == null -> 0f
         overtime -> 1f
+        totalSec <= 0 -> 0f  // guards a 0f/0f NaN sweep angle if ever reached with no duration set
         else -> (remainingSec / totalSec.toFloat()).coerceIn(0f, 1f)
     }
     val ringColor = when {

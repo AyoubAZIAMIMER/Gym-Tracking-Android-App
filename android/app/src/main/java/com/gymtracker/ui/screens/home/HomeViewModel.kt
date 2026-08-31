@@ -240,8 +240,20 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
-        // fallback: sample
-        _ui.value = HomeUiState().withProfile()
+        // fallback: no active program and no repeatable template. An honest empty plan, not
+        // the canned SampleData plan that HomeUiState()'s bare defaults would leak through —
+        // and the already-computed rails (upcoming/recent/ready/forged) must still apply, not
+        // be silently dropped along with the plan card.
+        _ui.value = statsPart(stats).copy(
+            planLabel = "UP NEXT",
+            planTitle = "Nothing planned",
+            planMuscles = "",
+            planRows = emptyList(),
+            todayForged = forged,
+            upcoming = upcomingRows,
+            recent = recentRows,
+            readyToTrain = ready,
+        ).withProfile()
     }
 
     private fun statsPart(stats: WorkoutRepository.HomeStats): HomeUiState =

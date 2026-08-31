@@ -135,7 +135,18 @@ private fun ProfileStep(onNext: (name: String, weightKg: Double?, heightCm: Int?
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = weight,
-                        onValueChange = { t -> weight = t.filter { it.isDigit() || it == '.' }.take(6) },
+                        onValueChange = { t ->
+                            // Same fix as ProfileSheet.kt's identical field: this filter alone
+                            // let multiple '.' through, so a value like "70.5.2" passed the
+                            // filter, then failed toDoubleOrNull() silently on save. Caught by
+                            // live-testing onboarding after the ProfileSheet fix — this is a
+                            // separate, duplicated implementation, not a shared composable.
+                            val filtered = t.filter { it.isDigit() || it == '.' }
+                            val firstDot = filtered.indexOf('.')
+                            weight = if (firstDot == -1) filtered else {
+                                filtered.take(firstDot + 1) + filtered.substring(firstDot + 1).filter { it != '.' }
+                            }.take(6)
+                        },
                         modifier = Modifier.weight(1f),
                         label = { Text("Body weight (kg)") },
                         singleLine = true,

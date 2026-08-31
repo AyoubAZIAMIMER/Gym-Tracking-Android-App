@@ -128,7 +128,7 @@ fun StatsScreen(
                         },
                     )
                     Box(Modifier.padding(horizontal = Dim.screenPadH).padding(bottom = 20.dp)) {
-                        WeeklyBarChart(state.weeklyVolume.takeLast(8))
+                        WeeklyBarChart(state.weeklyVolume.takeLast(8), state.hasFourWeeksHistory)
                     }
                 }
 
@@ -318,7 +318,7 @@ private fun StatsHero(state: StatsUiState, modifier: Modifier = Modifier) {
                     modifier = Modifier.padding(start = 4.dp, bottom = 3.dp),
                 )
             }
-            state.weekDeltaPct?.let { d ->
+            state.periodDeltaPct?.let { d ->
                 Text(
                     text = if (d >= 0) "▲$d%" else "▼${-d}%",
                     fontSize = 12.sp,

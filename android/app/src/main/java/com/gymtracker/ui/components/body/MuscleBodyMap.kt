@@ -165,8 +165,11 @@ fun MuscleBodyMap(
                     val stagger = (index * 0.045f)
                     val groupReveal = if (!ambient) 1f
                     else ((reveal - stagger) / (1f - stagger).coerceAtLeast(0.01f)).coerceIn(0f, 1f)
-                    // a hot muscle breathes; a cooled one sits still
-                    val hot = isMuscle && f != null && f < 0.6f
+                    // a hot muscle breathes; a cooled one sits still. Threshold matches
+                    // HeatScale.at()'s own worn→hot boundary (Color.kt: heat > 0.45, i.e.
+                    // freshness < 0.55) — it was 0.6 here, which started the pulse while the
+                    // rendered color was still blending ready→worn, before it read as "hot."
+                    val hot = isMuscle && f != null && f < 0.55f
                     val breathAlpha = if (ambient && hot) {
                         0.62f + 0.38f * breathT
                     } else 1f

@@ -37,3 +37,8 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.pytest_cache/
+
+# RAG indexes — regenerated from exercises_db/exercise_catalog.json by rag/ingest.py,
+# never hand-edited, and the .faiss/.sqlite3 binaries are pure noise in diffs.
+backend/data/

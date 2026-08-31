@@ -184,6 +184,12 @@ fun LineChart(
 @Composable
 fun WeeklyBarChart(
     weeks: List<Pair<LocalDate, Double>>,
+    // AnalyticsEngine.weeklyVolume always returns a fixed-length, zero-padded list — weeks.size
+    // is constant regardless of how long the account has existed, so it can never gate "do we
+    // have 4 real weeks of history" (verified live: a 1-week-old account still drew this line,
+    // averaged over 3 zero-padded weeks it never trained in). The caller must compute this from
+    // the actual earliest-workout date instead.
+    hasFourWeeksHistory: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val measurer = rememberTextMeasurer()
@@ -243,9 +249,11 @@ fun WeeklyBarChart(
             }
         }
 
-        // 4-week average reference line — fades in after the bars have risen
-        val recent = weeks.takeLast(4).map { it.second }
-        val avg = recent.average()
+        // 4-week average reference line — fades in after the bars have risen. Only draws
+        // once 4 real weeks of history exist; under that, "4-week average" would silently
+        // be an average of however many weeks exist (identical to the single bar itself
+        // for a 1-week-old account) while still being labeled and drawn as if it were one.
+        val avg = if (hasFourWeeksHistory) weeks.takeLast(4).map { it.second }.average() else 0.0
         if (avg > 0) {
             val yy = insetTop + chartH * (1f - (avg / maxV).toFloat())
             drawLine(
@@ -335,7 +343,11 @@ fun CalendarHeatmap(
     val nonZero = dayVolume.values.filter { it > 0 }.sorted()
     fun level(v: Double): Float {
         if (nonZero.isEmpty() || v <= 0) return 0f
-        val q = nonZero.indexOfLast { it <= v }.toFloat() / nonZero.size
+        // 1-based inclusive count, not the 0-based indexOfLast this replaced — the max
+        // element must reach q=1.0 (full intensity) regardless of how many days exist.
+        // indexOfLast capped the brightest cell at (N-1)/N, worst for a brand-new account
+        // whose first (and only, and maximum) training day rendered at the dimmest tier.
+        val q = nonZero.count { it <= v }.toFloat() / nonZero.size
         return 0.30f + 0.70f * q
     }
 

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -152,6 +153,10 @@ fun SessionSlateScreen(
     onReplace: (() -> Unit)? = null,
     onRemove: () -> Unit = {},
     onAddExercise: () -> Unit = {},
+    // The Slate is the app's default session surface, but its top bar (with Finish) is
+    // hidden while the Slate shows — before this, Finish was only reachable by first
+    // opening full-screen Strike Mode. Null hides the item (shouldn't happen in practice).
+    onFinish: (() -> Unit)? = null,
     onPrevExercise: (() -> Unit)? = null,
     onNextExercise: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -311,6 +316,13 @@ fun SessionSlateScreen(
                             text = { Text("Add exercise") },
                             onClick = { menuOpen = false; onAddExercise() },
                         )
+                        if (onFinish != null) {
+                            DropdownMenuItem(
+                                text = { Text("Finish workout") },
+                                leadingIcon = { Icon(Icons.Rounded.Check, contentDescription = null) },
+                                onClick = { menuOpen = false; onFinish() },
+                            )
+                        }
                     },
                 )
             }

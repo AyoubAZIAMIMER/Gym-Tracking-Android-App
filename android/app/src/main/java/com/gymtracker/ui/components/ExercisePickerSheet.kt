@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -86,7 +86,9 @@ fun ExercisePickerSheet(
                     .padding(top = 8.dp),
                 verticalArrangement = Arrangement.Top,
             ) {
-                items(results, key = { it.dbExerciseId ?: it.name }) { exercise ->
+                // index folded into the key: two starter items (no dbExerciseId) sharing a
+                // name would otherwise collide and crash LazyColumn with "Key ... already used"
+                itemsIndexed(results, key = { i, it -> "$i-${it.dbExerciseId ?: it.name}" }) { _, exercise ->
                     RowRule()
                     ForgedListRow(
                         title = exercise.name,

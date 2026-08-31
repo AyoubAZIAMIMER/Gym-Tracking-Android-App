@@ -45,8 +45,13 @@ fun SetCommentSheet(
     onDismiss: () -> Unit,
     onDone: (comment: String, tag: SetTag?) -> Unit,
 ) {
-    var comment by remember(initialComment) { mutableStateOf(initialComment) }
-    var tag by remember(initialTag) { mutableStateOf(initialTag) }
+    // Snapshotted once at sheet-open time, not re-keyed on the live initial* values — the
+    // caller passes these straight from ambient VM state, so keying on them meant any
+    // external mutation to the same set while this sheet was open (e.g. the lock-screen
+    // notification's "Log set" action touching the session) would silently discard
+    // whatever the user had already typed here.
+    var comment by remember { mutableStateOf(initialComment) }
+    var tag by remember { mutableStateOf(initialTag) }
 
     ModalBottomSheet(
         onDismissRequest = { onDone(comment, tag); onDismiss() },

@@ -112,14 +112,18 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `no program and no history falls back to the sample plan`() = runTest {
+    fun `no program and no history shows an honest empty plan, not the sample plan`() = runTest {
+        // Regression: this fallback used to be a bare HomeUiState(), whose class defaults
+        // ARE SampleData's canned demo plan — a genuinely fresh account with no program and
+        // no logged history saw a fabricated "Push Day" plan instead of an honest empty one.
         coEvery { repo.homeStats() } returns WorkoutRepository.HomeStats(false, 0, emptySet(), null, 0)
         coEvery { repo.nextProgramDay() } returns null
 
         val state = vm().ui.value
 
         assertTrue(!state.hasData)
-        assertEquals(SampleData.todaysPlanName, state.planTitle)
+        assertTrue(state.planTitle != SampleData.todaysPlanName)
+        assertTrue(state.planRows.isEmpty())
     }
 
     @Test

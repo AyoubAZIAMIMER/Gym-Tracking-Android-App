@@ -79,6 +79,11 @@ interface ProgramDao {
     @Query("UPDATE program_exercises SET exerciseId = :toId WHERE exerciseId = :fromId")
     suspend fun reassignExercise(fromId: String, toId: String)
 
+    // guards deleteOrArchiveExercise: an exercise can be unused in logged history yet still
+    // sit in a program day, which has no @ForeignKey to catch a dangling reference otherwise
+    @Query("SELECT COUNT(*) FROM program_exercises WHERE exerciseId = :exerciseId")
+    suspend fun countProgramReferences(exerciseId: String): Int
+
     // one row's exercise, from the editor's own Replace action — distinct from
     // reassignExercise above, which rewrites every row sharing the old exercise
     @Query("UPDATE program_exercises SET exerciseId = :toId WHERE id = :id")

@@ -26,6 +26,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
+import com.gymtracker.MainActivity
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -155,10 +156,13 @@ class RestBubbleOverlay(private val context: Context) {
                 MotionEvent.ACTION_UP -> if (moved) {
                     RestBubblePosition.set(context, lp.x, lp.y, persist = true)
                 } else {
-                    context.packageManager
-                        .getLaunchIntentForPackage(context.packageName)
-                        ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        ?.let { runCatching { context.startActivity(it) } }
+                    // Same EXTRA_FIRE_UP deep link the widget and both notifications use — a
+                    // bare launcher intent just reopens whatever nav route is on screen, which
+                    // is Home (not the session) if the user got here via in-app Minimise.
+                    val intent = Intent(context, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(MainActivity.EXTRA_FIRE_UP, true)
+                    runCatching { context.startActivity(intent) }
                 }
             }
             return true

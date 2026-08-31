@@ -45,6 +45,10 @@ object CalorieEstimator {
         val hoursPerSet = (durationSeconds.toDouble() / sets.size) / 3600.0
         return sets.sumOf { s ->
             val met = metFor(s.equipment) * (TAG_MULTIPLIER[s.tagLetter] ?: 1.0)
+            // TODO: unlike every other constant in this file, this 1.05 isn't cited to the
+            // Compendium of Physical Activities — the standard MET formula is just
+            // MET × kg × hours. Left as-is (not verifiably wrong, just undocumented) rather
+            // than guessing whether it's an intentional intensity buffer or a stray edit.
             met * weight * hoursPerSet * 1.05
         }.toInt()
     }

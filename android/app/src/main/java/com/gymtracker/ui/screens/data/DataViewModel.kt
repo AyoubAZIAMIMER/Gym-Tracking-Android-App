@@ -74,6 +74,9 @@ class DataViewModel(app: Application) : AndroidViewModel(app) {
                 repo.importProgression(text)
             }
         }
+        // Identity (streak/name) is prefs-backed and only ever read at init otherwise — a
+        // real import can change the streak, and nothing else refreshes it afterward.
+        if (result.isSuccess) refreshProfile()
         _ui.update { st ->
             st.copy(
                 busy = false,

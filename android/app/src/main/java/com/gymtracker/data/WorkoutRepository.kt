@@ -347,7 +347,10 @@ class WorkoutRepository(
     ): String {
         val existing = db.exerciseDao().getAll()
         val byId = existing.associateBy { it.id }
-        val byName = existing.associateBy { it.name.lowercase() }
+        // mutable: two SaveExercise entries sharing a brand-new name (no dbExerciseId, not
+        // already in the DB) must reuse the same new ExerciseEntity, not each create their
+        // own — this map has to see entities created earlier in the same forEach below.
+        val byName = existing.associateBy { it.name.lowercase() }.toMutableMap()
         val workoutId = UUID.randomUUID().toString()
         val newExercises = mutableListOf<ExerciseEntity>()
         val rows = mutableListOf<SetEntity>()
@@ -360,7 +363,7 @@ class WorkoutRepository(
                     name = ex.name,
                     muscles = ex.muscleGroup,
                     isCustom = true,
-                ).also { newExercises += it }
+                ).also { newExercises += it; byName[it.name.lowercase()] = it }
             ex.sets.forEach { s ->
                 rows += SetEntity(
                     id = UUID.randomUUID().toString(),
@@ -813,7 +816,9 @@ class WorkoutRepository(
 
     /** Delete if unused, otherwise archive (history must never be orphaned). */
     suspend fun deleteOrArchiveExercise(id: String): Boolean {
-        val used = db.setDao().countForExercise(id) > 0
+        // "used" must also cover programs — no @ForeignKey exists to catch a program day
+        // left pointing at a deleted exercise otherwise (it would just resolve null on load).
+        val used = db.setDao().countForExercise(id) > 0 || db.programDao().countProgramReferences(id) > 0
         if (used) {
             exerciseById(id)?.let { updateExercise(it.copy(archived = true)) }
         } else {

@@ -38,9 +38,12 @@ fun ExerciseDemo(frames: List<String>, modifier: Modifier = Modifier) {
     }
     if (bitmaps.isEmpty()) return
 
-    // flip between start and end position — the movement, demonstrated
-    var frame by remember { mutableIntStateOf(0) }
-    LaunchedEffect(bitmaps.size) {
+    // flip between start and end position — the movement, demonstrated. Both keyed on
+    // `frames` (not bitmaps.size) so switching to a different exercise with the same frame
+    // count — the common case, most exercises have exactly 2 — still resets to frame 0
+    // instead of continuing wherever the previous exercise's loop left off.
+    var frame by remember(frames) { mutableIntStateOf(0) }
+    LaunchedEffect(frames) {
         while (bitmaps.size > 1) {
             delay(1_400)
             frame = (frame + 1) % bitmaps.size

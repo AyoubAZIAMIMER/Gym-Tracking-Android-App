@@ -22,14 +22,23 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     private var nextId = 1_000L
     private val gson = Gson()
 
-    // live-PR baseline (exerciseId → all-time best e1RM), loaded once per session build
+    // live-PR baseline (exerciseId → all-time best e1RM), loaded once per session build.
+    // bestE1rm ratchets upward during the session as PRs land; historicalBestE1rm is the
+    // immutable snapshot from Room at load time, kept so an un-completed PR set can revert
+    // to the true prior best instead of staying stuck at the value it itself set.
     private var bestE1rm: MutableMap<String, Double> = mutableMapOf()
+    private var historicalBestE1rm: Map<String, Double> = emptyMap()
 
     private val _ui = MutableStateFlow(restoreActiveSession() ?: sampleSession())
     val ui = _ui.asStateFlow()
 
+    // toggleCompleted is called synchronously from the UI, but the PR baseline loads
+    // asynchronously below — without this, a set completed (in-app, or via the lock-screen
+    // notification's "Log set" action) before the baseline finishes loading is checked
+    // against an empty bestE1rm map and can never be flagged as a PR.
+    private val baselineJob = viewModelScope.launch { loadFreshSession(keepIfActive = true) }
+
     init {
-        viewModelScope.launch { loadFreshSession(keepIfActive = true) }
         // Lock-screen "Log set" action: identical to tapping the active row in-app.
         viewModelScope.launch {
             RestTimerService.logSetRequests.collect { logActiveSetFromNotification() }
@@ -56,7 +65,9 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun refreshPrBaseline() {
-        bestE1rm = repo.bestE1rmByExercise().toMutableMap()
+        val snapshot = repo.bestE1rmByExercise()
+        bestE1rm = snapshot.toMutableMap()
+        historicalBestE1rm = snapshot
     }
 
     /**
@@ -231,6 +242,16 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
         updateSet(exerciseId, setId) { it.copy(rpe = nextRpe(it.rpe)) }
 
     fun toggleCompleted(exerciseId: Long, setId: Long) {
+        // Defer until the async PR baseline (see baselineJob above) has actually loaded, so a
+        // fast tap right after a cold start can't slip through and miss a genuine PR.
+        if (!baselineJob.isCompleted) {
+            viewModelScope.launch { baselineJob.join(); toggleCompletedNow(exerciseId, setId) }
+            return
+        }
+        toggleCompletedNow(exerciseId, setId)
+    }
+
+    private fun toggleCompletedNow(exerciseId: Long, setId: Long) {
         var completedNow = false
         _ui.update { st ->
             val exercises = st.exercises.map { ex ->
@@ -254,6 +275,24 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                             val pr = isPr(ex.dbExerciseId, done)
                             done.copy(isPr = pr, intensity = intensityOf(ex.dbExerciseId, done))
                         } else {
+                            // Un-completing the set that WAS the PR-record holder must not
+                            // leave the baseline stuck at the value this exact set just set —
+                            // revert to whichever is higher: the true pre-session historical
+                            // best, or another still-completed set of this exercise.
+                            if (s.isPr) {
+                                val siblingBest = ex.sets
+                                    .filter { it.id != setId && it.completed }
+                                    .mapNotNull { sib ->
+                                        val w = sib.effectiveWeightKg
+                                        val r = sib.effectiveReps
+                                        if (w != null && r != null && r > 0) {
+                                            com.gymtracker.utils.OneRM.estimate(w, r)
+                                        } else null
+                                    }
+                                    .maxOrNull() ?: 0.0
+                                val historical = ex.dbExerciseId?.let { historicalBestE1rm[it] } ?: 0.0
+                                ex.dbExerciseId?.let { bestE1rm[it] = maxOf(historical, siblingBest) }
+                            }
                             s.copy(completed = false, isPr = false, intensity = null)
                         }
                     }
@@ -278,12 +317,23 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
                 activeSetId = if (completedNow) nextIncompleteSetId(exercises, setId) else st.activeSetId,
             )
         }
-        // completing a set auto-starts rest; duration comes from imported Progression prefs
+        // completing a set auto-starts rest; duration comes from imported Progression prefs.
+        // Superset law (SessionSlateScreen's own header comment): no rest between A1/A2 — a
+        // set whose next active set belongs to the same superset group skips the timer.
         if (completedNow) {
             val st = _ui.value
+            val completedGroup = st.exercises.firstOrNull { it.id == exerciseId }?.supersetGroup
             val active = st.activeSetId?.let { id ->
                 st.exercises.firstNotNullOfOrNull { ex -> ex.sets.find { it.id == id }?.let { ex to it } }
             }
+            // supersetGroup is per-exercise, so advancing from set 1 to set 2 *within the same*
+            // superset-tagged exercise trivially satisfies "same group" too — found live: it
+            // suppressed rest between straight sets of one lift, not just between the paired
+            // exercises. Must also confirm the next active set actually moved to the partner.
+            val noRest = completedGroup != null &&
+                active?.first?.supersetGroup == completedGroup &&
+                active.first.id != exerciseId
+            if (noRest) return
             RestTimerService.start(
                 getApplication(),
                 repo.restSeconds(),

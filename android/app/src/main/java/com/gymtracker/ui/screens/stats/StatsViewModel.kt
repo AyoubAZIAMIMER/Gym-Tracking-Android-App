@@ -26,7 +26,11 @@ data class StatsUiState(
     val totalVolumeKg: Double = 0.0,   // lifetime working-set tonnage (drives the rank)
     val totalWorkouts: Int = 0,
     val weeklyVolume: List<Pair<LocalDate, Double>> = emptyList(),
-    val weekDeltaPct: Int? = null,
+    // true once the account's earliest workout is >=4 weeks old — weeklyVolume itself is
+    // always a fixed-length zero-padded list, so it can't answer this on its own
+    val hasFourWeeksHistory: Boolean = false,
+    val weekDeltaPct: Int? = null,   // always week-over-week — feeds the "WEEKLY VOLUME" section only
+    val periodDeltaPct: Int? = null, // vs. the selected period toggle — feeds the hero badge
     val calendar: Map<LocalDate, Double> = emptyMap(),
     val durations: List<AnalyticsEngine.Point> = emptyList(),
     val prs: List<AnalyticsEngine.PrEvent> = emptyList(),
@@ -68,7 +72,22 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
             val periodHours = periodWorkouts.sumOf { w ->
                 w.endedAt?.let { (it - w.startedAt) / 3_600_000.0 } ?: 0.0
             }
+            // previous period of the same length, for the hero's own delta badge — was
+            // previously always week-over-week regardless of the Week/Month/Year toggle
+            val prevSince = since - period.days * 86_400_000L
+            val prevWorkoutIds = snap.workouts
+                .filter { it.startedAt >= prevSince && it.startedAt < since }
+                .map { it.id }.toSet()
+            val prevVolume = snap.sets
+                .filter { it.workoutId in prevWorkoutIds && it.tag != "W" }
+                .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
+            val periodDelta = if (prevVolume > 0) {
+                (((periodVolume - prevVolume) / prevVolume) * 100).roundToInt()
+            } else null
             val weekly = AnalyticsEngine.weeklyVolume(snap.sets)
+            val earliestWorkout = snap.workouts.minOfOrNull { it.startedAt }
+            val fourWeeksHistory = earliestWorkout != null &&
+                earliestWorkout <= System.currentTimeMillis() - 28 * 86_400_000L
             val delta = weekly.takeLast(2).let { last ->
                 if (last.size == 2 && last[0].second > 0) {
                     (((last[1].second - last[0].second) / last[0].second) * 100).roundToInt()
@@ -82,7 +101,9 @@ class StatsViewModel(app: Application) : AndroidViewModel(app) {
                 totalVolumeKg = totalVolume,
                 totalWorkouts = snap.workouts.size,
                 weeklyVolume = weekly,
+                hasFourWeeksHistory = fourWeeksHistory,
                 weekDeltaPct = delta,
+                periodDeltaPct = periodDelta,
                 calendar = AnalyticsEngine.calendarVolume(snap.sets),
                 durations = AnalyticsEngine.durationSeries(snap.workouts),
                 prs = AnalyticsEngine.prTimeline(snap.sets, snap.exercises),

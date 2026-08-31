@@ -136,7 +136,14 @@ fun EditExerciseSheet(
             Spacer(Modifier.height(18.dp))
             ForgedCta(
                 label = "Save",
-                onClick = { onSave(name, selected.joinToString(" · "), equipment, description) },
+                onClick = {
+                    // Sort by the fixed canonical order, not toggle/insertion order — a
+                    // chip's list position otherwise silently decided which muscle
+                    // MuscleTargetFigure treats as "primary" (its first entry), so
+                    // toggling one off and back on could invisibly reassign it.
+                    val ordered = selected.sortedBy { canonicalMuscles.indexOf(it) }
+                    onSave(name, ordered.joinToString(" · "), equipment, description)
+                },
                 enabled = name.isNotBlank(),
                 modifier = Modifier.padding(horizontal = Dim.screenPadH),
             )
@@ -145,7 +152,7 @@ fun EditExerciseSheet(
                 RowRule()
                 ForgedListRow(
                     title = "Delete exercise",
-                    subtitle = "Archived instead if it already has logged sets",
+                    subtitle = "Archived instead if it has logged sets or is in a program",
                     onClick = onDelete,
                     trailing = {
                         Text(

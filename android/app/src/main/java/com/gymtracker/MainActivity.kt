@@ -256,9 +256,25 @@ private fun AppNavHost(
                         )
                     } else null,
                     onOpenData = { nav.navigate("data") },
-                    onOpenPlan = { nav.navigate("plan") },
+                    // "plan"/"recovery" are bottom-nav tab routes — route through the same
+                    // options the tab switcher itself uses (below), or a Home shortcut loses
+                    // that tab's scroll position and, without launchSingleTop, stacks a
+                    // duplicate backstack entry on repeat taps.
+                    onOpenPlan = {
+                        nav.navigate("plan") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onOpenHistory = { nav.navigate("history") },
-                    onOpenRecovery = { nav.navigate("recovery") },
+                    onOpenRecovery = {
+                        nav.navigate("recovery") {
+                            popUpTo("home") { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onOpenWorkout = { id -> nav.navigate("workout/$id") },
                     onNeedsOnboarding = { nav.navigate("onboarding") { launchSingleTop = true } },
                 )
