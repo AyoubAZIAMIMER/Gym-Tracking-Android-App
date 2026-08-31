@@ -96,6 +96,7 @@ fun DataScreen(
     onBack: () -> Unit = {},
     expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Chalk, Energy.Alive, SurfaceStyle.Soft),
     onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
+    onThemeChange: (String) -> Unit = {},
     vm: DataViewModel = viewModel(),
 ) {
     val state by vm.ui.collectAsStateWithLifecycle()
@@ -258,7 +259,10 @@ fun DataScreen(
                 SegmentedOptions(
                     options = listOf("Dark", "Light", "Auto"),
                     selected = settings.theme,
-                    onSelect = { vm.saveSettings(settings.copy(theme = it)) },
+                    onSelect = {
+                        vm.saveSettings(settings.copy(theme = it))
+                        onThemeChange(it)
+                    },
                 )
             }
             RowRule()

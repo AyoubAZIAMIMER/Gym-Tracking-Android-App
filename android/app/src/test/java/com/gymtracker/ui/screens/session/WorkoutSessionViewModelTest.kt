@@ -48,6 +48,15 @@ class WorkoutSessionViewModelTest {
         every { repo.clearActiveSession() } just Runs
         every { repo.barWeightKg() } returns 20.0
         every { repo.restSeconds() } returns 120
+        every { repo.settings() } returns WorkoutRepository.Settings(
+            units = "kg",
+            weightStepKg = 2.5,
+            restSeconds = 120,
+            startRestOnLog = true,
+            alertOnRestEnd = true,
+            theme = "Dark",
+            haptics = true,
+        )
         coEvery { repo.bestE1rmByExercise() } returns emptyMap()
         coEvery { repo.latestWorkoutTemplate() } returns null
         coEvery { repo.exercisesSnapshot() } returns emptyList()

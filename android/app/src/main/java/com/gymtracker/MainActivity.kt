@@ -16,6 +16,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -111,7 +112,18 @@ class MainActivity : ComponentActivity() {
                     )
                 )
             }
+            // The Theme setting ("Dark"/"Light"/"Auto") was being saved by DataScreen but never
+            // read back here — GymTrackerTheme's darkTheme param defaulted to
+            // isSystemInDarkTheme() unconditionally, so picking Light did nothing. Hoisted the
+            // same way as expression: read once, re-themed live via the callback below.
+            var themeMode by remember { mutableStateOf(repo.settings().theme) }
+            val darkTheme = when (themeMode) {
+                "Light" -> false
+                "Dark" -> true
+                else -> isSystemInDarkTheme()
+            }
             GymTrackerTheme(
+                darkTheme = darkTheme,
                 heat = expression.first,
                 energy = expression.second,
                 surface = expression.third,
@@ -124,6 +136,7 @@ class MainActivity : ComponentActivity() {
                         expression = Triple(heat, energy, surface)
                         repo.saveExpression(heat.name, energy.name, surface.name)
                     },
+                    onThemeChange = { themeMode = it },
                 )
             }
         }
@@ -166,6 +179,7 @@ private fun AppNavHost(
     onFireUpHandled: () -> Unit = {},
     expression: Triple<Heat, Energy, SurfaceStyle> = Triple(Heat.Chalk, Energy.Alive, SurfaceStyle.Soft),
     onExpressionChange: (Heat, Energy, SurfaceStyle) -> Unit = { _, _, _ -> },
+    onThemeChange: (String) -> Unit = {},
 ) {
     val nav = rememberNavController()
     val backStackEntry by nav.currentBackStackEntryAsState()
@@ -351,6 +365,7 @@ private fun AppNavHost(
                     onBack = { nav.popBackStack() },
                     expression = expression,
                     onExpressionChange = onExpressionChange,
+                    onThemeChange = onThemeChange,
                 )
             }
         }

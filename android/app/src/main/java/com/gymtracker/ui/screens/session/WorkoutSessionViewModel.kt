@@ -321,6 +321,9 @@ class WorkoutSessionViewModel(app: Application) : AndroidViewModel(app) {
         // Superset law (SessionSlateScreen's own header comment): no rest between A1/A2 — a
         // set whose next active set belongs to the same superset group skips the timer.
         if (completedNow) {
+            // Settings -> "Start on logged set" was saved but never read anywhere — this call
+            // fired unconditionally regardless of the toggle. Found live, 2026-08-31.
+            if (!repo.settings().startRestOnLog) return
             val st = _ui.value
             val completedGroup = st.exercises.firstOrNull { it.id == exerciseId }?.supersetGroup
             val active = st.activeSetId?.let { id ->

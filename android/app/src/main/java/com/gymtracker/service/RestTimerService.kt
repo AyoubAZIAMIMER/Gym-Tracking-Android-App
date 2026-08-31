@@ -295,6 +295,10 @@ class RestTimerService : Service() {
     }
 
     private fun notifyDone() {
+        // Settings -> "Alert when rest ends" was saved but never read anywhere — this
+        // IMPORTANCE_HIGH notification (sound + heads-up) fired unconditionally regardless of
+        // the toggle. Found live, 2026-08-31.
+        if (!WorkoutRepository.get(this).settings().alertOnRestEnd) return
         val done = NotificationCompat.Builder(this, CHANNEL_DONE)
             .setSmallIcon(R.drawable.ic_stat_timer)
             .setContentTitle("Rest over")
